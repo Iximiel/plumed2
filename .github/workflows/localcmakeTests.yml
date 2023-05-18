@@ -1,0 +1,10 @@
+name: cmakeCI
+#NB: this will be merged tin the main one or something similar
+on:
+ pull_request:
+  branches:
+  - 'cmake'
+jobs:
+ runBasicTests:
+    uses: ./.github/workflows/cmakeAndTest.yml
+    secrets: inherit
