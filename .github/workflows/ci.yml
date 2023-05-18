@@ -2,6 +2,9 @@ name: CI
 
 on:
   push:
+  #I am removing this as soon I make  my branch work! 
+    branches:
+    - 'master'
   pull_request:
   #I am removing this as soon I make  my branch work! 
     branches:
