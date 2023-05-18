@@ -23,11 +23,9 @@ jobs:
       #set up without warnings
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Drisk_accepted=ON -Dall_modules=ON -Denable_warnings_basic=OFF -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
 
-
-    - name: Build and Install
+    - name: Build
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-      run: cmake --install
       
     - name: set up environment for tests
       run: source  ${{github.workspace}}/build/src/sourceme.sh
