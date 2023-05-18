@@ -3,6 +3,9 @@ name: CI
 on:
   push:
   pull_request:
+  #I am removing this as soon I make  my branch work! 
+    branches:
+    - 'master'
 
 env:
 # on CI, better dump stack trace in case there is an error
