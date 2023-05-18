@@ -21,18 +21,20 @@ jobs:
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       #set up without warnings
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Drisk_accepted=ON -Dall_modules=ON -Denable_warnings_basic=OFF
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Drisk_accepted=ON -Dall_modules=ON -Denable_warnings_basic=OFF -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
 
-    - name: Build
+
+    - name: Build and Install
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --install
       
     - name: set up environment for tests
-      run: source  ${{github.workspace}}/build/sourceme.sh
+      run: source  ${{github.workspace}}/build/src/sourceme.sh
       
     - name: Test
-      working-directory: test
+      working-directory: regtest
       
       # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: make
+      run: make -j1
