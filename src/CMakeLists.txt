@@ -115,11 +115,13 @@ macro(ADDMODULETOKERNEL module_name)
                 set_property(TARGET ${module_name} APPEND PROPERTY PUBLIC_HEADER "${filename}.h")
             endif ()
         endforeach()
+        if(ADDMODULETOKERNEL_EXTRA_HEADERS)
+            set_property(TARGET ${module_name} APPEND PROPERTY PUBLIC_HEADER ${ADDMODULETOKERNEL_EXTRA_HEADERS})
+        endif()
         install (TARGETS ${module_name}
             PUBLIC_HEADER
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plumed/${module_name}
         )
-        
     endif(${module_${module_name}})
 endmacro(ADDMODULETOKERNEL)
 

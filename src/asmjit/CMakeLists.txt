@@ -34,6 +34,25 @@ x86operand.cpp
 x86operand_regs.cpp
 x86regalloc.cpp
 zone.cpp
+EXTRA_HEADERS
+arm.h
+asmjit_apibegin.h
+asmjit_apiend.h
+asmjit_build.h
+asmjit.h
+base.h
+misc_p.h
+moved_string.h
+regalloc_p.h
+simdtypes.h
+x86emitter.h
+x86globals.h
+x86.h
+x86instimpl_p.h
+x86internal_p.h
+x86logging_p.h
+x86misc.h
+x86regalloc_p.h
 )
 ADDMODULENEEDS(${module_name}
 	
