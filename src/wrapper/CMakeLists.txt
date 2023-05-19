@@ -5,8 +5,13 @@ add_library(PlumedStaticWrapper OBJECT PlumedStatic.cpp)
 add_library(PlumedDynamicWrapper OBJECT Plumed.c)
 foreach(lib PlumedStaticWrapper PlumedDynamicWrapper)
     target_link_libraries(${lib} PUBLIC config)
+    set_property(TARGET ${lib} APPEND PROPERTY PUBLIC_HEADER "Plumed.h")
 endforeach(lib PlumedStaticWrapper PlumedDynamicWrapper)
 
+install (TARGETS PlumedDynamicWrapper
+PUBLIC_HEADER
+DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plumed/${module_name}
+)
 
 #add here the lib so and the lib static for Plumed.so and PlumedKernel.so
 #find a way to add all the activated libraries here or add them to tha main CMakeList.txt?

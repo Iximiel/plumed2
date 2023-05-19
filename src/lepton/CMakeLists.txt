@@ -9,6 +9,12 @@ ExpressionTreeNode.cpp
 Operation.cpp
 ParsedExpression.cpp
 Parser.cpp
+EXTRA_HEADERS
+CustomFunction.h
+Exception.h
+Lepton.h
+MSVC_erfc.h
+windowsIncludes.h
 )
 ADDMODULENEEDS(${module_name}
 	asmjit

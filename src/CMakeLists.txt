@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20.2)
 
 project(Plumed2 LANGUAGES C CXX)
-
+include(GNUInstallDirs)
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithDebInfo MinSizeRel)
 #some settingsvalues
@@ -88,18 +88,40 @@ MACRO(SUBDIRLIST result curdir)
   SET(${result} ${dirlist})
 ENDMACRO()
 
-MACRO(ADDMODULETOKERNEL module_name)
+macro(ADDMODULETOKERNEL module_name)
+    set(options "")
+    set(oneValueArgs "")
+    set(multiValueArgs SOURCES EXTRA_HEADERS)
+    cmake_parse_arguments(ADDMODULETOKERNEL "${options}" "${oneValueArgs}"
+                      "${multiValueArgs}" "${ARGN}" )
+    if (VERBOSE)
+        message("for module ${module_name}")
+        message("SOURCES ${ADDMODULETOKERNEL_SOURCES}")
+        if(ADDMODULETOKERNEL_EXTRA_HEADERS)
+            message("EXTRA_HEADERS ${ADDMODULETOKERNEL_EXTRA_HEADERS}")
+        endif()
+    endif()
     #use: ADDMODULETOKERNEL(module_name listOfSources)
     #Please write the source files explicitly
     if(${module_${module_name}} )
-        set(OTHERARGS ${ARGV})
-        list(REMOVE_ITEM OTHERARGS ${module_name})
-        add_library(${module_name} OBJECT ${OTHERARGS} )
+        add_library(${module_name} OBJECT ${ADDMODULETOKERNEL_SOURCES})
         target_include_directories(${module_name} PRIVATE ${PLUMED_SRC})
         list(APPEND modulesForKernel ${module_name})
         set(modulesForKernel ${modulesForKernel} PARENT_SCOPE)
+        #add default headers
+        foreach(file ${ADDMODULETOKERNEL_SOURCES})
+            get_filename_component(filename ${file} NAME_WE)    
+            if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/${filename}.h")
+                set_property(TARGET ${module_name} APPEND PROPERTY PUBLIC_HEADER "${filename}.h")
+            endif ()
+        endforeach()
+        install (TARGETS ${module_name}
+            PUBLIC_HEADER
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plumed/${module_name}
+        )
+        
     endif(${module_${module_name}})
-ENDMACRO(ADDMODULETOKERNEL)
+endmacro(ADDMODULETOKERNEL)
 
 MACRO(ADDMODULENEEDS module_name)
     #use: ADDMODULENEEDS(module_name listOfModules)
@@ -324,7 +346,9 @@ target_link_libraries(archiveplumedKernel PUBLIC
     )
 #add_library(libplumedStatic OBJECT ${KernelTargets})
 #target_link_libraries(libplumedStatic INTERFACE ${modulesForKernel})
-
+install (TARGETS archiveplumedKernel sharedplumedKernel
+    ARCHIVE LIBRARY
+    )
 add_subdirectory(main)
 
 #print_target_property(cltools COMPILE_DEFINITIONS)

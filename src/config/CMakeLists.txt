@@ -7,9 +7,9 @@ set(plumed_install_flag ON)
 if(plumed_install_flag)
 set(ISINSTALLED "true")
 #must go to /lib/plumed
-    set(PLUMED_ROOT ${CMAKE_INSTALL_PREFIX}/${program_name})
-    set (htmldir ${htmldir})
-    set (includedir ${includedir})
+    set(PLUMED_ROOT ${CMAKE_INSTALL_PREFIX}/lib/${program_name})
+    set (htmldir ${CMAKE_INSTALL_PREFIX}/share/doc/${program_name})
+    set (includedir ${CMAKE_INSTALL_PREFIX}/include)
     set (program_name ${program_name})
     set (libdir ${libdir})
     configure_file(Config.inc.in ConfigInstall.inc)
@@ -60,7 +60,8 @@ if(enable_zlib)
 endif(enable_zlib)
 
 target_link_libraries(Config PUBLIC config)
-target_include_directories(Config PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(Config PRIVATE 
+    ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 
 configure_file(Makefile.conf.xxd.compiler.sh.in Makefile.conf.xxd.compiler.sh @ONLY)
@@ -72,4 +73,10 @@ add_custom_command(OUTPUT Makefile.conf.xxd
     #WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+set_property(TARGET Config
+    APPEND PROPERTY PUBLIC_HEADER ${CMAKE_CURRENT_BINARY_DIR}/version.h Config.h)
+install (TARGETS Config
+    PUBLIC_HEADER
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plumed/config
+)
 #print_target_property(ConfigInstall INCLUDE_DIRECTORIES)

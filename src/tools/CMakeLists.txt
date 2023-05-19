@@ -51,6 +51,8 @@ Tree.cpp
 TypesafePtr.cpp
 Units.cpp
 Vector.cpp
+EXTRA_HEADERS
+File.h
 )
 ADDMODULENEEDS(${module_name}
 	core lapack lepton

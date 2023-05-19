@@ -38,6 +38,10 @@ set_target_properties(plumed_bin_runtime
     )
 target_include_directories(plumed_bin_runtime PRIVATE ${PLUMED_SRC})
 
+install (TARGETS plumed_bin 
+RUNTIME
+DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 #consider adding install manifest:
 #install(CODE "string(REPLACE \";\" \"\\n\" MY_CMAKE_INSTALL_MANIFEST_CONTENT \"\$\{CMAKE_INSTALL_MANIFEST_FILES\}\")\n\
 #              file(WRITE my_install_manifest.txt \"\$\{MY_CMAKE_INSTALL_MANIFEST_CONTENT\}\")")

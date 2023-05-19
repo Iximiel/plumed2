@@ -9,6 +9,16 @@ crdplugin.cpp
 dcdplugin.cpp
 gromacsplugin.cpp
 pdbplugin.cpp
+EXTRA_HEADERS
+endianswap.h
+fastio.h
+Gromacs.h
+largefiles.h
+libmolfile_plugin.h
+molfile_plugin.h
+periodic_table.h
+readpdb.h
+vmdplugin.h
 )
 # to find external molfile
 list(APPEND CMAKE_MODULE_PATH "${PLUMED_SRC}/cmake")
