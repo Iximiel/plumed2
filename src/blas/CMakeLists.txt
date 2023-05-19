@@ -5,6 +5,7 @@ string(TOUPPER ${module_name} externalLib)
 set(module_${module_name} ON CACHE INTERNAL "always active module ${module_name}")
 option(useExternal_${externalLib} "enable search for external ${externalLib}, default ON" ON)
 ADDMODULETOKERNEL(${module_name}
+SOURCES
 blas.cpp
 EXTRA_HEADERS
 def_external.h

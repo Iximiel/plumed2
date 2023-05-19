@@ -3,6 +3,7 @@ set (module_name "vatom")
 #Note that the macros here require this directory added as a subdir of plumed/src
 option(module_${module_name} "activate module ${module_name}" ON)
 ADDMODULETOKERNEL(${module_name}
+SOURCES
 ActionWithVirtualAtom.cpp
 Center.cpp
 FixedAtom.cpp

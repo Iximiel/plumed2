@@ -3,6 +3,7 @@ set (module_name "analysis")
 #Note that the macros here require this directory added as a subdir of plumed/src
 option(module_${module_name} "activate module ${module_name}" ON)
 ADDMODULETOKERNEL(${module_name}
+SOURCES
 AnalysisBase.cpp
 Average.cpp
 AverageVessel.cpp

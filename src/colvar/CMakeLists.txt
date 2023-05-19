@@ -3,6 +3,7 @@ set (module_name "colvar")
 #Note that the macros here require this directory added as a subdir of plumed/src
 option(module_${module_name} "activate module ${module_name}" ON)
 ADDMODULETOKERNEL(${module_name}
+SOURCES
 Angle.cpp
 Cell.cpp
 Colvar.cpp

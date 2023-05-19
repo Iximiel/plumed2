@@ -5,6 +5,7 @@ string(TOUPPER ${module_name} externalLib)
 option(useExternal_${module_name} "enable search for external ${module_name}, default OFF" OFF)
 option(module_${module_name} "activate module ${module_name}" ON)
 ADDMODULETOKERNEL(${module_name}
+SOURCES
 crdplugin.cpp
 dcdplugin.cpp
 gromacsplugin.cpp

@@ -3,6 +3,7 @@ set (module_name "isdb")
 #Note that the macros here require this directory added as a subdir of plumed/src
 option(module_${module_name} "activate module ${module_name}" ON)
 ADDMODULETOKERNEL(${module_name}
+SOURCES
 Caliber.cpp
 CS2Backbone.cpp
 EMMI.cpp
