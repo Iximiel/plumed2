@@ -24,11 +24,9 @@ SelectRandomFrames.cpp
 SelectWithStride.cpp
 WhamHistogram.cpp
 WhamWeights.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools reference vesselbase gridtools multicolvar bias
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	reference #core
 	#TODO: resolve THIS circular dependency:
 	#vesselbase gridtools multicolvar# it does actually depend on them, but it is better to avid cyclic dependencies

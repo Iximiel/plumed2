@@ -13,10 +13,8 @@ ECVumbrellasLine.cpp
 ExpansionCVs.cpp
 OPESexpanded.cpp
 OPESmetad.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	bias core tools
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	bias #tools core
 )

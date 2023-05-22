@@ -15,11 +15,9 @@ PropertyMap.cpp
 SpathVessel.cpp
 TrigonometricPathVessel.cpp
 ZpathVessel.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools cltools reference vesselbase
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	cltools #tools core
 	reference #tools core
 	vesselbase #tools core

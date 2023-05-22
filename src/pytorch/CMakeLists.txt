@@ -5,10 +5,8 @@ option(module_${module_name} "activate module ${module_name}" OFF)
 ADDMODULETOKERNEL(${module_name}
 SOURCES
 PytorchModel.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core function
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	function #reference tools core lepton
 )

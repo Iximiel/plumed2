@@ -16,10 +16,8 @@ Exception.h
 Lepton.h
 MSVC_erfc.h
 windowsIncludes.h
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	asmjit
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	asmjit
 )

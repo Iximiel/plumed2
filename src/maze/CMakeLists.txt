@@ -16,11 +16,9 @@ Random_Walk.cpp
 Simulated_Annealing.cpp
 Steered_MD.cpp
 Tools.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools colvar bias
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	colvar #tools core
 	bias #tools core
 )

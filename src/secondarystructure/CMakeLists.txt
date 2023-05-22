@@ -8,11 +8,9 @@ AlphaRMSD.cpp
 AntibetaRMSD.cpp
 ParabetaRMSD.cpp
 SecondaryStructureRMSD.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools reference vesselbase
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	#reference#tools core
 	vesselbase #analisys tools core reference
 )

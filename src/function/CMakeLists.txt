@@ -16,11 +16,9 @@ Piecewise.cpp
 Sort.cpp
 Stats.cpp
 Target.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core reference tools lepton
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	reference #tools core
 	#tools #lepton
 )

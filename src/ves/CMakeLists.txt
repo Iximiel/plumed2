@@ -58,11 +58,9 @@ VesLinearExpansion.cpp
 VesTools.cpp
 WaveletCoeffs.cpp
 WaveletGrid.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	bias cltools colvar config core tools lepton
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	#tools #lepton
 	cltools #config
 	colvar #tools core

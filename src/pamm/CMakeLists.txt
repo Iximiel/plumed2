@@ -9,10 +9,8 @@ HBPammMatrix.cpp
 HBPammObject.cpp
 PAMM.cpp
 PammObject.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools vesselbase multicolvar adjmat
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	adjmat #multicolvar vesselbase bias tools core
 )

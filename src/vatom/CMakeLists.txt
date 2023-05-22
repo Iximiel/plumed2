@@ -8,10 +8,8 @@ ActionWithVirtualAtom.cpp
 Center.cpp
 FixedAtom.cpp
 Ghost.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	core #tools
 )

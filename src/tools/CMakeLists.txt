@@ -54,11 +54,9 @@ Units.cpp
 Vector.cpp
 EXTRA_HEADERS
 File.h
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core lapack lepton
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	lapack #blas
 	lepton
 	config

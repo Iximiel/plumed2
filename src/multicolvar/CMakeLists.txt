@@ -41,10 +41,8 @@ XAngle.cpp
 XDistances.cpp
 XYDistances.cpp
 XYTorsion.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools vesselbase gridtools
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	gridtools #vesselbase bias tools core
 )

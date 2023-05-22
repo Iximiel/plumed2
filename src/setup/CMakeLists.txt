@@ -7,10 +7,8 @@ SOURCES
 Load.cpp
 Restart.cpp
 Units.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	core #tools
 )

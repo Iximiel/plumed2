@@ -12,12 +12,9 @@ SOURCES
     def_internal.h
     real.h
     lapack_limits.h
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
     blas
-)
-
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
     blas
 )
 

@@ -6,11 +6,9 @@ ADDMODULETOKERNEL(${module_name}
 SOURCES
 FPS.cpp
 Funnel.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools colvar bias
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	bias #tools core
 	colvar#tools core
 )

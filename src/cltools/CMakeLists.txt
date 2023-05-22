@@ -21,11 +21,9 @@ SimpleMD.cpp
 SumHills.cpp
 #generated file
 completion.xxd
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 core config tools molfile xdrfile
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
     molfile
     core #tools #config
     xdrfile

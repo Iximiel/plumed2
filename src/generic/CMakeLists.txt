@@ -26,11 +26,9 @@ Time.cpp
 UpdateIf.cpp
 WholeMolecules.cpp
 WrapAround.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools xdrfile
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	core #tools
 	xdrfile
 )

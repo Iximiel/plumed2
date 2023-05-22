@@ -18,11 +18,9 @@ Rescale.cpp
 SAXS.cpp
 Select.cpp
 Selector.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	bias colvar core reference tools function
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	bias #tools core
 	colvar #reference tools
 	function #reference

@@ -7,10 +7,8 @@ SOURCES
 Sasa.cpp
 sasa_HASEL.cpp
 sasa_LCPO.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools config  
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	core #tools #config  
 )

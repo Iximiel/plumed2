@@ -89,20 +89,33 @@ MACRO(SUBDIRLIST result curdir)
 ENDMACRO()
 
 macro(ADDMODULETOKERNEL module_name)
+    #use: ADDMODULETOKERNEL(module_name SOURCES listOfSources
+    #[EXTRA_HEADERS files]
+    #[NEEDS module names]
+    #[DEPENDS module names]
+    #)
+    #Please write the source files explicitly
     set(options "")
     set(oneValueArgs "")
-    set(multiValueArgs SOURCES EXTRA_HEADERS)
+    set(multiValueArgs SOURCES EXTRA_HEADERS NEEDS DEPENDS)
     cmake_parse_arguments(ADDMODULETOKERNEL "${options}" "${oneValueArgs}"
                       "${multiValueArgs}" "${ARGN}" )
     if (VERBOSE)
         message("for module ${module_name}")
         message("SOURCES ${ADDMODULETOKERNEL_SOURCES}")
+        if(ADDMODULETOKERNEL_NEEDS)
+            message("NEEDS ${ADDMODULETOKERNEL_NEEDS}")
+        endif()
+        if(ADDMODULETOKERNEL_DEPENDS)
+            message("DEPENDS ${ADDMODULETOKERNEL_DEPENDS}")
+        endif()
         if(ADDMODULETOKERNEL_EXTRA_HEADERS)
             message("EXTRA_HEADERS ${ADDMODULETOKERNEL_EXTRA_HEADERS}")
         endif()
     endif()
-    #use: ADDMODULETOKERNEL(module_name listOfSources)
-    #Please write the source files explicitly
+
+    set(moduleNeeds_${module_name} ${ADDMODULETOKERNEL_NEEDS} PARENT_SCOPE)
+    
     if(${module_${module_name}} )
         add_library(${module_name} OBJECT ${ADDMODULETOKERNEL_SOURCES})
         target_include_directories(${module_name} PRIVATE ${PLUMED_SRC})
@@ -115,6 +128,12 @@ macro(ADDMODULETOKERNEL module_name)
                 set_property(TARGET ${module_name} APPEND PROPERTY PUBLIC_HEADER "${filename}.h")
             endif ()
         endforeach()
+        if (ADDMODULETOKERNEL_DEPENDS)
+            foreach(lib ${ADDMODULETOKERNEL_DEPENDS})
+                #message("${module_name} is linked with ${lib}")
+                target_link_libraries(${module_name} PUBLIC ${lib})
+            endforeach(lib ${ADDMODULETOKERNEL_DEPENDS})
+        endif(ADDMODULETOKERNEL_DEPENDS)
         if(ADDMODULETOKERNEL_EXTRA_HEADERS)
             set_property(TARGET ${module_name} APPEND PROPERTY PUBLIC_HEADER ${ADDMODULETOKERNEL_EXTRA_HEADERS})
         endif()
@@ -124,30 +143,6 @@ macro(ADDMODULETOKERNEL module_name)
         )
     endif(${module_${module_name}})
 endmacro(ADDMODULETOKERNEL)
-
-MACRO(ADDMODULENEEDS module_name)
-    #use: ADDMODULENEEDS(module_name listOfModules)
-
-    set(OTHERARGS ${ARGV})
-    list(REMOVE_ITEM OTHERARGS ${module_name})
-    set(moduleNeeds_${module_name} ${OTHERARGS} PARENT_SCOPE)
-    
-ENDMACRO(ADDMODULENEEDS)
-
-MACRO(ADDMODULEDEPENDENCIES module_name)
-    #use: ADDMODULEDEPENDENCIES(module_name listOfModules)
-    #adds the module on which this depends on (for compile definitions and so on)
-    #NB you may create circular dependencies
-    #NB this is particularly experimental
-    if(${module_${module_name}} )
-        set(OTHERARGS ${ARGV})
-        list(REMOVE_ITEM OTHERARGS ${module_name})
-        foreach(lib ${OTHERARGS})
-            #message("${module_name} is linked with ${lib}")
-            target_link_libraries(${module_name} PUBLIC ${lib})
-        endforeach(lib ${OTHERARGS})
-    endif(${module_${module_name}})
-ENDMACRO(ADDMODULEDEPENDENCIES)
 
 function(print_target_property target_name property)
     get_target_property(tempvar ${target_name} ${property})

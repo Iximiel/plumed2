@@ -8,11 +8,9 @@ colvar_UIestimator.cpp
 DRR.cpp
 drrtool.cpp
 DynamicReferenceRestraining.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools bias cltools config
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	bias# tools core
 	cltools #config
 )

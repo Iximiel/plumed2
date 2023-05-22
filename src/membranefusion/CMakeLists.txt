@@ -7,10 +7,8 @@ SOURCES
 FusionPoreExpansionP.cpp
 FusionPoreNucleationP.cpp
 MemFusionP.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core reference tools colvar
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	colvar #reference tools core
 )

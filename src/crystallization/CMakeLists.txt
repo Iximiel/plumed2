@@ -26,10 +26,8 @@ Tetrahedral.cpp
 VectorMean.cpp
 VectorMultiColvar.cpp
 VectorSum.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools vesselbase multicolvar
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	multicolvar #vesselbase tools core
 )

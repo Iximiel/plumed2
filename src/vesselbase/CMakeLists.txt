@@ -28,10 +28,8 @@ Sum.cpp
 ValueVessel.cpp
 Vessel.cpp
 VesselRegister.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools bias analysis
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	analysis #bias tools core
 )

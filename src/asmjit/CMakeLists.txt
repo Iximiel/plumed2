@@ -53,10 +53,8 @@ x86internal_p.h
 x86logging_p.h
 x86misc.h
 x86regalloc_p.h
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	
 )

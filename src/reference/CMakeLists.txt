@@ -24,10 +24,8 @@ ReferenceValuePack.cpp
 RMSDBase.cpp
 SimpleRMSD.cpp
 SingleDomainRMSD.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	core #tools
 )

@@ -7,10 +7,8 @@ SOURCES
 LWalls.cpp
 ManyRestraintsBase.cpp
 UWalls.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools vesselbase
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	vesselbase #bias tools core
 )

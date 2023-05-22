@@ -6,10 +6,8 @@ ADDMODULETOKERNEL(${module_name}
 SOURCES
 FISST.cpp
 legendre_rule_fast.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools bias
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	bias #tools core
 )

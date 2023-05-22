@@ -5,10 +5,8 @@ option(module_${module_name} "activate module ${module_name}" OFF)
 ADDMODULETOKERNEL(${module_name}
 SOURCES
 S2ContactModel.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools colvar
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	colvar #tools  core
 )

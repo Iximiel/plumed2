@@ -35,11 +35,9 @@ RMSD.cpp
 Template.cpp
 Torsion.cpp
 Volume.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core reference tools
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	reference #tools core
 )
 

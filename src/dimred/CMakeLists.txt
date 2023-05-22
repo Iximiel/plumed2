@@ -17,11 +17,9 @@ SketchMapRead.cpp
 SketchMapSmacof.cpp
 SMACOF.cpp
 SmacoffMDS.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools reference gridtools analysis
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	#core #tools 
 	gridtools #analysis bias reference tools core
 )

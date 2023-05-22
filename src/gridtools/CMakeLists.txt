@@ -23,10 +23,8 @@ GridVessel.cpp
 HistogramOnGrid.cpp
 IntegrateGrid.cpp
 InterpolateGrid.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools vesselbase
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	vesselbase #tools core
 )

@@ -26,11 +26,9 @@ OutputCluster.cpp
 SMACMatrix.cpp
 Sprint.cpp
 TopologyMatrix.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools vesselbase multicolvar
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	#core #tools depends on
 	#tools #vesselbase depends on
 	#vesselbase # multicolvar depends on
