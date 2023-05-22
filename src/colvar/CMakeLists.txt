@@ -42,3 +42,7 @@ ADDMODULENEEDS(${module_name}
 ADDMODULEDEPENDENCIES(${module_name}
 	reference #tools core
 )
+
+#this installs the Template.cpp example colvar
+install(FILES Template.cpp
+        DESTINATION lib/plumed/src/colvar)
