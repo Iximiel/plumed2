@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.20.2)
 
-
-
 project(Plumed2 LANGUAGES CXX)
 
 set(PLUMED_VERSION_SHORT "2.10")
@@ -27,3 +25,9 @@ endif(NOT risk_accepted)
 include(GNUInstallDirs)
 
 add_subdirectory(src)
+add_subdirectory(scripts)
+add_subdirectory(fortran)
+#add_subdirectory(vim)
+
+install(DIRECTORY patches
+        DESTINATION lib/${program_name})

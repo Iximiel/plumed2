@@ -77,6 +77,6 @@ set_property(TARGET Config
     APPEND PROPERTY PUBLIC_HEADER ${CMAKE_CURRENT_BINARY_DIR}/version.h Config.h)
 install (TARGETS Config
     PUBLIC_HEADER
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plumed/config
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${program_name}/config
 )
 #print_target_property(ConfigInstall INCLUDE_DIRECTORIES)

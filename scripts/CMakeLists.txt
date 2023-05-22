@@ -10,7 +10,7 @@ vim2html.sh
 Message(AUTHOR_WARNING "the scripts are configured with the \"Install\" configuration")
 foreach(script ${SCRIPTS})
     install(FILES ${script}
-        DESTINATION lib/plumed/scripts
+        DESTINATION lib/${program_name}/scripts
     )
     get_filename_component(adaptedScript ${script} NAME_WE) 
     set(adaptedScript plumed-${adaptedScript})

@@ -10,7 +10,7 @@ endforeach(lib PlumedStaticWrapper PlumedDynamicWrapper)
 
 install (TARGETS PlumedDynamicWrapper
 PUBLIC_HEADER
-DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plumed/${module_name}
+DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${program_name}/${module_name}
 )
 
 #add here the lib so and the lib static for Plumed.so and PlumedKernel.so
