@@ -347,6 +347,7 @@ install (TARGETS archiveplumedKernel sharedplumedKernel
     ARCHIVE LIBRARY
     )
 add_subdirectory(main)
+#add_subdirectory(lib)
 
 #print_target_property(cltools COMPILE_DEFINITIONS)
 #print_target_property(molfile COMPILE_DEFINITIONS)
@@ -365,12 +366,13 @@ add_subdirectory(main)
 ################################################################################
 
 file(CONFIGURE OUTPUT sourceme.sh
-     CONTENT "export PATH=\"@CMAKE_BINARY_DIR@/src/main/:$PATH\"
-export LIBRARY_PATH=\"@CMAKE_BINARY_DIR@/src/:$LIBRARY_PATH\"
-export LD_LIBRARY_PATH=\"@CMAKE_BINARY_DIR@/src/:$LD_LIBRARY_PATH\"
-export PLUMED_KERNEL=\"@CMAKE_BINARY_DIR@/src/libplumedKernel.so\"
-export PLUMED_VIMPATH=\"@CMAKE_SOURCE_DIR@/vim\"
-export PYTHONPATH=\"@CMAKE_SOURCE_DIR@/python:$PYTHONPATH\""
+     CONTENT [[export PATH="@CMAKE_BINARY_DIR@/src/main/:$PATH"
+export LIBRARY_PATH="@CMAKE_BINARY_DIR@/src/:$LIBRARY_PATH"
+export LD_LIBRARY_PATH="@CMAKE_BINARY_DIR@/src/:$LD_LIBRARY_PATH"
+export PLUMED_KERNEL="@CMAKE_BINARY_DIR@/src/libplumedKernel.so"
+export PLUMED_VIMPATH="@CMAKE_SOURCE_DIR@/vim"
+export PYTHONPATH="@CMAKE_SOURCE_DIR@/python:$PYTHONPATH"
+]]
      #ESCAPE_QUOTES
      @ONLY
      )
