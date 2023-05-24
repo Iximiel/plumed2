@@ -42,6 +42,10 @@ install (TARGETS plumed_bin
 RUNTIME
 DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+install (TARGETS plumed_bin_runtime
+RUNTIME
+DESTINATION lib/${program_name})
+
 #consider adding install manifest:
 #install(CODE "string(REPLACE \";\" \"\\n\" MY_CMAKE_INSTALL_MANIFEST_CONTENT \"\$\{CMAKE_INSTALL_MANIFEST_FILES\}\")\n\
 #              file(WRITE my_install_manifest.txt \"\$\{MY_CMAKE_INSTALL_MANIFEST_CONTENT\}\")")

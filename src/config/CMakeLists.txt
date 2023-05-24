@@ -38,7 +38,7 @@ option(enable_dlopen "enable search for dlopen" ON)
 if(enable_dlopen)
     if(CMAKE_DL_LIBS)
         target_link_libraries(config INTERFACE ${CMAKE_DL_LIBS})
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_DLOPEN)
+        target_compile_definitions(config INTERFACE __PLUMED_HAS_DLOPEN=1)
     endif(CMAKE_DL_LIBS)
 endif(enable_dlopen)
 #  --disable-openmp        do not use OpenMP
@@ -55,7 +55,7 @@ if(enable_zlib)
     find_package(ZLIB)
     if(ZLIB_FOUND)
         target_link_libraries(config INTERFACE ZLIB::ZLIB)
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_ZLIB)
+        target_compile_definitions(config INTERFACE __PLUMED_HAS_ZLIB=1)
     endif(ZLIB_FOUND)
 endif(enable_zlib)
 
@@ -63,7 +63,16 @@ target_link_libraries(Config PUBLIC config)
 target_include_directories(Config PRIVATE 
     ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
-
+##############################################################################
+#TODO:IMPLEMENT CORRECTLY
+#  --enable-absolute-soname
+#                          enable store absolute soname (Linux only - this is
+#                          the default behavior on OSX). Only enable for
+#                          testing!, default: no
+option(enable_absolute_soname
+    "enable store absolute soname (Linux only - this is the default behavior on OSX). Only enable for testing!, default: no"
+    OFF)
+##############################################################################
 configure_file(Makefile.conf.xxd.compiler.sh.in Makefile.conf.xxd.compiler.sh @ONLY)
 configure_file(${PLUMED_MAIN_DIR}/Makefile.conf.in Makefile.cmakeMocked.conf @ONLY)
 add_custom_command(OUTPUT Makefile.conf.xxd

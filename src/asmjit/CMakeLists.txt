@@ -58,3 +58,7 @@ NEEDS
 DEPENDS
 	
 )
+
+if(module_${module_name} )
+    target_compile_definitions(${module_name} PUBLIC __PLUMED_HAS_ASMJIT=1)
+endif()

@@ -17,6 +17,7 @@ set (PLUMED_PATCHES ${PLUMED_MAIN_DIR}/patches)
 
 option(all_modules "Activates all modules, if on ignores the values of module_name when compiling" OFF)
 
+#this is a list of the activated modules that will be included into the kernel
 set(modulesForKernel "")
 
 ################################################################################
@@ -229,10 +230,6 @@ endif()
 #  --enable-dependency-tracking
 #                          enable dependency tracking, default: yes
 #  --enable-rpath          enable store rpath, default: no
-#  --enable-absolute-soname
-#                          enable store absolute soname (Linux only - this is
-#                          the default behavior on OSX). Only enable for
-#                          testing!, default: no
 #  --enable-absolute-install-name
 #                          enable store absolute relative (OSX only - disable
 #                          to have a behavior similar to Linux). Only disable
@@ -347,7 +344,7 @@ install (TARGETS archiveplumedKernel sharedplumedKernel
     ARCHIVE LIBRARY
     )
 add_subdirectory(main)
-#add_subdirectory(lib)
+add_subdirectory(lib)
 
 #print_target_property(cltools COMPILE_DEFINITIONS)
 #print_target_property(molfile COMPILE_DEFINITIONS)
@@ -376,3 +373,36 @@ export PYTHONPATH="@CMAKE_SOURCE_DIR@/python:$PYTHONPATH"
      #ESCAPE_QUOTES
      @ONLY
      )
+
+set (TODO [[
+     #TODO
+     -D__PLUMED_LIBCXX11=1
+-DSTDC_HEADERS=1
+-DHAVE_SYS_TYPES_H=1
+-DHAVE_SYS_STAT_H=1
+-DHAVE_STDLIB_H=1
+-DHAVE_STRING_H=1
+-DHAVE_MEMORY_H=1
+-DHAVE_STRINGS_H=1
+-DHAVE_INTTYPES_H=1
+-DHAVE_STDINT_H=1
+-DHAVE_UNISTD_H=1
+-D__PLUMED_HAS_EXTERNAL_BLAS=1
+-D__PLUMED_HAS_EXTERNAL_LAPACK=1
+-D__PLUMED_HAS_MOLFILE_PLUGINS=1
+-D__PLUMED_HAS_MPI=1
+-D__PLUMED_HAS_ASMJIT=1
+-D__PLUMED_HAS_CREGEX=1
+-D__PLUMED_HAS_DLOPEN=1
+-D__PLUMED_HAS_RTLD_DEFAULT=1
+-D__PLUMED_HAS_CHDIR=1
+-D__PLUMED_HAS_SUBPROCESS=1
+-D__PLUMED_HAS_GETCWD=1
+-D__PLUMED_HAS_POPEN=1
+-D__PLUMED_HAS_EXECINFO=1
+-D__PLUMED_HAS_ZLIB=1
+-D__PLUMED_HAS_GSL=1
+-D__PLUMED_HAS_FFTW=1
+-DNDEBUG=1
+-D_REENTRANT=1
+]]
