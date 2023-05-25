@@ -32,8 +32,9 @@ configure_file(version.h.in version.h)
 ################################################################################
 add_library(config INTERFACE)
 ################################################################################
-#                              options                                         #
+#                     options and external libraries                           #
 ################################################################################
+find_package(PkgConfig REQUIRED)
 option(enable_dlopen "enable search for dlopen" ON)
 if(enable_dlopen)
     if(CMAKE_DL_LIBS)
@@ -59,6 +60,26 @@ if(enable_zlib)
     endif(ZLIB_FOUND)
 endif(enable_zlib)
 
+option(enable_gsl "enable search for gsl" ON)
+if(enable_gsl)
+    find_package(GSL)
+    if(GSL_FOUND)
+        target_link_libraries(config INTERFACE GSL::gsl GSL::gslcblas)
+        target_compile_definitions(config INTERFACE __PLUMED_HAS_GSL=1)
+    endif(GSL_FOUND)
+endif(enable_gsl)
+
+option(enable_fftw "enable search for fftw3" ON)
+if(enable_fftw)
+    pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
+    message("fftw ${FFTW_FOUND}")
+    if(FFTW_FOUND)
+        #target_include_directories(config INTERFACE PkgConfig::FFTW)
+        target_link_libraries     (config INTERFACE PkgConfig::FFTW)
+        target_compile_definitions(config INTERFACE __PLUMED_HAS_FFTW=1)
+    endif(FFTW_FOUND)
+endif(enable_fftw)
+
 target_link_libraries(Config PUBLIC config)
 target_include_directories(Config PRIVATE 
     ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -73,6 +94,14 @@ option(enable_absolute_soname
     "enable store absolute soname (Linux only - this is the default behavior on OSX). Only enable for testing!, default: no"
     OFF)
 ##############################################################################
+
+################################################################################
+#                            compilers                                         #
+################################################################################
+if (CMAKE_CXX_STANDARD EQUAL 11)
+    target_compile_definitions(config INTERFACE __PLUMED_LIBCXX11=1)
+endif()
+
 configure_file(Makefile.conf.xxd.compiler.sh.in Makefile.conf.xxd.compiler.sh @ONLY)
 configure_file(${PLUMED_MAIN_DIR}/Makefile.conf.in Makefile.cmakeMocked.conf @ONLY)
 add_custom_command(OUTPUT Makefile.conf.xxd
