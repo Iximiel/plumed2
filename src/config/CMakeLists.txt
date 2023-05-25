@@ -35,6 +35,16 @@ add_library(config INTERFACE)
 #                     options and external libraries                           #
 ################################################################################
 find_package(PkgConfig REQUIRED)
+#  --enable-mpi            enable search for mpi, default: yes
+option(enable_mpi "enable search for mpi" ON)
+if(enable_mpi)
+    find_package(MPI)
+    if(MPI_CXX_FOUND)
+        target_link_libraries(config INTERFACE MPI::MPI_CXX)
+        target_compile_definitions(config INTERFACE __PLUMED_HAS_MPI=1)
+    endif(MPI_CXX_FOUND)
+endif(enable_mpi)
+
 option(enable_dlopen "enable search for dlopen" ON)
 if(enable_dlopen)
     if(CMAKE_DL_LIBS)
@@ -71,8 +81,7 @@ endif(enable_gsl)
 
 option(enable_fftw "enable search for fftw3" ON)
 if(enable_fftw)
-    pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
-    message("fftw ${FFTW_FOUND}")
+    pkg_search_module(FFTW fftw3 IMPORTED_TARGET)
     if(FFTW_FOUND)
         #target_include_directories(config INTERFACE PkgConfig::FFTW)
         target_link_libraries     (config INTERFACE PkgConfig::FFTW)
@@ -101,6 +110,17 @@ option(enable_absolute_soname
 if (CMAKE_CXX_STANDARD EQUAL 11)
     target_compile_definitions(config INTERFACE __PLUMED_LIBCXX11=1)
 endif()
+
+#some alwais on definitions
+target_compile_definitions(config
+      INTERFACE
+      $<$<CONFIG:Release>:NDEBUG>
+      $<$<CONFIG:MinSizeRel>:NDEBUG>
+      # from the original config:
+      # this is necessary in many MPI implementations
+      # I leave it by default, since it seems harmless
+      _REENTRANT=1
+)
 
 configure_file(Makefile.conf.xxd.compiler.sh.in Makefile.conf.xxd.compiler.sh @ONLY)
 configure_file(${PLUMED_MAIN_DIR}/Makefile.conf.in Makefile.cmakeMocked.conf @ONLY)
