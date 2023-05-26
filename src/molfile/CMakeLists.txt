@@ -26,7 +26,13 @@ list(APPEND CMAKE_MODULE_PATH "${PLUMED_SRC}/cmake")
 #ADDMODULENEEDS(${module_name}
 #
 #)
-
+if (useExternal_${module_name})
+    find_package(MolfilePlugins)
+    if(MolfilePlugins_FOUND)
+        target_compile_definitions(${module_name} PUBLIC __PLUMED_HAS_EXTERNAL_MOLFILE_PLUGINS=1)
+        target_link_libraries(${module_name} PUBLIC MolfilePlugins:MolfilePlugins)
+    endif()
+endif (useExternal_${module_name})
 #The following lines should mimic the following line
 #CPPFLAGS+=-DSTATIC_PLUGIN  -DVMDPLUGIN=molfile_$(patsubst %.o,%,$@)
 target_compile_definitions(${module_name} PRIVATE STATIC_PLUGIN)
@@ -39,4 +45,4 @@ foreach(sourcefile ${MY_PROJECT_SOURCES})
 endforeach(sourcefile in ${MY_PROJECT_SOURCES})
 
 #this should propagate the compile definition to the main
-target_compile_definitions(${module_name} PUBLIC __PLUMED_HAS_MOLFILE_PLUGINS)
+target_compile_definitions(${module_name} PUBLIC __PLUMED_HAS_MOLFILE_PLUGINS=1)
