@@ -56,6 +56,14 @@ find_path(MolfilePlugins_INCLUDE_DIR
     lib/plugins/include #for vmd path
 )
 
+find_path(LIBMolfilePlugins_INCLUDE_DIR
+  NAMES libmolfile_plugin.h
+  PATHS ${PC_MolfilePlugins_INCLUDE_DIRS} ${USR_MOLFILE_INCLUDE_DIR} ${USR_VMD_DIR}
+  PATH_SUFFIXES
+    include #for USR_MOLFILE_INCLUDE_DIR
+    lib/plugins/include #for vmd path
+)
+
 #pdb is the most probable plugin to exist, this is  needed to get the others
 find_library(MolfilePlugins_pdbplugin_LIBRARY
   NAMES pdbplugin.so
@@ -80,6 +88,7 @@ find_package_handle_standard_args(MolfilePlugins
   REQUIRED_VARS
     MolfilePlugins_pdbplugin_LIBRARY
     MolfilePlugins_INCLUDE_DIR
+    LIBMolfilePlugins_INCLUDE_DIR
   VERSION_VAR MolfilePlugins_VERSION
 )
 
@@ -87,7 +96,7 @@ if(MolfilePlugins_FOUND AND NOT TARGET MolfilePlugins::MolfilePlugins)
   add_library(MolfilePlugins::MolfilePlugins INTERFACE IMPORTED)
   set_target_properties(MolfilePlugins::MolfilePlugins PROPERTIES
     INTERFACE_COMPILE_OPTIONS "${PC_MolfilePlugins_CFLAGS_OTHER}"
-    INTERFACE_INCLUDE_DIRECTORIES "${MolfilePlugins_INCLUDE_DIR}"
+    INTERFACE_INCLUDE_DIRECTORIES "${MolfilePlugins_INCLUDE_DIR}" "${LIBMolfilePlugins_INCLUDE_DIR}"
   )
   foreach(singlePlugin ${MolfilePlugins_PLUGIN_OBJECTS})
     get_filename_component(pluginName ${singlePlugin} NAME_WE)
