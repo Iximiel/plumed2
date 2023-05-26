@@ -81,6 +81,7 @@ endif(enable_gsl)
 
 option(enable_fftw "enable search for fftw3" ON)
 if(enable_fftw)
+    #consider to make this more elegant: see lammps or eigen or use https://github.com/egpbos/findFFTW
     pkg_search_module(FFTW fftw3 IMPORTED_TARGET)
     if(FFTW_FOUND)
         #target_include_directories(config INTERFACE PkgConfig::FFTW)
@@ -107,7 +108,7 @@ option(enable_absolute_soname
 ################################################################################
 #                            compilers                                         #
 ################################################################################
-if (CMAKE_CXX_STANDARD EQUAL 11)
+if (CMAKE_CXX_STANDARD GREATER_EQUAL 11)
     target_compile_definitions(config INTERFACE __PLUMED_LIBCXX11=1)
 endif()
 

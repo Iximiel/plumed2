@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.20.2)
 
 project(Plumed2 LANGUAGES C CXX)
+
+set (CMAKE_CXX_STANDARD 11)
+
 include(GNUInstallDirs)
-set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithDebInfo MinSizeRel)
 #some settingsvalues
 set(program_name "plumed" CACHE STRING "the name of the main executable")
@@ -243,8 +246,6 @@ endif()
 #                          yes
 #  --enable-static-archive enable try to build libplumed.a for static linking,
 #                          default: yes
-#  --enable-asmjit         enable enable embedded asmjit, default: yes
-#  --enable-mpi            enable search for mpi, default: yes
 #  --enable-molfile-plugins
 #                          enable use molfile_plugins, default: yes
 #  --enable-external-molfile-plugins
@@ -260,11 +261,9 @@ endif()
 #  --enable-getcwd         enable search for getcwd function, default: yes
 #  --enable-popen          enable search for popen, default: yes
 #  --enable-execinfo       enable search for execinfo, default: yes
-#  --enable-gsl            enable search for gsl, default: yes
 #  --enable-boost_graph    enable search for boost graph, default: no
 #  --enable-boost_serialization
 #                          enable search for boost serialization, default: no
-#  --enable-fftw           enable search for fftw, default: yes
 #  --enable-python         enable search for python, default: yes
 #  --enable-af_ocl         enable search for arrayfire_ocl, default: no
 #  --enable-af_cuda        enable search for arrayfire_cuda, default: no
@@ -376,7 +375,6 @@ export PYTHONPATH="@CMAKE_SOURCE_DIR@/python:$PYTHONPATH"
 
 set (TODO [[
      #TODO
-     -D__PLUMED_LIBCXX11=1
 -DSTDC_HEADERS=1
 -DHAVE_SYS_TYPES_H=1
 -DHAVE_SYS_STAT_H=1
@@ -387,22 +385,23 @@ set (TODO [[
 -DHAVE_INTTYPES_H=1
 -DHAVE_STDINT_H=1
 -DHAVE_UNISTD_H=1
--D__PLUMED_HAS_EXTERNAL_BLAS=1
--D__PLUMED_HAS_EXTERNAL_LAPACK=1
+
 -D__PLUMED_HAS_MOLFILE_PLUGINS=1
--D__PLUMED_HAS_MPI=1
--D__PLUMED_HAS_ASMJIT=1
+
+
 -D__PLUMED_HAS_CREGEX=1
--D__PLUMED_HAS_DLOPEN=1
+
 -D__PLUMED_HAS_RTLD_DEFAULT=1
 -D__PLUMED_HAS_CHDIR=1
 -D__PLUMED_HAS_SUBPROCESS=1
 -D__PLUMED_HAS_GETCWD=1
 -D__PLUMED_HAS_POPEN=1
 -D__PLUMED_HAS_EXECINFO=1
--D__PLUMED_HAS_ZLIB=1
--D__PLUMED_HAS_GSL=1
--D__PLUMED_HAS_FFTW=1
--DNDEBUG=1
--D_REENTRANT=1
-]]
+
+]])
+
+    
+print_target_property(config INTERFACE_COMPILE_DEFINITIONS)
+print_target_property(config INTERFACE_LINK_LIBRARIES)
+print_target_property(config INTERFACE_INCLUDE_DIRECTORIES)
+print_target_property(config INTERFACE_COMPILE_OPTIONS)
