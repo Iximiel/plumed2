@@ -21,9 +21,10 @@ periodic_table.h
 readpdb.h
 vmdplugin.h
 )
-#ADDMODULENEEDS(${module_name}
-#
-#)
+
+#  --enable-external-molfile-plugins
+#                          enable search for external molfile_plugins, default:
+#                          yes
 if (useExternal_${module_name})
     find_package(MolfilePlugins)
     if(MolfilePlugins_FOUND)

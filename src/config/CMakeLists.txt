@@ -296,7 +296,6 @@ int main () {
         COMPILE_DEFINITIONS __PLUMED_HAS_SUBPROCESS
         
     )
-        
 endif(enable_subprocess)
 ##############################################################################
 #TODO:IMPLEMENT CORRECTLY

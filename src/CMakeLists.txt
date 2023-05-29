@@ -171,8 +171,6 @@ endif()
 #                          -std=c++ flag
 #  --enable-debug-glibcxx  enable enable boundary check, default: no
 #  --enable-shared         enable shared libs, default: yes
-#  --enable-dependency-tracking
-#                          enable dependency tracking, default: yes
 #  --enable-rpath          enable store rpath, default: no
 #  --enable-absolute-install-name
 #                          enable store absolute relative (OSX only - disable
@@ -188,9 +186,6 @@ endif()
 #  --enable-static-archive enable try to build libplumed.a for static linking,
 #                          default: yes
 
-#  --enable-external-molfile-plugins
-#                          enable search for external molfile_plugins, default:
-#                          yes
 
 #  --enable-readdir-r      enable search for readdir_r (threadsafe), default:
 #                          no
@@ -202,6 +197,12 @@ endif()
 #  --enable-af_cpu         enable search for arrayfire_cpu, default: no
 #  --enable-libtorch       enable search for libtorch, default: no
 
+
+#CMAKE will do this for us :)
+#  --enable-dependency-tracking
+#                          enable dependency tracking, default: yes
+
+################################################################################
 
 #for debugging purpose
 #foreach(dir ${dirs} ${execDirs} ${mayBeExternal})
