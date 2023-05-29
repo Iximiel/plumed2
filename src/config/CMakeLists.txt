@@ -50,35 +50,71 @@ endif(enable_mpi)
 option(enable_dlopen "enable search for dlopen" ON)
 if(enable_dlopen)
     if(CMAKE_DL_LIBS)
-        target_link_libraries(config INTERFACE ${CMAKE_DL_LIBS})
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_DLOPEN=1)
+        #target_link_libraries(config INTERFACE ${CMAKE_DL_LIBS})
+        #target_compile_definitions(config INTERFACE __PLUMED_HAS_DLOPEN=1)
+        CONFIGSETTINGS(config CMAKE_DL_LIBS
+            LINK_LIBRARIES "${CMAKE_DL_LIBS}"
+            COMPILE_DEFINITIONS __PLUMED_HAS_DLOPEN
+        )
+        list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS})
     endif(CMAKE_DL_LIBS)
 endif(enable_dlopen)
+
+#  --enable-rtld_default   enable search for RTLD_DEFAULT macro, default: yes
+option(enable_rtld_default "enable search for RTLD_DEFAULT macro" ON)
+if(enable_rtld_default)
+    #this may be put inside of if(enable_dlopen) for consistency
+    #list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS}) has been done before
+    check_source_compiles(CXX
+[[#include <dlfcn.h>
+int main (){
+  void* f=dlsym(RTLD_DEFAULT,"path");
+  return 0;
+}]]
+    RTLD_DEFAULT_FOUND
+    )
+    CONFIGSETTINGS(config RTLD_DEFAULT_FOUND
+        COMPILE_DEFINITIONS __PLUMED_HAS_RTLD_DEFAULT
+        )
+endif(enable_rtld_default)
+
+
 #  --disable-openmp        do not use OpenMP
 option(enable_openmp "enable search for openmp" ON)
 if(enable_openmp)
     find_package(OpenMP)
-    if(OpenMP_CXX_FOUND)
-        target_link_libraries(config INTERFACE OpenMP::OpenMP_CXX)
-    endif(OpenMP_CXX_FOUND)
+    CONFIGSETTINGS(config OpenMP_CXX_FOUND
+        LINK_LIBRARIES OpenMP::OpenMP_CXX
+    )
+    #if(OpenMP_CXX_FOUND)
+    #    target_link_libraries(config INTERFACE OpenMP::OpenMP_CXX)
+    #endif(OpenMP_CXX_FOUND)
 endif(enable_openmp)
 
 option(enable_zlib "enable search for zlib" ON)
 if(enable_zlib)
     find_package(ZLIB)
-    if(ZLIB_FOUND)
-        target_link_libraries(config INTERFACE ZLIB::ZLIB)
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_ZLIB=1)
-    endif(ZLIB_FOUND)
+    CONFIGSETTINGS(config ZLIB_FOUND
+            LINK_LIBRARIES ZLIB::ZLIB
+            COMPILE_DEFINITIONS __PLUMED_HAS_ZLIB
+    )
+    # if(ZLIB_FOUND)
+        # target_link_libraries(config INTERFACE ZLIB::ZLIB)
+        # target_compile_definitions(config INTERFACE __PLUMED_HAS_ZLIB=1)
+    # endif(ZLIB_FOUND)
 endif(enable_zlib)
 
 option(enable_gsl "enable search for gsl" ON)
 if(enable_gsl)
     find_package(GSL)
-    if(GSL_FOUND)
-        target_link_libraries(config INTERFACE GSL::gsl GSL::gslcblas)
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_GSL=1)
-    endif(GSL_FOUND)
+    CONFIGSETTINGS(config GSL_FOUND
+            LINK_LIBRARIES GSL::gsl GSL::gslcblas
+            COMPILE_DEFINITIONS __PLUMED_HAS_GSL
+    )
+    # if(GSL_FOUND)
+    #     target_link_libraries(config INTERFACE GSL::gsl GSL::gslcblas)
+    #     target_compile_definitions(config INTERFACE __PLUMED_HAS_GSL=1)
+    # endif(GSL_FOUND)
 endif(enable_gsl)
 
 option(enable_fftw "enable search for fftw3" ON)
@@ -86,11 +122,15 @@ if(enable_fftw)
     #consider to make this more elegant: see lammps or eigen or use
     # https://github.com/egpbos/findFFTW
     pkg_search_module(FFTW fftw3 IMPORTED_TARGET)
-    if(FFTW_FOUND)
-        #target_include_directories(config INTERFACE PkgConfig::FFTW)
-        target_link_libraries     (config INTERFACE PkgConfig::FFTW)
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_FFTW=1)
-    endif(FFTW_FOUND)
+    CONFIGSETTINGS(config FFTW_FOUND
+        LINK_LIBRARIES PkgConfig::FFTW
+        COMPILE_DEFINITIONS __PLUMED_HAS_FFTW
+    )
+    # if(FFTW_FOUND)
+    #     #target_include_directories(config INTERFACE PkgConfig::FFTW)
+    #     target_link_libraries     (config INTERFACE PkgConfig::FFTW)
+    #     target_compile_definitions(config INTERFACE __PLUMED_HAS_FFTW=1)
+    # endif(FFTW_FOUND)
 endif(enable_fftw)
 
 #  --enable-boost_graph    enable search for boost graph, default: no
@@ -99,10 +139,14 @@ if(enable_boost_graph)
     find_package(Boost
         COMPONENTS graph
     )
-    if(Boost_GRAPH_FOUND)
-        target_link_libraries     (config INTERFACE Boost::graph)
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_GRAPH=1)
-    endif(Boost_GRAPH_FOUND)
+    CONFIGSETTINGS(config Boost_GRAPH_FOUND
+        LINK_LIBRARIES Boost::graph
+        COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_GRAPH
+    )
+    #if(Boost_GRAPH_FOUND)
+    #    target_link_libraries     (config INTERFACE Boost::graph)
+    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_GRAPH=1)
+    #endif(Boost_GRAPH_FOUND)
 endif(enable_boost_graph)
 
 #  --enable-boost_serialization
@@ -112,10 +156,14 @@ if(enable_boost_serialization)
     find_package(Boost
         COMPONENTS serialization
     )
-    if(Boost_SERIALIZATION_FOUND)
-        target_link_libraries     (config INTERFACE Boost::serialization)
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
-    endif(Boost_SERIALIZATION_FOUND)
+    CONFIGSETTINGS(config Boost_SERIALIZATION_FOUND
+        LINK_LIBRARIES Boost::serialization
+        COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_SERIALIZATION
+    )
+    #if(Boost_SERIALIZATION_FOUND)
+    #    target_link_libraries     (config INTERFACE Boost::serialization)
+    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
+    #endif(Boost_SERIALIZATION_FOUND)
 endif(enable_boost_serialization)
 
 #  --enable-cregex         enable search for C regular expression, default: yes
@@ -131,11 +179,12 @@ if(enable_cregex)
         CREGEX_regcomp
         )
     endif(REGEX_HEADER_DIR)
-    if(CREGEX_regcomp)
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_CREGEX=1)
-        else()
-        message(WARNING [[cannot enable "__PLUMED_HAS_CREGEX]])
-    endif(CREGEX_regcomp)
+    CONFIGSETTINGS(config CREGEX_regcomp
+        COMPILE_DEFINITIONS __PLUMED_HAS_CREGEX
+    )
+    #if(CREGEX_regcomp)
+    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_CREGEX=1)
+    #endif(CREGEX_regcomp)
 endif(enable_cregex)
 
 ##############################################################################

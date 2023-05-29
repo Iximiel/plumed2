@@ -35,7 +35,8 @@ macro(ADDMODULETOKERNEL module_name)
         foreach(file ${ADDMODULETOKERNEL_SOURCES})
             get_filename_component(filename ${file} NAME_WE)    
             if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/${filename}.h")
-                set_property(TARGET ${module_name} APPEND PROPERTY PUBLIC_HEADER "${filename}.h")
+                set_property(TARGET ${module_name} APPEND
+                    PROPERTY PUBLIC_HEADER "${filename}.h")
             endif ()
         endforeach()
         if (ADDMODULETOKERNEL_DEPENDS)
@@ -45,7 +46,8 @@ macro(ADDMODULETOKERNEL module_name)
             endforeach(lib ${ADDMODULETOKERNEL_DEPENDS})
         endif(ADDMODULETOKERNEL_DEPENDS)
         if(ADDMODULETOKERNEL_EXTRA_HEADERS)
-            set_property(TARGET ${module_name} APPEND PROPERTY PUBLIC_HEADER ${ADDMODULETOKERNEL_EXTRA_HEADERS})
+            set_property(TARGET ${module_name} APPEND
+                PROPERTY PUBLIC_HEADER ${ADDMODULETOKERNEL_EXTRA_HEADERS})
         endif()
         install (TARGETS ${module_name}
             PUBLIC_HEADER
@@ -53,6 +55,32 @@ macro(ADDMODULETOKERNEL module_name)
         )
     endif(${module_${module_name}})
 endmacro(ADDMODULETOKERNEL)
+
+function(CONFIGSETTINGS module_name settingFlag)
+    set(options "")
+    set(oneValueArgs "")
+    set(multiValueArgs LINK_LIBRARIES COMPILE_DEFINITIONS)
+    cmake_parse_arguments(CONFIGSETTINGS "${options}" "${oneValueArgs}"
+                      "${multiValueArgs}" "${ARGN}" )
+    if (settingFlag)
+        target_link_libraries     (${module_name}
+            INTERFACE "${CONFIGSETTINGS_LINK_LIBRARIES}")
+        if(CONFIGSETTINGS_COMPILE_DEFINITIONS)
+            foreach(def "${CONFIGSETTINGS_COMPILE_DEFINITIONS}")
+                target_compile_definitions(${module_name}
+                    INTERFACE "${def}=1")
+            endforeach(def "${CONFIGSETTINGS_COMPILE_DEFINITIONS}")
+        endif()
+    else()
+        if(CONFIGSETTINGS_COMPILE_DEFINITIONS)
+            foreach(def "${CONFIGSETTINGS_COMPILE_DEFINITIONS}")
+                message(STATUS "cannot enable \"${def}\"")
+            endforeach(def "${CONFIGSETTINGS_COMPILE_DEFINITIONS}")
+        endif()
+    endif(settingFlag)    
+endfunction(CONFIGSETTINGS)
+
+
 
 function(print_target_property target_name property)
     get_target_property(tempvar ${target_name} ${property})
