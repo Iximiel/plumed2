@@ -202,9 +202,6 @@ endif()
 #  --enable-getcwd         enable search for getcwd function, default: yes
 #  --enable-popen          enable search for popen, default: yes
 #  --enable-execinfo       enable search for execinfo, default: yes
-#  --enable-boost_graph    enable search for boost graph, default: no
-#  --enable-boost_serialization
-#                          enable search for boost serialization, default: no
 #  --enable-python         enable search for python, default: yes
 #  --enable-af_ocl         enable search for arrayfire_ocl, default: no
 #  --enable-af_cuda        enable search for arrayfire_cuda, default: no

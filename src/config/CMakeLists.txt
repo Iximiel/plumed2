@@ -92,9 +92,32 @@ if(enable_fftw)
     endif(FFTW_FOUND)
 endif(enable_fftw)
 
-target_link_libraries(Config PUBLIC config)
-target_include_directories(Config PRIVATE 
-    ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+#  --enable-boost_graph    enable search for boost graph, default: no
+option(enable_boost_graph "enable search for boost graph" OFF)
+if(enable_boost_graph)
+    find_package(Boost
+        COMPONENTS graph
+    )
+    if(BOOST_GRAPH_FOUND)
+        target_link_libraries     (config INTERFACE Boost::graph)
+        target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_GRAPH=1)
+    endif(BOOST_GRAPH_FOUND)
+endif(enable_boost_graph)
+
+#  --enable-boost_serialization
+#                          enable search for boost serialization, default: no
+option(enable_boost_serialization "enable search for boost serialization" OFF)
+if(enable_boost_serialization)
+    find_package(Boost
+        COMPONENTS serialization
+    )
+    if(BOOST_SERIALIZATION_FOUND)
+        target_link_libraries     (config INTERFACE Boost::serialization)
+        target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
+    endif(BOOST_SERIALIZATION_FOUND)
+endif(enable_boost_serialization)
+
+
 
 ##############################################################################
 #TODO:IMPLEMENT CORRECTLY
@@ -125,6 +148,10 @@ target_compile_definitions(config
       # I leave it by default, since it seems harmless
       _REENTRANT=1
 )
+
+target_link_libraries(Config PUBLIC config)
+target_include_directories(Config PRIVATE 
+    ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(Makefile.conf.xxd.compiler.sh.in
                  Makefile.conf.xxd.compiler.sh @ONLY)
