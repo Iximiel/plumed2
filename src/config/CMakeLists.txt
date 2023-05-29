@@ -1,6 +1,7 @@
 set(module_name config)
 #this is not a module, this is set up to make easier the dependency interface
-set(module_${module_name} ON CACHE INTERNAL "always active core module ${module_name}")
+set(module_${module_name} ON CACHE INTERNAL
+            "always active core module ${module_name}")
 #set this before or maybe let only one config e
 set(plumed_install_flag ON)
 #SOEXT is set in ./src
@@ -28,7 +29,7 @@ configure_file(version.h.in version.h)
 ################################################################################
 #The config interface library holds a lot of options that must be inherited by #
 #everithing, more specialized options will be found in the respective modules  #
-# licke blas and lapack
+# like blas and lapack
 ################################################################################
 add_library(config INTERFACE)
 ################################################################################
@@ -81,7 +82,8 @@ endif(enable_gsl)
 
 option(enable_fftw "enable search for fftw3" ON)
 if(enable_fftw)
-    #consider to make this more elegant: see lammps or eigen or use https://github.com/egpbos/findFFTW
+    #consider to make this more elegant: see lammps or eigen or use
+    # https://github.com/egpbos/findFFTW
     pkg_search_module(FFTW fftw3 IMPORTED_TARGET)
     if(FFTW_FOUND)
         #target_include_directories(config INTERFACE PkgConfig::FFTW)
@@ -101,7 +103,8 @@ target_include_directories(Config PRIVATE
 #                          the default behavior on OSX). Only enable for
 #                          testing!, default: no
 option(enable_absolute_soname
-    "enable store absolute soname (Linux only - this is the default behavior on OSX). Only enable for testing!, default: no"
+    "enable store absolute soname (Linux only - this is the default behavior 
+    on OSX). Only enable for testing!, default: no"
     OFF)
 ##############################################################################
 
@@ -123,8 +126,10 @@ target_compile_definitions(config
       _REENTRANT=1
 )
 
-configure_file(Makefile.conf.xxd.compiler.sh.in Makefile.conf.xxd.compiler.sh @ONLY)
-configure_file(${PLUMED_MAIN_DIR}/Makefile.conf.in Makefile.cmakeMocked.conf @ONLY)
+configure_file(Makefile.conf.xxd.compiler.sh.in
+                 Makefile.conf.xxd.compiler.sh @ONLY)
+configure_file(${PLUMED_MAIN_DIR}/Makefile.conf.in
+                 Makefile.cmakeMocked.conf @ONLY)
 add_custom_command(OUTPUT Makefile.conf.xxd
     DEPENDS ${PLUMED_MAIN_DIR}/Makefile.conf.in
     COMMAND bash Makefile.conf.xxd.compiler.sh
@@ -133,7 +138,8 @@ add_custom_command(OUTPUT Makefile.conf.xxd
 )
 
 set_property(TARGET Config
-    APPEND PROPERTY PUBLIC_HEADER ${CMAKE_CURRENT_BINARY_DIR}/version.h Config.h)
+    APPEND PROPERTY PUBLIC_HEADER
+    ${CMAKE_CURRENT_BINARY_DIR}/version.h Config.h)
 install (TARGETS Config
     PUBLIC_HEADER
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${program_name}/config
