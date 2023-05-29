@@ -195,10 +195,7 @@ endif()
 #  --enable-readdir-r      enable search for readdir_r (threadsafe), default:
 #                          no
 
-#  --enable-subprocess     enable search for functions needed to manage a
-#                          subprocess, default: yes
 
-#  --enable-execinfo       enable search for execinfo, default: yes
 #  --enable-python         enable search for python, default: yes
 #  --enable-af_ocl         enable search for arrayfire_ocl, default: no
 #  --enable-af_cuda        enable search for arrayfire_cuda, default: no

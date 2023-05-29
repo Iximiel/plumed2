@@ -37,6 +37,7 @@ add_library(config INTERFACE)
 ################################################################################
 find_package(PkgConfig REQUIRED)
 include(CheckSourceCompiles)
+include(CMakePushCheckState)
 #  --enable-mpi            enable search for mpi, default: yes
 option(enable_mpi "enable search for mpi" ON)
 if(enable_mpi)
@@ -56,13 +57,14 @@ if(enable_dlopen)
             LINK_LIBRARIES "${CMAKE_DL_LIBS}"
             COMPILE_DEFINITIONS __PLUMED_HAS_DLOPEN
         )
-        list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS})
     endif(CMAKE_DL_LIBS)
 endif(enable_dlopen)
 
 #  --enable-rtld_default   enable search for RTLD_DEFAULT macro, default: yes
 option(enable_rtld_default "enable search for RTLD_DEFAULT macro" ON)
 if(enable_rtld_default)
+    cmake_push_check_state(RESET)
+    set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS})
     #this may be put inside of if(enable_dlopen) for consistency
     #list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS}) has been done before
     check_source_compiles(CXX
@@ -73,6 +75,7 @@ int main (){
 }]]
     RTLD_DEFAULT_FOUND
     )
+    cmake_pop_check_state()
     CONFIGSETTINGS(config RTLD_DEFAULT_FOUND
         COMPILE_DEFINITIONS __PLUMED_HAS_RTLD_DEFAULT
         )
@@ -244,6 +247,67 @@ if(enable_popen)
         COMPILE_DEFINITIONS __PLUMED_HAS_POPEN
     )
 endif(enable_popen)
+
+#  --enable-execinfo       enable search for execinfo, default: yes
+option(enable_execinfo  "enable search for execinfo" ON)
+if(enable_execinfo)
+    find_package(Backtrace)
+    CONFIGSETTINGS(config Backtrace_FOUND
+        COMPILE_DEFINITIONS __PLUMED_HAS_EXECINFO
+        LINK_LIBRARIES "${Backtrace_LIBRARY}"
+    )
+endif(enable_execinfo)
+
+#  --enable-subprocess     enable search for functions needed to manage a
+#                          subprocess, default: yes
+option(enable_subprocess  "enable search for functions needed to manage a subprocess" ON)
+if(enable_subprocess)
+    check_source_compiles(CXX
+[[#include <cstdio>
+#include <unistd.h>
+#include <csignal>
+
+int main () {
+// notice that [] is required to cheat autoconf
+    int cp[2];
+    FILE* fp;
+    char* arr[3];
+    arr[0]=NULL;
+    arr[1]=NULL;
+    arr[2]=NULL;
+    arr[3]=NULL;
+    if(pipe(cp)>=0)
+    if(fork()>=0)
+    if(close(1)>=0)
+    if(dup(cp[1])>=0) {
+        fp=fdopen(cp[0],"w");
+        execv(arr[0],arr);
+    }
+    auto p=fork();
+    kill(p,SIGINT);
+    kill(p,SIGCONT);
+    kill(p,SIGSTOP);
+    return 0;
+}]]
+        subprocess_management
+    )
+
+    CONFIGSETTINGS(config subprocess_management
+        COMPILE_DEFINITIONS __PLUMED_HAS_SUBPROCESS
+        
+    )
+        
+endif(enable_subprocess)
+##############################################################################
+#TODO:IMPLEMENT CORRECTLY
+# This is not needed in the main plumed but only for compiling the pip interface
+#  --enable-python         enable search for python, default: yes
+# option(enable_execinfo  "enable search for python" ON)
+# if(enable_execinfo)
+#     find_package (Python COMPONENTS Interpreter Development)
+# endif(enable_execinfo)
+##############################################################################
+
 
 ##############################################################################
 #TODO:IMPLEMENT CORRECTLY
