@@ -195,12 +195,9 @@ endif()
 #  --enable-readdir-r      enable search for readdir_r (threadsafe), default:
 #                          no
 
-#  --enable-rtld_default   enable search for RTLD_DEFAULT macro, default: yes
-#  --enable-chdir          enable search for chdir function, default: yes
 #  --enable-subprocess     enable search for functions needed to manage a
 #                          subprocess, default: yes
-#  --enable-getcwd         enable search for getcwd function, default: yes
-#  --enable-popen          enable search for popen, default: yes
+
 #  --enable-execinfo       enable search for execinfo, default: yes
 #  --enable-python         enable search for python, default: yes
 #  --enable-af_ocl         enable search for arrayfire_ocl, default: no

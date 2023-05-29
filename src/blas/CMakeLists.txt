@@ -32,17 +32,19 @@ if (${externalLib}_FOUND)
     #<code> changes. In order to force the check to be re-evaluated, the
     #variable named by <resultVar> must be manually removed from the cache.
     set(CMAKE_REQUIRED_LIBRARIES "BLAS::BLAS")
-    check_source_compiles(C #using C to not use extern "C"
-        "int main(void) {
+    check_source_compiles(CXX
+    [[extern "C"
+        int main(void) {
             double a,b,c,s;
             srotg_(&a,&b,&c,&s);
-        }"
+        }]]
     UnderscodeBlas)
-    check_source_compiles(C  #using C to not use extern "C"
-        "int main(void) {
+    check_source_compiles(CXX
+    [[extern "C"
+        int main(void) {
             double a,b,c,s;
             srotg(&a,&b,&c,&s);
-        }"
+        }]]
     noUnderscodeBlas
     )
     unset(CMAKE_REQUIRED_LIBRARIES)

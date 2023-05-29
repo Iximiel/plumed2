@@ -171,11 +171,12 @@ option(enable_cregex "enable search for C regular expression" ON)
 if(enable_cregex)
     find_path(REGEX_HEADER_DIR NAMES regex.h)
     if(REGEX_HEADER_DIR)
-        check_source_compiles(C #using C to not use extern "C"
-    "char regcomp ();
+        check_source_compiles(CXX
+[[extern "C"
+    char regcomp ();
     int main(void) {
         return regcomp ();
-    }"
+    }]]
         CREGEX_regcomp
         )
     endif(REGEX_HEADER_DIR)
@@ -186,6 +187,63 @@ if(enable_cregex)
     #    target_compile_definitions(config INTERFACE __PLUMED_HAS_CREGEX=1)
     #endif(CREGEX_regcomp)
 endif(enable_cregex)
+
+#  --enable-chdir          enable search for chdir function, default: yes
+option(enable_chdir  "enable search for chdir function" ON)
+if(enable_chdir)
+    find_path(unistd_HEADER_DIR NAMES unistd.h)
+    if(unistd_HEADER_DIR)
+        check_source_compiles(CXX
+[[extern "C"
+    char chdir ();
+    int main(void) {
+        return chdir ();
+    }]]
+        COMPILES_chdir
+        )
+    endif(unistd_HEADER_DIR)
+    CONFIGSETTINGS(config COMPILES_chdir
+        COMPILE_DEFINITIONS __PLUMED_HAS_CHDIR
+    )
+endif(enable_chdir)
+
+#  --enable-getcwd         enable search for getcwd function, default: yes
+option(enable_getcwd   "enable search for getcwd function" ON)
+if(enable_getcwd )
+    find_path(unistd_HEADER_DIR NAMES unistd.h)
+    if(unistd_HEADER_DIR)
+        check_source_compiles(CXX
+    [[extern "C"
+    char getcwd  ();
+    int main(void) {
+        return getcwd  ();
+    }]]
+        COMPILES_getcwd 
+        )
+    endif(unistd_HEADER_DIR)
+    CONFIGSETTINGS(config COMPILES_getcwd 
+        COMPILE_DEFINITIONS __PLUMED_HAS_GETCWD 
+    )
+endif(enable_getcwd )
+
+#  --enable-popen          enable search for popen, default: yes
+option(enable_popen  "enable search for popen" ON)
+if(enable_popen)
+    find_path(cstdio_HEADER_DIR NAMES cstdio)
+    if(cstdio_HEADER_DIR)
+        check_source_compiles(CXX
+    [[extern "C"
+    char popen ();
+    int main(void) {
+        return popen ();
+    }]]
+        COMPILES_popen
+        )
+    endif(cstdio_HEADER_DIR)
+    CONFIGSETTINGS(config COMPILES_popen
+        COMPILE_DEFINITIONS __PLUMED_HAS_POPEN
+    )
+endif(enable_popen)
 
 ##############################################################################
 #TODO:IMPLEMENT CORRECTLY
