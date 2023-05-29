@@ -36,6 +36,7 @@ add_library(config INTERFACE)
 #                     options and external libraries                           #
 ################################################################################
 find_package(PkgConfig REQUIRED)
+include(CheckSourceCompiles)
 #  --enable-mpi            enable search for mpi, default: yes
 option(enable_mpi "enable search for mpi" ON)
 if(enable_mpi)
@@ -98,10 +99,10 @@ if(enable_boost_graph)
     find_package(Boost
         COMPONENTS graph
     )
-    if(BOOST_GRAPH_FOUND)
+    if(Boost_GRAPH_FOUND)
         target_link_libraries     (config INTERFACE Boost::graph)
         target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_GRAPH=1)
-    endif(BOOST_GRAPH_FOUND)
+    endif(Boost_GRAPH_FOUND)
 endif(enable_boost_graph)
 
 #  --enable-boost_serialization
@@ -111,13 +112,31 @@ if(enable_boost_serialization)
     find_package(Boost
         COMPONENTS serialization
     )
-    if(BOOST_SERIALIZATION_FOUND)
+    if(Boost_SERIALIZATION_FOUND)
         target_link_libraries     (config INTERFACE Boost::serialization)
         target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
-    endif(BOOST_SERIALIZATION_FOUND)
+    endif(Boost_SERIALIZATION_FOUND)
 endif(enable_boost_serialization)
 
-
+#  --enable-cregex         enable search for C regular expression, default: yes
+option(enable_cregex "enable search for C regular expression" ON)
+if(enable_cregex)
+    find_path(REGEX_HEADER_DIR NAMES regex.h)
+    if(REGEX_HEADER_DIR)
+        check_source_compiles(C #using C to not use extern "C"
+    "char regcomp ();
+    int main(void) {
+        return regcomp ();
+    }"
+        CREGEX_regcomp
+        )
+    endif(REGEX_HEADER_DIR)
+    if(CREGEX_regcomp)
+        target_compile_definitions(config INTERFACE __PLUMED_HAS_CREGEX=1)
+        else()
+        message(WARNING [[cannot enable "__PLUMED_HAS_CREGEX]])
+    endif(CREGEX_regcomp)
+endif(enable_cregex)
 
 ##############################################################################
 #TODO:IMPLEMENT CORRECTLY

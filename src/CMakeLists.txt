@@ -187,14 +187,14 @@ endif()
 #                          yes
 #  --enable-static-archive enable try to build libplumed.a for static linking,
 #                          default: yes
-#  --enable-molfile-plugins
-#                          enable use molfile_plugins, default: yes
+
 #  --enable-external-molfile-plugins
 #                          enable search for external molfile_plugins, default:
 #                          yes
+
 #  --enable-readdir-r      enable search for readdir_r (threadsafe), default:
 #                          no
-#  --enable-cregex         enable search for C regular expression, default: yes
+
 #  --enable-rtld_default   enable search for RTLD_DEFAULT macro, default: yes
 #  --enable-chdir          enable search for chdir function, default: yes
 #  --enable-subprocess     enable search for functions needed to manage a
