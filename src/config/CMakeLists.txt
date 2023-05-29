@@ -136,39 +136,6 @@ if(enable_fftw)
     # endif(FFTW_FOUND)
 endif(enable_fftw)
 
-#  --enable-boost_graph    enable search for boost graph, default: no
-option(enable_boost_graph "enable search for boost graph" OFF)
-if(enable_boost_graph)
-    find_package(Boost
-        COMPONENTS graph
-    )
-    CONFIGSETTINGS(config Boost_GRAPH_FOUND
-        LINK_LIBRARIES Boost::graph
-        COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_GRAPH
-    )
-    #if(Boost_GRAPH_FOUND)
-    #    target_link_libraries     (config INTERFACE Boost::graph)
-    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_GRAPH=1)
-    #endif(Boost_GRAPH_FOUND)
-endif(enable_boost_graph)
-
-#  --enable-boost_serialization
-#                          enable search for boost serialization, default: no
-option(enable_boost_serialization "enable search for boost serialization" OFF)
-if(enable_boost_serialization)
-    find_package(Boost
-        COMPONENTS serialization
-    )
-    CONFIGSETTINGS(config Boost_SERIALIZATION_FOUND
-        LINK_LIBRARIES Boost::serialization
-        COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_SERIALIZATION
-    )
-    #if(Boost_SERIALIZATION_FOUND)
-    #    target_link_libraries     (config INTERFACE Boost::serialization)
-    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
-    #endif(Boost_SERIALIZATION_FOUND)
-endif(enable_boost_serialization)
-
 #  --enable-cregex         enable search for C regular expression, default: yes
 option(enable_cregex "enable search for C regular expression" ON)
 if(enable_cregex)
@@ -307,6 +274,59 @@ endif(enable_subprocess)
 # endif(enable_execinfo)
 ##############################################################################
 
+################################################################################
+#               default off options and external libraries                     #
+################################################################################
+
+#  --enable-boost_graph    enable search for boost graph, default: no
+option(enable_boost_graph "enable search for boost graph" OFF)
+if(enable_boost_graph)
+    find_package(Boost
+        COMPONENTS graph
+    )
+    CONFIGSETTINGS(config Boost_GRAPH_FOUND
+        LINK_LIBRARIES Boost::graph
+        COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_GRAPH
+    )
+    #if(Boost_GRAPH_FOUND)
+    #    target_link_libraries     (config INTERFACE Boost::graph)
+    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_GRAPH=1)
+    #endif(Boost_GRAPH_FOUND)
+endif(enable_boost_graph)
+
+#  --enable-boost_serialization
+#                          enable search for boost serialization, default: no
+option(enable_boost_serialization "enable search for boost serialization" OFF)
+if(enable_boost_serialization)
+    find_package(Boost
+        COMPONENTS serialization
+    )
+    CONFIGSETTINGS(config Boost_SERIALIZATION_FOUND
+        LINK_LIBRARIES Boost::serialization
+        COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_SERIALIZATION
+    )
+    #if(Boost_SERIALIZATION_FOUND)
+    #    target_link_libraries     (config INTERFACE Boost::serialization)
+    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
+    #endif(Boost_SERIALIZATION_FOUND)
+endif(enable_boost_serialization)
+
+#  --enable-readdir-r      enable search for readdir_r (threadsafe), default:
+#                          no
+option(enable_readdir_r "enable search for readdir_r (threadsafe)" OFF)
+if(enable_readdir_r)
+    #this check for the function in the dirent.h header,
+    #(and also if the header is present)
+    check_symbol_exists (readdir_r dirent.h HAVE_READDIR_R)
+    
+    CONFIGSETTINGS(config HAVE_READDIR_R
+        COMPILE_DEFINITIONS __PLUMED_HAS_READDIR_R
+    )
+    #if(Boost_SERIALIZATION_FOUND)
+    #    target_link_libraries     (config INTERFACE Boost::serialization)
+    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
+    #endif(Boost_SERIALIZATION_FOUND)
+endif(enable_readdir_r)
 
 ##############################################################################
 #TODO:IMPLEMENT CORRECTLY
