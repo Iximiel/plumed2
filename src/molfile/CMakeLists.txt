@@ -21,8 +21,6 @@ periodic_table.h
 readpdb.h
 vmdplugin.h
 )
-# to find external molfile
-list(APPEND CMAKE_MODULE_PATH "${PLUMED_SRC}/cmake")
 #ADDMODULENEEDS(${module_name}
 #
 #)
