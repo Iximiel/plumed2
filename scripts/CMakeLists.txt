@@ -11,6 +11,10 @@ Message(AUTHOR_WARNING "the scripts are configured only with the \"Install\" con
 foreach(script ${SCRIPTS})
     install(FILES ${script}
         DESTINATION lib/${program_name}/scripts
+        PERMISSIONS
+        OWNER_WRITE
+        OWNER_READ GROUP_READ WORLD_READ
+        OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE
     )
     get_filename_component(adaptedScript ${script} NAME_WE) 
     set(adaptedScript plumed-${adaptedScript})
