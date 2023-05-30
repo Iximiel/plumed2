@@ -268,8 +268,10 @@ target_link_libraries(archiveplumedKernel PUBLIC
 #add_library(libplumedStatic OBJECT ${KernelTargets})
 #target_link_libraries(libplumedStatic INTERFACE ${modulesForKernel})
 install (TARGETS archiveplumedKernel sharedplumedKernel
-    ARCHIVE LIBRARY
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
     )
+
 add_subdirectory(main)
 add_subdirectory(lib)
 
