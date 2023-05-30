@@ -37,6 +37,7 @@ add_library(config INTERFACE)
 ################################################################################
 find_package(PkgConfig REQUIRED)
 include(CheckSourceCompiles)
+include(CheckCXXSymbolExists)
 include(CMakePushCheckState)
 #  --enable-mpi            enable search for mpi, default: yes
 option(enable_mpi "enable search for mpi" ON)
@@ -51,8 +52,6 @@ endif(enable_mpi)
 option(enable_dlopen "enable search for dlopen" ON)
 if(enable_dlopen)
     if(CMAKE_DL_LIBS)
-        #target_link_libraries(config INTERFACE ${CMAKE_DL_LIBS})
-        #target_compile_definitions(config INTERFACE __PLUMED_HAS_DLOPEN=1)
         CONFIGSETTINGS(config CMAKE_DL_LIBS
             LINK_LIBRARIES "${CMAKE_DL_LIBS}"
             COMPILE_DEFINITIONS __PLUMED_HAS_DLOPEN
@@ -63,20 +62,20 @@ endif(enable_dlopen)
 #  --enable-rtld_default   enable search for RTLD_DEFAULT macro, default: yes
 option(enable_rtld_default "enable search for RTLD_DEFAULT macro" ON)
 if(enable_rtld_default)
-    cmake_push_check_state(RESET)
-    set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS})
-    #this may be put inside of if(enable_dlopen) for consistency
-    #list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS}) has been done before
-    check_source_compiles(CXX
-[[#include <dlfcn.h>
-int main (){
-  void* f=dlsym(RTLD_DEFAULT,"path");
-  return 0;
-}]]
-    RTLD_DEFAULT_FOUND
-    )
-    cmake_pop_check_state()
-    CONFIGSETTINGS(config RTLD_DEFAULT_FOUND
+#     cmake_push_check_state(RESET)
+#     set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS})
+#     #this may be put inside of if(enable_dlopen) for consistency
+#     check_source_compiles(CXX
+# [[#include <dlfcn.h>
+# int main (){
+#   void* f=dlsym(RTLD_DEFAULT,"path");
+#   return 0;
+# }]]
+#     HAVE_RTLD_DEFAULT
+#     )
+#     cmake_pop_check_state()
+    check_cxx_symbol_exists (RTLD_DEFAULT dlfcn.h HAVE_RTLD_DEFAULT)
+    CONFIGSETTINGS(config HAVE_RTLD_DEFAULT
         COMPILE_DEFINITIONS __PLUMED_HAS_RTLD_DEFAULT
         )
 endif(enable_rtld_default)
@@ -101,10 +100,6 @@ if(enable_zlib)
             LINK_LIBRARIES ZLIB::ZLIB
             COMPILE_DEFINITIONS __PLUMED_HAS_ZLIB
     )
-    # if(ZLIB_FOUND)
-        # target_link_libraries(config INTERFACE ZLIB::ZLIB)
-        # target_compile_definitions(config INTERFACE __PLUMED_HAS_ZLIB=1)
-    # endif(ZLIB_FOUND)
 endif(enable_zlib)
 
 option(enable_gsl "enable search for gsl" ON)
@@ -114,10 +109,6 @@ if(enable_gsl)
             LINK_LIBRARIES GSL::gsl GSL::gslcblas
             COMPILE_DEFINITIONS __PLUMED_HAS_GSL
     )
-    # if(GSL_FOUND)
-    #     target_link_libraries(config INTERFACE GSL::gsl GSL::gslcblas)
-    #     target_compile_definitions(config INTERFACE __PLUMED_HAS_GSL=1)
-    # endif(GSL_FOUND)
 endif(enable_gsl)
 
 option(enable_fftw "enable search for fftw3" ON)
@@ -129,50 +120,44 @@ if(enable_fftw)
         LINK_LIBRARIES PkgConfig::FFTW
         COMPILE_DEFINITIONS __PLUMED_HAS_FFTW
     )
-    # if(FFTW_FOUND)
-    #     #target_include_directories(config INTERFACE PkgConfig::FFTW)
-    #     target_link_libraries     (config INTERFACE PkgConfig::FFTW)
-    #     target_compile_definitions(config INTERFACE __PLUMED_HAS_FFTW=1)
-    # endif(FFTW_FOUND)
 endif(enable_fftw)
 
 #  --enable-cregex         enable search for C regular expression, default: yes
 option(enable_cregex "enable search for C regular expression" ON)
 if(enable_cregex)
-    find_path(REGEX_HEADER_DIR NAMES regex.h)
-    if(REGEX_HEADER_DIR)
-        check_source_compiles(CXX
-[[extern "C"
-    char regcomp ();
-    int main(void) {
-        return regcomp ();
-    }]]
-        CREGEX_regcomp
-        )
-    endif(REGEX_HEADER_DIR)
-    CONFIGSETTINGS(config CREGEX_regcomp
+#     find_path(REGEX_HEADER_DIR NAMES regex.h)
+#     if(REGEX_HEADER_DIR)
+#         check_source_compiles(CXX
+# [[extern "C"
+#     char regcomp ();
+#     int main(void) {
+#         return regcomp ();
+#     }]]
+#     HAVE_REGCOMP
+#         )
+#     endif(REGEX_HEADER_DIR)
+    check_cxx_symbol_exists (regcomp regex.h HAVE_REGCOMP)
+    CONFIGSETTINGS(config HAVE_REGCOMP
         COMPILE_DEFINITIONS __PLUMED_HAS_CREGEX
     )
-    #if(CREGEX_regcomp)
-    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_CREGEX=1)
-    #endif(CREGEX_regcomp)
 endif(enable_cregex)
 
 #  --enable-chdir          enable search for chdir function, default: yes
 option(enable_chdir  "enable search for chdir function" ON)
 if(enable_chdir)
-    find_path(unistd_HEADER_DIR NAMES unistd.h)
-    if(unistd_HEADER_DIR)
-        check_source_compiles(CXX
-[[extern "C"
-    char chdir ();
-    int main(void) {
-        return chdir ();
-    }]]
-        COMPILES_chdir
-        )
-    endif(unistd_HEADER_DIR)
-    CONFIGSETTINGS(config COMPILES_chdir
+#     find_path(unistd_HEADER_DIR NAMES unistd.h)
+#     if(unistd_HEADER_DIR)
+#         check_source_compiles(CXX
+# [[extern "C"
+#     char chdir ();
+#     int main(void) {
+#         return chdir ();
+#     }]]
+#         HAVE_CHDIR
+#         )
+#     endif(unistd_HEADER_DIR)
+    check_cxx_symbol_exists (chdir unistd.h HAVE_CHDIR)
+    CONFIGSETTINGS(config HAVE_CHDIR
         COMPILE_DEFINITIONS __PLUMED_HAS_CHDIR
     )
 endif(enable_chdir)
@@ -180,18 +165,19 @@ endif(enable_chdir)
 #  --enable-getcwd         enable search for getcwd function, default: yes
 option(enable_getcwd   "enable search for getcwd function" ON)
 if(enable_getcwd )
-    find_path(unistd_HEADER_DIR NAMES unistd.h)
-    if(unistd_HEADER_DIR)
-        check_source_compiles(CXX
-    [[extern "C"
-    char getcwd  ();
-    int main(void) {
-        return getcwd  ();
-    }]]
-        COMPILES_getcwd 
-        )
-    endif(unistd_HEADER_DIR)
-    CONFIGSETTINGS(config COMPILES_getcwd 
+    # find_path(unistd_HEADER_DIR NAMES unistd.h)
+    # if(unistd_HEADER_DIR)
+    #     check_source_compiles(CXX
+    # [[extern "C"
+    # char getcwd  ();
+    # int main(void) {
+    #     return getcwd  ();
+    # }]]
+    #     COMPILES_getcwd 
+    #     )
+    # endif(unistd_HEADER_DIR)
+    check_cxx_symbol_exists (getcwd  unistd.h HAVE_GETCWD)
+    CONFIGSETTINGS(config HAVE_GETCWD 
         COMPILE_DEFINITIONS __PLUMED_HAS_GETCWD 
     )
 endif(enable_getcwd )
@@ -199,18 +185,19 @@ endif(enable_getcwd )
 #  --enable-popen          enable search for popen, default: yes
 option(enable_popen  "enable search for popen" ON)
 if(enable_popen)
-    find_path(cstdio_HEADER_DIR NAMES cstdio)
-    if(cstdio_HEADER_DIR)
-        check_source_compiles(CXX
-    [[extern "C"
-    char popen ();
-    int main(void) {
-        return popen ();
-    }]]
-        COMPILES_popen
-        )
-    endif(cstdio_HEADER_DIR)
-    CONFIGSETTINGS(config COMPILES_popen
+    # find_path(cstdio_HEADER_DIR NAMES cstdio)
+    # if(cstdio_HEADER_DIR)
+    #     check_source_compiles(CXX
+    # [[extern "C"
+    # char popen ();
+    # int main(void) {
+    #     return popen ();
+    # }]]
+    # HAVE_POPEN
+    #     )
+    # endif(cstdio_HEADER_DIR)
+    check_cxx_symbol_exists (popen  cstdio HAVE_POPEN)
+    CONFIGSETTINGS(config HAVE_POPEN
         COMPILE_DEFINITIONS __PLUMED_HAS_POPEN
     )
 endif(enable_popen)
@@ -256,10 +243,10 @@ int main () {
     kill(p,SIGSTOP);
     return 0;
 }]]
-        subprocess_management
+        HAVE_SUBPROCESS_MANAGEMENT
     )
 
-    CONFIGSETTINGS(config subprocess_management
+    CONFIGSETTINGS(config HAVE_SUBPROCESS_MANAGEMENT
         COMPILE_DEFINITIONS __PLUMED_HAS_SUBPROCESS
         
     )
@@ -288,10 +275,6 @@ if(enable_boost_graph)
         LINK_LIBRARIES Boost::graph
         COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_GRAPH
     )
-    #if(Boost_GRAPH_FOUND)
-    #    target_link_libraries     (config INTERFACE Boost::graph)
-    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_GRAPH=1)
-    #endif(Boost_GRAPH_FOUND)
 endif(enable_boost_graph)
 
 #  --enable-boost_serialization
@@ -305,10 +288,6 @@ if(enable_boost_serialization)
         LINK_LIBRARIES Boost::serialization
         COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_SERIALIZATION
     )
-    #if(Boost_SERIALIZATION_FOUND)
-    #    target_link_libraries     (config INTERFACE Boost::serialization)
-    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
-    #endif(Boost_SERIALIZATION_FOUND)
 endif(enable_boost_serialization)
 
 #  --enable-readdir-r      enable search for readdir_r (threadsafe), default:
@@ -317,15 +296,11 @@ option(enable_readdir_r "enable search for readdir_r (threadsafe)" OFF)
 if(enable_readdir_r)
     #this check for the function in the dirent.h header,
     #(and also if the header is present)
-    check_symbol_exists (readdir_r dirent.h HAVE_READDIR_R)
+    check_cxx_symbol_exists (readdir_r dirent.h HAVE_READDIR_R)
     
     CONFIGSETTINGS(config HAVE_READDIR_R
         COMPILE_DEFINITIONS __PLUMED_HAS_READDIR_R
     )
-    #if(Boost_SERIALIZATION_FOUND)
-    #    target_link_libraries     (config INTERFACE Boost::serialization)
-    #    target_compile_definitions(config INTERFACE __PLUMED_HAS_BOOST_SERIALIZATION=1)
-    #endif(Boost_SERIALIZATION_FOUND)
 endif(enable_readdir_r)
 
 ##############################################################################

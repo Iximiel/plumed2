@@ -1,3 +1,4 @@
+include_guard(GLOBAL)
 macro(ADDMODULETOKERNEL module_name)
     #use: ADDMODULETOKERNEL(module_name SOURCES listOfSources
     #[EXTRA_HEADERS files]
