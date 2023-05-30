@@ -9,8 +9,10 @@ set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithDebInfo MinSizeRel)
 #some settingsvalues
 set(program_name "plumed" CACHE STRING "the name of the main executable")
-set(SOEXT "so" CACHE STRING "The extension of dynamic libraries (so/dylib)")
-set_property(CACHE SOEXT PROPERTY STRINGS "so" "dylib")
+string(REPLACE "." "" soextension ${CMAKE_SHARED_LIBRARY_SUFFIX})
+
+set(SOEXT ${soextension} CACHE INTERNAL "The extension of dynamic libraries (so/dylib)")
+#set_property(CACHE SOEXT PROPERTY STRINGS "so" "dylib")
 
 set (PLUMED_SRC ${CMAKE_CURRENT_SOURCE_DIR})
 set (PLUMED_MAKETOOLS ${PLUMED_SRC}/maketools )
@@ -246,7 +248,6 @@ add_library(sharedplumedKernel SHARED)
 set_target_properties(sharedplumedKernel
     PROPERTIES 
         LIBRARY_OUTPUT_NAME ${program_name}Kernel
-        #SUFFIX .${SOEXT} #I think that cmake will set so or dlyb by itself
     )
 target_link_libraries(sharedplumedKernel PUBLIC
      ${modulesForKernel} # OBJ_KERNEL without config
@@ -258,7 +259,7 @@ set_target_properties(archiveplumedKernel
     PROPERTIES 
         #LIBRARY_OUTPUT_NAME ${program_name}
         ARCHIVE_OUTPUT_NAME ${program_name}
-        #SUFFIX .${SOEXT}
+        
     )
 target_link_libraries(archiveplumedKernel PUBLIC
         ${modulesForKernel} # OBJ_KERNEL without config

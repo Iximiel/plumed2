@@ -4,9 +4,9 @@
 
 set(_SOEXT_ ${SOEXT})
 set(_program_name_ ${program_name})
-set(_libdir_ ${CMAKE_INSTALL_PREFIX}lib)
-set(_bindir_ ${CMAKE_INSTALL_PREFIX}${CMAKE_INSTALL_BINDIR})
-set(_includedir_ ${CMAKE_INSTALL_PREFIX}${CMAKE_INSTALL_INCLUDEDIR})
+set(_libdir_ ${CMAKE_INSTALL_PREFIX}/lib)
+set(_bindir_ ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})
+set(_includedir_ ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
 if(enable_absolute_soname)
     set(_use_absolute_soname_ "yes")
 else()
