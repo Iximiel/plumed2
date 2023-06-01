@@ -66,3 +66,68 @@ DESTINATION lib/pkgconfig
     OWNER_READ GROUP_READ WORLD_READ
 )
 ]])
+
+set(listModules)
+foreach(dir ${toggabledirs} ${mayBeExternal})
+    set (temp "module ${dir} ${module_${dir}} (default-?)")
+    string(TOLOWER ${temp} temp)
+    list(APPEND listModules ${temp})
+endforeach(dir ${toggabledirs} ${mayBeExternal})
+foreach(dir core tools lepton blas lapack asmjit)
+    set (temp "module ${dir} ${module_${dir}} (always)")
+    string(TOLOWER ${temp} temp)
+    list(APPEND listModules ${temp})
+endforeach(dir core tools lepton blas lapack asmjit)
+list(SORT listModules)
+
+SET(CONTENTS "")
+FOREACH(line IN LISTS listModules)
+   SET(CONTENTS "${CONTENTS}${line}\n")
+ENDFOREACH(line)
+#message(${CONTENTS})
+#set(toggabledirs ${dirs})
+#list(REMOVE_ITEM toggabledirs core tools lepton blas lapack asmjit)
+if (MPIEXEC_EXECUTABLE)
+    set (MPIEXEC_EXECUTABLE_name ${MPIEXEC_EXECUTABLE})
+endif()
+file(CONFIGURE OUTPUT config.txt
+     CONTENT [[
+# version strings
+# syntax: version short/long/git number
+version short @PLUMED_VERSION_SHORT@
+version long @PLUMED_VERSION_LONG@
+version git @PLUMED_VERSION_GIT@
+
+# python executable
+# syntax: python_bin executable
+# empty string means that python has not been configured
+python_bin @Python_EXECUTABLE@
+
+# command to lauch mpi processes
+# syntax: mpiexec command
+# empty string means that mpiexec was not chosen at configure time
+mpiexec @MPIEXEC_EXECUTABLE_name@
+
+# list of 'has' options
+# syntax: has name on/of
+@PLUMED_HAS@
+
+# other defines
+# syntax: define name=value
+@PLUMED_DEFINES@
+
+# list of modules
+# syntax: module name on/off (default-on/default-off/always)
+@CONTENTS@
+
+# Makefile.conf file
+# syntax: makefile_conf followed by a single space followed by a line from makefile_conf
+]]
+)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/config.txt
+DESTINATION lib/${program_name}/src/config
+PERMISSIONS
+ OWNER_WRITE
+ OWNER_READ GROUP_READ WORLD_READ
+)

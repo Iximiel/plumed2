@@ -81,8 +81,6 @@ function(CONFIGSETTINGS module_name settingFlag)
     endif(${settingFlag})    
 endfunction(CONFIGSETTINGS)
 
-
-
 function(print_target_property target_name property)
     get_target_property(_${property} ${target_name} ${property})
     message("${target_name} <${property}>: ${_${property}}")

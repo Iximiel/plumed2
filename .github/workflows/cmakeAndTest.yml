@@ -34,7 +34,7 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
 
     - name: Install
       run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
@@ -44,6 +44,11 @@ jobs:
       run: |
         echo "${{github.workspace}}/install/bin/" >> $GITHUB_PATH
         echo "PLUMED_ROOT=${{github.workspace}}/install/lib/plumed" >> $GITHUB_ENV
+        echo "CPATH=${{github.workspace}}/install/include:$CPATH" >> $GITHUB_ENV
+        echo "INCLUDE=${{github.workspace}}/install/include:$INCLUDE" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=${{github.workspace}}/install/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=${{github.workspace}}/install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "PYTHONPATH=${{github.workspace}}/install/lib/plumed/python:$PYTHONPATH" >> $GITHUB_ENV
     #- env: PLUMED_ROOT
       
     - name: Test
