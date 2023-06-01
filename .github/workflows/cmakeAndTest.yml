@@ -38,9 +38,13 @@ jobs:
 
     - name: Install
       run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-      
+    
     - name: set up environment for tests
-      run: source  ${{github.workspace}}/build/src/sourceme.sh
+      #run: source  ${{github.workspace}}/build/src/sourceme.sh
+      run: |
+        echo "${{github.workspace}}/install/bin/" >> $GITHUB_PATH
+        echo "PLUMED_ROOT=${{github.workspace}}/install/lib/plumed" >> $GITHUB_ENV
+    #- env: PLUMED_ROOT
       
     - name: Test
       working-directory: regtest

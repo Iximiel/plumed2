@@ -84,7 +84,7 @@ endfunction(CONFIGSETTINGS)
 
 
 function(print_target_property target_name property)
-    get_target_property(tempvar ${target_name} ${property})
-    message("${target_name} <${property}>: ${tempvar}")
-    unset(tempvar)    
+    get_target_property(_${property} ${target_name} ${property})
+    message("${target_name} <${property}>: ${_${property}}")
+    unset(_${property})    
 endfunction(print_target_property)

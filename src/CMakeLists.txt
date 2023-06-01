@@ -332,6 +332,7 @@ set (TODO [[
 
     
 print_target_property(config INTERFACE_COMPILE_DEFINITIONS)
+print_target_property(cltools COMPILE_DEFINITIONS)
 print_target_property(config INTERFACE_LINK_LIBRARIES)
 print_target_property(config INTERFACE_INCLUDE_DIRECTORIES)
 print_target_property(config INTERFACE_COMPILE_OPTIONS)

@@ -43,10 +43,10 @@ include(CMakePushCheckState)
 option(enable_mpi "enable search for mpi" ON)
 if(enable_mpi)
     find_package(MPI)
-    if(MPI_CXX_FOUND)
-        target_link_libraries(config INTERFACE MPI::MPI_CXX)
-        target_compile_definitions(config INTERFACE __PLUMED_HAS_MPI=1)
-    endif(MPI_CXX_FOUND)
+    CONFIGSETTINGS(config MPI_CXX_FOUND
+        LINK_LIBRARIES MPI::MPI_CXX
+        COMPILE_DEFINITIONS __PLUMED_HAS_MPI
+    )
 endif(enable_mpi)
 
 option(enable_dlopen "enable search for dlopen" ON)
