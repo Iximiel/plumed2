@@ -63,8 +63,8 @@ function(CONFIGSETTINGS module_name settingFlag)
     set(multiValueArgs LINK_LIBRARIES COMPILE_DEFINITIONS)
     cmake_parse_arguments(CONFIGSETTINGS "${options}" "${oneValueArgs}"
                       "${multiValueArgs}" "${ARGN}" )
-    if (settingFlag)
-        target_link_libraries     (${module_name}
+    if (${settingFlag})
+        target_link_libraries (${module_name}
             INTERFACE "${CONFIGSETTINGS_LINK_LIBRARIES}")
         if(CONFIGSETTINGS_COMPILE_DEFINITIONS)
             foreach(def "${CONFIGSETTINGS_COMPILE_DEFINITIONS}")
@@ -78,7 +78,7 @@ function(CONFIGSETTINGS module_name settingFlag)
                 message(STATUS "cannot enable \"${def}\"")
             endforeach(def "${CONFIGSETTINGS_COMPILE_DEFINITIONS}")
         endif()
-    endif(settingFlag)    
+    endif(${settingFlag})    
 endfunction(CONFIGSETTINGS)
 
 
