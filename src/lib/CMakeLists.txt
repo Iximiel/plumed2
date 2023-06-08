@@ -131,3 +131,25 @@ PERMISSIONS
  OWNER_WRITE
  OWNER_READ GROUP_READ WORLD_READ
 )
+
+file(CONFIGURE OUTPUT Plumed.inc
+     CONTENT [[
+PLUMED_RUNTIME_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@Wrapper.a" $(LIBS) $(LDFLAGS)
+PLUMED_STATIC_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a" $(LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
+PLUMED_SHARED_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@" $(LIBS) $(LDFLAGS)
+PLUMED_RUNTIME_DEPENDENCIES= ""
+PLUMED_STATIC_DEPENDENCIES= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a"
+PLUMED_SHARED_DEPENDENCIES= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@"
+PLUMED_FORTRAN= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/@program_name@/fortran/plumed.f90"
+PLUMED_FORTRAN08= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/@program_name@/fortran/plumed_f08.f90"
+]]
+)
+#the optionals are
+#ifdef AR_CR
+#	@echo "PLUMED_RUNTIME_LOAD= \"$(libdir)/lib$(program_name)Wrapper.a\" $(LIBS) $(LDFLAGS)" > $@
+#endif
+#ifeq ($(make_static_archive),yes)
+#	@echo "PLUMED_STATIC_LOAD= \"$(libdir)/lib$(program_name).a\" $(LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)" >> $@
+#	@echo "PLUMED_STATIC_DEPENDENCIES= \"$(libdir)/lib$(program_name).a\"" >> $@
+#endif
+	
