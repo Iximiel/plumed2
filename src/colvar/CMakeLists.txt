@@ -43,4 +43,4 @@ DEPENDS
 
 #this installs the Template.cpp example colvar
 install(FILES Template.cpp
-        DESTINATION lib/${program_name}/src/colvar)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name}/src/colvar)

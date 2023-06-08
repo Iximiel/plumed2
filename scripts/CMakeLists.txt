@@ -10,7 +10,7 @@ vim2html.sh
 Message(AUTHOR_WARNING "the scripts are configured only with the \"Install\" configuration")
 foreach(script ${SCRIPTS})
     install(FILES ${script}
-        DESTINATION lib/${program_name}/scripts
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name}/scripts
         PERMISSIONS
         OWNER_WRITE
         OWNER_READ GROUP_READ WORLD_READ
@@ -26,7 +26,7 @@ foreach(script ${SCRIPTS})
         CONTENT [[#! /usr/bin/env bash
 echo 'NOTE: shell only version, useful when plumed is cross compiled' >&2
 export PLUMED_IS_INSTALLED=yes
-export PLUMED_ROOT="${PLUMED_ROOT-@CMAKE_INSTALL_PREFIX@/lib/@program_name@}"
+export PLUMED_ROOT="${PLUMED_ROOT-@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/@program_name@}"
 export PLUMED_INCLUDEDIR="${PLUMED_INCLUDEDIR-@CMAKE_INSTALL_PREFIX@/include}"
 export PLUMED_HTMLDIR="${PLUMED_HTMLDIR=@CMAKE_INSTALL_PREFIX@/share/doc/plumed}"
 export PLUMED_PROGRAM_NAME="${PLUMED_PROGRAM_NAME-@program_name@}"
@@ -37,7 +37,7 @@ source "${PLUMED_ROOT}/scripts/@script@"
      )
     
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${adaptedScript}
-        DESTINATION lib/${program_name}
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name}
         PERMISSIONS
          OWNER_WRITE
          OWNER_READ GROUP_READ WORLD_READ

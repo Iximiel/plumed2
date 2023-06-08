@@ -3,8 +3,9 @@ cmake_minimum_required(VERSION 3.20.2)
 project(Plumed2 LANGUAGES C CXX)
 
 set (CMAKE_CXX_STANDARD 11)
-
+set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 include(GNUInstallDirs)
+
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithDebInfo MinSizeRel)
 #some settingsvalues
@@ -268,8 +269,8 @@ target_link_libraries(archiveplumedKernel PUBLIC
 #add_library(libplumedStatic OBJECT ${KernelTargets})
 #target_link_libraries(libplumedStatic INTERFACE ${modulesForKernel})
 install (TARGETS archiveplumedKernel sharedplumedKernel
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
     )
 
 add_subdirectory(main)

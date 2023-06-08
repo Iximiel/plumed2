@@ -22,7 +22,9 @@ option(risk_accepted "CMake is experimental use at your own risk" OFF)
 if(NOT risk_accepted)
    message(FATAL_ERROR "You must accept the risk to use the experimental cmake compilation: -Drisk_accepted=ON")
 endif(NOT risk_accepted)
+set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 include(GNUInstallDirs)
+#set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${program_name})
 
 add_subdirectory(src)
 add_subdirectory(scripts)
@@ -30,4 +32,4 @@ add_subdirectory(fortran)
 #add_subdirectory(vim)
 
 install(DIRECTORY patches
-        DESTINATION lib/${program_name})
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name})

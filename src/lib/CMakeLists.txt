@@ -4,7 +4,7 @@
 
 set(_SOEXT_ ${SOEXT})
 set(_program_name_ ${program_name})
-set(_libdir_ ${CMAKE_INSTALL_PREFIX}/lib)
+set(_libdir_ ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
 set(_bindir_ ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})
 set(_includedir_ ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
 if(enable_absolute_soname)
@@ -15,7 +15,7 @@ endif(enable_absolute_soname)
 set(exec_prefix ${CMAKE_INSTALL_PREFIX})
 configure_file(modulefile.in modulefile @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/modulefile
-DESTINATION lib/${program_name}
+DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name}
 PERMISSIONS
  OWNER_WRITE
  OWNER_READ GROUP_READ WORLD_READ
@@ -60,7 +60,7 @@ install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/${program_name}.pc
     ${CMAKE_CURRENT_BINARY_DIR}/${program_name}Internals.pc
     ${CMAKE_CURRENT_BINARY_DIR}/${program_name}Wrapper.pc
-DESTINATION lib/pkgconfig
+DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
     PERMISSIONS
     OWNER_WRITE
     OWNER_READ GROUP_READ WORLD_READ
@@ -126,7 +126,7 @@ mpiexec @MPIEXEC_EXECUTABLE_name@
 )
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/config.txt
-DESTINATION lib/${program_name}/src/config
+DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name}/src/config
 PERMISSIONS
  OWNER_WRITE
  OWNER_READ GROUP_READ WORLD_READ

@@ -1,3 +1,3 @@
 
 install(FILES scripts.vim
-        DESTINATION lib/plumed/vim)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name}/vim)
