@@ -53,11 +53,16 @@ endif(enable_mpi)
 
 option(enable_dlopen "enable search for dlopen" ON)
 if(enable_dlopen)
-    if(CMAKE_DL_LIBS)
+    if(CMAKE_DL_LIBS )
         CONFIGSETTINGS(config CMAKE_DL_LIBS
             LINK_LIBRARIES "${CMAKE_DL_LIBS}"
             COMPILE_DEFINITIONS __PLUMED_HAS_DLOPEN
         )
+    if(CMAKE_DL_LIBS STREQUAL "dl")
+        list(APPEND PLUMED_LIBS -ldl)
+        else()
+        list(APPEND PLUMED_LIBS ${CMAKE_DL_LIBS})
+    endif()
     endif(CMAKE_DL_LIBS)
 endif(enable_dlopen)
 
@@ -358,3 +363,6 @@ install (TARGETS Config
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${program_name}/config
 )
 #print_target_property(ConfigInstall INCLUDE_DIRECTORIES)
+
+set(PLUMED_LD_FLAGS ${PLUMED_LD_FLAGS} PARENT_SCOPE)
+set(PLUMED_LIBS ${PLUMED_LIBS} PARENT_SCOPE)

@@ -4,6 +4,7 @@ project(Plumed2 LANGUAGES C CXX)
 
 set (CMAKE_CXX_STANDARD 11)
 set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
+
 include(GNUInstallDirs)
 
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
@@ -29,6 +30,9 @@ set(modulesForKernel "")
 ################################################################################
 #Setting up global options
 ################################################################################
+#these are needed to help in reconstruct the pkgconfigs
+set(PLUMED_LD_FLAGS "")
+set(PLUMED_LIBS "")
 #this may be deactivated when we want to copile something more static
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #  --enable-basic-warnings enable basic warnings, default: yes
@@ -331,9 +335,65 @@ set (TODO [[
 
 ]])
 
-    
-print_target_property(config INTERFACE_COMPILE_DEFINITIONS)
-print_target_property(cltools COMPILE_DEFINITIONS)
-print_target_property(config INTERFACE_LINK_LIBRARIES)
-print_target_property(config INTERFACE_INCLUDE_DIRECTORIES)
-print_target_property(config INTERFACE_COMPILE_OPTIONS)
+
+
+set(
+    CMAKE_ECHO_LINK_EXECUTABLE 
+    "<CMAKE_COMMAND> -E echo \"Flags: <FLAGS>\""
+    "<CMAKE_COMMAND> -E echo \"LinkFlags: <LINK_FLAGS>\""
+    "echo \"LinkLibraries: <LINK_LIBRARIES>\" > <TARGET>"
+)
+set(CMAKE_ECHO_STANDARD_LIBRARIES ${CMAKE_CXX_STANDARD_LIBRARIES})
+set(CMAKE_ECHO_FLAGS ${CMAKE_CXX_FLAGS})
+set(CMAKE_ECHO_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
+set(CMAKE_ECHO_IMPLICIT_LINK_DIRECTORIES ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
+
+set(CMAKE_ECHO_COMPILE_OBJECT
+"<CMAKE_COMMAND> -E echo \"<DEFINES>\" >> <TARGET>")
+
+file(WRITE null.echo "")
+
+
+
+
+#add_executable(LinkLine "")
+foreach(linkelper Shared Static Runtime)
+add_executable(Link${linkelper}
+    null.echo
+)
+
+set_target_properties(
+    Link${linkelper}  
+        PROPERTIES
+            LINKER_LANGUAGE ECHO
+            SUFFIX          ".txt"
+)
+add_custom_command(
+    TARGET Link${linkelper}
+    POST_BUILD
+    # COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
+    COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
+)
+endforeach(linkelper )
+
+target_link_libraries(LinkShared sharedplumedKernel PlumedStaticWrapper)
+target_link_libraries(LinkStatic archiveplumedKernel PlumedStaticWrapper)
+target_link_libraries(LinkRuntime PlumedDynamicWrapper)
+
+print_target_property(cltools COMPILE_DEFINITIONS)    
+
+foreach(opt STATIC_LIBRARY_OPTIONS 
+            INTERFACE_LINK_OPTIONS        LINK_OPTIONS
+            INTERFACE_LINK_FLAGS          LINK_FLAGS 
+            INTERFACE_COMPILE_DEFINITIONS COMPILE_DEFINITIONS
+            INTERFACE_COMPILE_OPTIONS     COMPILE_OPTIONS 
+            INTERFACE_LINK_LIBRARIES      LINK_LIBRARIES
+            INTERFACE_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES
+            )
+print_target_property(blas "${opt}" )    
+endforeach()
+
+message("PLUMED_LD_FLAGS: ${PLUMED_LIBS}")
+message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
+#LIST(REMOVE_DUPLICATES PLUMED_LD_FLAGS)
+#message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")

@@ -25,26 +25,30 @@ if (${externalLib}_FOUND)
     target_compile_definitions(${module_name}
         PUBLIC
         __PLUMED_HAS_EXTERNAL_BLAS=1)
-    include(CheckSourceCompiles)
+    include(CheckCXXSourceCompiles)
     #From the manual:The check is only performed once, with the result cached in
     #the variable named by <resultVar>. Every subsequent CMake run will re-use
     #this cached value rather than performing the check again, even if the
     #<code> changes. In order to force the check to be re-evaluated, the
     #variable named by <resultVar> must be manually removed from the cache.
-    set(CMAKE_REQUIRED_LIBRARIES "BLAS::BLAS")
-    check_source_compiles(CXX
+    set(CMAKE_REQUIRED_LIBRARIES BLAS::BLAS)
+    check_cxx_source_compiles(
     [[extern "C"
+        void srotg_(double*,double*,double*,double*);
         int main(void) {
             double a,b,c,s;
             srotg_(&a,&b,&c,&s);
-        }]]
+        }
+    ]]
     UnderscodeBlas)
-    check_source_compiles(CXX
+    check_cxx_source_compiles(
     [[extern "C"
+        void srotg(double*,double*,double*,double*);
         int main(void) {
             double a,b,c,s;
             srotg(&a,&b,&c,&s);
-        }]]
+        }
+    ]]
     noUnderscodeBlas
     )
     unset(CMAKE_REQUIRED_LIBRARIES)
@@ -62,11 +66,16 @@ if (${externalLib}_FOUND)
     target_link_libraries(${module_name}
         PUBLIC
         ${externalLib}::${externalLib})
+    list(APPEND PLUMED_LIBS ${BLAS_LIBRARIES})
+    list(APPEND PLUMED_LD_FLAGS ${BLAS_LINKER_FLAGS})
+    
 else()
     set(${externalLib}_FOUND OFF)
 endif (${externalLib}_FOUND)
-set (${externalLib}_FOUND ${externalLib}_FOUND PARENT_SCOPE)
 
+set (${externalLib}_FOUND ${externalLib}_FOUND PARENT_SCOPE)
+set(PLUMED_LD_FLAGS ${PLUMED_LD_FLAGS} PARENT_SCOPE)
+set(PLUMED_LIBS ${PLUMED_LIBS} PARENT_SCOPE)
 # print_target_property(${module_name} COMPILE_OPTIONS)
 # print_target_property(${module_name} COMPILE_DEFINITIONS)
 # print_target_property(${module_name} INTERFACE_COMPILE_DEFINITIONS)

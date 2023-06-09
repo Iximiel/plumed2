@@ -132,24 +132,45 @@ PERMISSIONS
  OWNER_READ GROUP_READ WORLD_READ
 )
 
-file(CONFIGURE OUTPUT Plumed.inc
-     CONTENT [[
+#$(LIBS) and $(LDFLAGS) are not so easy to get without using strange tricks
+set (Plumed_inc "")
+set (Plumed_inc_runtime [[
 PLUMED_RUNTIME_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@Wrapper.a" $(LIBS) $(LDFLAGS)
-PLUMED_STATIC_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a" $(LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
-PLUMED_SHARED_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@" $(LIBS) $(LDFLAGS)
 PLUMED_RUNTIME_DEPENDENCIES= ""
+]])
+set (Plumed_inc_static [[
+PLUMED_STATIC_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a" $(LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
 PLUMED_STATIC_DEPENDENCIES= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a"
+]])
+set (Plumed_inc_shared [[
+PLUMED_SHARED_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@" $(LIBS) $(LDFLAGS)
 PLUMED_SHARED_DEPENDENCIES= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@"
+]])
+set (Plumed_inc_fortran [[
 PLUMED_FORTRAN= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/@program_name@/fortran/plumed.f90"
 PLUMED_FORTRAN08= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/@program_name@/fortran/plumed_f08.f90"
-]]
+]])
+###
+###TODO: the toggle for the runtime plumed
+###
+if (ON)
+    string (APPEND Plumed_inc ${Plumed_inc_runtime})
+endif()
+###
+###TODO: the toggle for the static plumed
+###
+if (ON)
+string (APPEND Plumed_inc ${Plumed_inc_static})
+endif()
+string (APPEND Plumed_inc ${Plumed_inc_shared} ${Plumed_inc_fortran})
+
+file(CONFIGURE OUTPUT Plumed.inc
+    CONTENT ${Plumed_inc}
 )
-#the optionals are
-#ifdef AR_CR
-#	@echo "PLUMED_RUNTIME_LOAD= \"$(libdir)/lib$(program_name)Wrapper.a\" $(LIBS) $(LDFLAGS)" > $@
-#endif
-#ifeq ($(make_static_archive),yes)
-#	@echo "PLUMED_STATIC_LOAD= \"$(libdir)/lib$(program_name).a\" $(LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)" >> $@
-#	@echo "PLUMED_STATIC_DEPENDENCIES= \"$(libdir)/lib$(program_name).a\"" >> $@
-#endif
-	
+foreach(type runtime shared static)
+    set (Plumed_inc "")
+    string (APPEND Plumed_inc ${Plumed_inc_${type}} ${Plumed_inc_fortran})
+    file(CONFIGURE OUTPUT Plumed.inc.${type}
+        CONTENT ${Plumed_inc}
+    )    
+endforeach(type runtime shared static)
