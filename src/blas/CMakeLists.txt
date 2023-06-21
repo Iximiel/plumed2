@@ -66,7 +66,7 @@ if (${externalLib}_FOUND)
     target_link_libraries(${module_name}
         PUBLIC
         ${externalLib}::${externalLib})
-    list(APPEND PLUMED_LIBS ${BLAS_LIBRARIES})
+    list(APPEND PLUMED_DYNAMIC_LIBS ${BLAS_LIBRARIES})
     list(APPEND PLUMED_LD_FLAGS ${BLAS_LINKER_FLAGS})
     
 else()
@@ -75,7 +75,7 @@ endif (${externalLib}_FOUND)
 
 set (${externalLib}_FOUND ${externalLib}_FOUND PARENT_SCOPE)
 set(PLUMED_LD_FLAGS ${PLUMED_LD_FLAGS} PARENT_SCOPE)
-set(PLUMED_LIBS ${PLUMED_LIBS} PARENT_SCOPE)
+set(PLUMED_DYNAMIC_LIBS ${PLUMED_DYNAMIC_LIBS} PARENT_SCOPE)
 # print_target_property(${module_name} COMPILE_OPTIONS)
 # print_target_property(${module_name} COMPILE_DEFINITIONS)
 # print_target_property(${module_name} INTERFACE_COMPILE_DEFINITIONS)

@@ -33,6 +33,7 @@ set(modulesForKernel "")
 #these are needed to help in reconstruct the pkgconfigs
 set(PLUMED_LD_FLAGS "")
 set(PLUMED_LIBS "")
+set(PLUMED_DYNAMIC_LIBS "")
 #this may be deactivated when we want to copile something more static
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #  --enable-basic-warnings enable basic warnings, default: yes

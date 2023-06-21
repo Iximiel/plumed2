@@ -107,6 +107,7 @@ if(enable_zlib)
             LINK_LIBRARIES ZLIB::ZLIB
             COMPILE_DEFINITIONS __PLUMED_HAS_ZLIB
     )
+    list(APPEND PLUMED_DYNAMIC_LIBS ${ZLIB_LIBRARY_RELEASE})
 endif(enable_zlib)
 
 option(enable_gsl "enable search for gsl" ON)
@@ -116,6 +117,7 @@ if(enable_gsl)
             LINK_LIBRARIES GSL::gsl GSL::gslcblas
             COMPILE_DEFINITIONS __PLUMED_HAS_GSL
     )
+    list(APPEND PLUMED_DYNAMIC_LIBS ${GSL_LDFLAGS})
 endif(enable_gsl)
 
 option(enable_fftw "enable search for fftw3" ON)
@@ -127,6 +129,7 @@ if(enable_fftw)
         LINK_LIBRARIES PkgConfig::FFTW
         COMPILE_DEFINITIONS __PLUMED_HAS_FFTW
     )
+    list(APPEND PLUMED_DYNAMIC_LIBS ${FFTW_LDFLAGS})
 endif(enable_fftw)
 
 #  --enable-cregex         enable search for C regular expression, default: yes
@@ -366,3 +369,4 @@ install (TARGETS Config
 
 set(PLUMED_LD_FLAGS ${PLUMED_LD_FLAGS} PARENT_SCOPE)
 set(PLUMED_LIBS ${PLUMED_LIBS} PARENT_SCOPE)
+set(PLUMED_DYNAMIC_LIBS ${PLUMED_DYNAMIC_LIBS} PARENT_SCOPE)
