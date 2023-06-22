@@ -30,11 +30,14 @@ set(modulesForKernel "")
 ################################################################################
 #Setting up global options
 ################################################################################
-#these are needed to help in reconstruct the pkgconfigs
+#these are needed to help in reconstruct the pkgconfigs and the *.inc like in
+#the original Makefile
 set(PLUMED_LD_FLAGS "")
 set(PLUMED_LIBS "")
 set(PLUMED_DYNAMIC_LIBS "")
+
 #this may be deactivated when we want to copile something more static
+#This automatically adds the correct equivalent to -fPIC to the compiler
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #  --enable-basic-warnings enable basic warnings, default: yes
 option(enable_warnings_basic "enable basic warnings" ON)
@@ -138,6 +141,8 @@ if(all_modules)
     endforeach(dir ${toggabledirs})
 endif()
 
+#adding -lstdc++ -lc++ is done automatically by cmake
+
 #options ## options are already done
 ##  --bindir=DIR            user executables [EPREFIX/bin]
 ##  --sbindir=DIR           system admin executables [EPREFIX/sbin]
@@ -186,8 +191,6 @@ endif()
 #                          for testing!, default: yes
 #  --enable-loader-path    enable use @loader_path to find
 #                          libplumedKernel.dylib (OSX only), default: yes
-#  --enable-bsymbolic      enable use -Bsymbolic flag in making shared
-#                          libraries (Linux only), default: yes
 #  --enable-ld-r           enable group object files, default: yes
 #  --enable-ar-cr          enable use ar to build libplumedWrapper.a, default:
 #                          yes
@@ -394,7 +397,10 @@ foreach(opt STATIC_LIBRARY_OPTIONS
 print_target_property(blas "${opt}" )    
 endforeach()
 
-message("PLUMED_LD_FLAGS: ${PLUMED_LIBS}")
+message("PLUMED_LIBS: ${PLUMED_LIBS}")
+message("PLUMED_DYNAMIC_LIBS: ${PLUMED_DYNAMIC_LIBS}")
 message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
+message("CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
 #LIST(REMOVE_DUPLICATES PLUMED_LD_FLAGS)
 #message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
+

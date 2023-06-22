@@ -39,6 +39,7 @@ add_library(config INTERFACE)
 ################################################################################
 find_package(PkgConfig REQUIRED)
 include(CheckSourceCompiles)
+include(CheckSourceRuns)
 include(CheckCXXSymbolExists)
 include(CMakePushCheckState)
 #  --enable-mpi            enable search for mpi, default: yes
@@ -87,39 +88,6 @@ if(enable_rtld_default)
         )
 endif(enable_rtld_default)
 
-
-#  --disable-openmp        do not use OpenMP
-option(enable_openmp "enable search for openmp" ON)
-if(enable_openmp)
-    find_package(OpenMP)
-    CONFIGSETTINGS(config OpenMP_CXX_FOUND
-        LINK_LIBRARIES OpenMP::OpenMP_CXX
-    )
-    #if(OpenMP_CXX_FOUND)
-    #    target_link_libraries(config INTERFACE OpenMP::OpenMP_CXX)
-    #endif(OpenMP_CXX_FOUND)
-endif(enable_openmp)
-
-option(enable_zlib "enable search for zlib" ON)
-if(enable_zlib)
-    find_package(ZLIB)
-    CONFIGSETTINGS(config ZLIB_FOUND
-            LINK_LIBRARIES ZLIB::ZLIB
-            COMPILE_DEFINITIONS __PLUMED_HAS_ZLIB
-    )
-    list(APPEND PLUMED_DYNAMIC_LIBS ${ZLIB_LIBRARY_RELEASE})
-endif(enable_zlib)
-
-option(enable_gsl "enable search for gsl" ON)
-if(enable_gsl)
-    find_package(GSL)
-    CONFIGSETTINGS(config GSL_FOUND
-            LINK_LIBRARIES GSL::gsl GSL::gslcblas
-            COMPILE_DEFINITIONS __PLUMED_HAS_GSL
-    )
-    list(APPEND PLUMED_DYNAMIC_LIBS ${GSL_LDFLAGS})
-endif(enable_gsl)
-
 option(enable_fftw "enable search for fftw3" ON)
 if(enable_fftw)
     #consider to make this more elegant: see lammps or eigen or use
@@ -128,9 +96,29 @@ if(enable_fftw)
     CONFIGSETTINGS(config FFTW_FOUND
         LINK_LIBRARIES PkgConfig::FFTW
         COMPILE_DEFINITIONS __PLUMED_HAS_FFTW
+        PLUMED_DYNAMIC_LIBS ${FFTW_LDFLAGS}
     )
-    list(APPEND PLUMED_DYNAMIC_LIBS ${FFTW_LDFLAGS})
 endif(enable_fftw)
+
+option(enable_gsl "enable search for gsl" ON)
+if(enable_gsl)
+    find_package(GSL)
+    CONFIGSETTINGS(config GSL_FOUND
+            LINK_LIBRARIES GSL::gsl GSL::gslcblas
+            COMPILE_DEFINITIONS __PLUMED_HAS_GSL
+            PLUMED_DYNAMIC_LIBS ${GSL_LDFLAGS}
+    )
+endif(enable_gsl)
+
+option(enable_zlib "enable search for zlib" ON)
+if(enable_zlib)
+    find_package(ZLIB)
+    CONFIGSETTINGS(config ZLIB_FOUND
+            LINK_LIBRARIES ZLIB::ZLIB
+            COMPILE_DEFINITIONS __PLUMED_HAS_ZLIB
+            PLUMED_DYNAMIC_LIBS ${ZLIB_LIBRARY_RELEASE}
+    )
+endif(enable_zlib)
 
 #  --enable-cregex         enable search for C regular expression, default: yes
 option(enable_cregex "enable search for C regular expression" ON)
@@ -325,6 +313,39 @@ option(enable_absolute_soname
     OFF)
 ##############################################################################
 
+option(enable_bsymbolic "enable the flag -Wl,-Bsymbolic at link time" ON)
+if(enable_bsymbolic)
+    set(BsymbolicFLAGS "-Wl,-Bsymbolic")
+    list(APPEND CMAKE_REQUIRED_LIBRARIES ${BsymbolicFLAGS})
+	check_source_compiles(CXX
+	[=[
+	int main ()
+	{
+	  return 0;
+	}
+	]=]
+	HAVE_BSYMBOLIC
+	)
+	list(REMOVE_ITEM CMAKE_REQUIRED_LIBRARIES ${BsymbolicFLAGS})
+	if (HAVE_BSYMBOLIC)
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${BsymbolicFLAGS}")
+        list(APPEND PLUMED_DYNAMIC_LIBS ${BsymbolicFLAGS})
+        else()
+        message(WARNING "${BsymbolicFLAGS} cannot be enabled in the compiler")
+    endif(HAVE_BSYMBOLIC)
+endif(enable_bsymbolic)
+#  --disable-openmp        do not use OpenMP
+option(enable_openmp "enable search for openmp" ON)
+if(enable_openmp)
+    find_package(OpenMP)
+    CONFIGSETTINGS(config OpenMP_CXX_FOUND
+        LINK_LIBRARIES OpenMP::OpenMP_CXX
+        PLUMED_DYNAMIC_LIBS ${OpenMP_CXX_FLAGS}
+    )
+    #if(OpenMP_CXX_FOUND)
+    #    target_link_libraries(config INTERFACE OpenMP::OpenMP_CXX)
+    #endif(OpenMP_CXX_FOUND)
+endif(enable_openmp)
 ################################################################################
 #                            compilers                                         #
 ################################################################################
@@ -367,6 +388,26 @@ install (TARGETS Config
 )
 #print_target_property(ConfigInstall INCLUDE_DIRECTORIES)
 
+#adding -lstdc++ -lc++ is done automatically by cmake
+#this is set up to replicate the behaviour of creating
+#in the original make, for the various Plumed.inc
+#  --enable-libsearch      enable search for libraries, default: yes
+option(enable_libsearch "enable search for libraries" ON)
+if(enable_libsearch)
+    foreach(testlib "-lstdc++" "-lc++" "-lmpi_cxx")
+    check_source_runs(C
+"#include <stdlib.h>
+void f(){}
+int main(void) { f(); return 0; }"
+    HAVE_${testlib})
+    if (HAVE_${testlib})
+        list(APPEND PLUMED_DYNAMIC_LIBS ${testlib})
+        break()
+    endif (HAVE_${testlib})
+    endforeach(testlib)
+endif(enable_libsearch)
+
 set(PLUMED_LD_FLAGS ${PLUMED_LD_FLAGS} PARENT_SCOPE)
 set(PLUMED_LIBS ${PLUMED_LIBS} PARENT_SCOPE)
 set(PLUMED_DYNAMIC_LIBS ${PLUMED_DYNAMIC_LIBS} PARENT_SCOPE)
+set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS} PARENT_SCOPE)
