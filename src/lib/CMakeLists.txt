@@ -68,17 +68,50 @@ DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 ]])
 
 set(listModules)
+set(PLUMED_HAS)
+set(PLUMED_HAS_wip)
+macro(CHECKHASDEFINES module)
+    message("CHECKHASDEFINES ${module}")
+    if(TARGET ${module})
+        get_target_property(module_has ${module} COMPILE_DEFINITIONS)
+        foreach(def ${module_has})
+            string(REGEX MATCH "__PLUMED_HAS_[A-Z_]*" t ${def}) 
+            list(APPEND PLUMED_HAS_wip ${t})
+        endforeach()
+        get_target_property(module_has ${module} INTERFACE_COMPILE_DEFINITIONS)
+        foreach(def ${module_has})
+            string(REGEX MATCH "__PLUMED_HAS_[A-Z_]*" t ${def}) 
+            list(APPEND PLUMED_HAS_wip ${t})
+        endforeach()
+    endif(TARGET ${module})
+endmacro(CHECKHASDEFINES)
+
 foreach(dir ${toggabledirs} ${mayBeExternal})
     set (temp "module ${dir} ${module_${dir}} (default-?)")
     string(TOLOWER ${temp} temp)
     list(APPEND listModules ${temp})
+    CHECKHASDEFINES(${dir})
 endforeach(dir ${toggabledirs} ${mayBeExternal})
-foreach(dir core tools lepton blas lapack asmjit)
+foreach(dir ${alwaysOnDirs})
     set (temp "module ${dir} ${module_${dir}} (always)")
     string(TOLOWER ${temp} temp)
     list(APPEND listModules ${temp})
-endforeach(dir core tools lepton blas lapack asmjit)
+    get_target_property(module_has ${dir} COMPILE_DEFINITIONS)
+    CHECKHASDEFINES(${dir})
+endforeach(dir ${alwaysOnDirs})
+CHECKHASDEFINES(config)
 list(SORT listModules)
+list(REMOVE_DUPLICATES PLUMED_HAS_wip)
+
+message(${PLUMED_HAS_wip})
+
+foreach(t ${PLUMED_HAS_wip})
+    string(REGEX REPLACE "__PLUMED_HAS_"  "" t ${t})
+    string(TOLOWER ${t} t)
+    LIST(APPEND PLUMED_HAS "has ${t} on")
+endforeach(t ${PLUMED_HAS_wip})
+list(SORT PLUMED_HAS)
+list(JOIN PLUMED_HAS "\n" PLUMED_HAS)
 
 SET(CONTENTS "")
 FOREACH(line IN LISTS listModules)
@@ -110,6 +143,7 @@ mpiexec @MPIEXEC_EXECUTABLE_name@
 
 # list of 'has' options
 # syntax: has name on/of
+# if option xx is on then plumed has been compiled with -D__PLUMED_HAS_XX
 @PLUMED_HAS@
 
 # other defines

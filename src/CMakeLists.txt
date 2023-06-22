@@ -122,7 +122,8 @@ set(mayBeExternal blas lapack molfile)
 list(REMOVE_ITEM dirs main ${utildirs} ${execDirs} ${mayBeExternal})
 #this is needed for making "all_modules" work
 set(toggabledirs ${dirs})
-list(REMOVE_ITEM toggabledirs core tools lepton blas lapack asmjit)
+set(alwaysOnDirs core tools lepton blas lapack asmjit)
+list(REMOVE_ITEM ${alwaysOnDirs})
 
 foreach(dir ${execDirs})
     add_subdirectory(${dir})
