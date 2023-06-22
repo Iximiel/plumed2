@@ -112,21 +112,21 @@ include(plumedCMakeMacros)
 ################################################################################
 
 SUBDIRLIST(alldirs ${CMAKE_CURRENT_SOURCE_DIR})# CACHE INTERNAL FORCE)
-set(dirs ${alldirs})# CACHE INTERNAL FORCE)
+set(module_dirs ${alldirs})# CACHE INTERNAL FORCE)
 #directories that do not contain modules
 set(utildirs lib include maketools cmake)
 #these are the diretory to compile that do not have a module.type inside
 set(execDirs config wrapper) #removed main
 #these are directory with codes that may be external
 set(mayBeExternal blas lapack molfile)
-list(REMOVE_ITEM dirs main ${utildirs} ${execDirs} ${mayBeExternal})
+list(REMOVE_ITEM module_dirs main ${utildirs} ${execDirs} ${mayBeExternal})
 #this is needed for making "all_modules" work
-set(toggabledirs ${dirs})
-set(mayBeExternal_toggable ${mayBeExternal})
-set(alwaysOnDirs core tools lepton blas lapack asmjit)
+#set(toggabledirs ${module_dirs})
+#set(mayBeExternal_toggable ${mayBeExternal})
+#set(alwaysOnDirs core tools lepton blas lapack asmjit)
 
-list(REMOVE_ITEM toggabledirs ${alwaysOnDirs})
-list(REMOVE_ITEM mayBeExternal_toggable ${alwaysOnDirs})
+#list(REMOVE_ITEM toggabledirs ${alwaysOnDirs})
+#list(REMOVE_ITEM mayBeExternal_toggable ${alwaysOnDirs})
 
 foreach(dir ${execDirs})
     add_subdirectory(${dir})
@@ -136,14 +136,18 @@ foreach(dir ${mayBeExternal})
     add_subdirectory(${dir})
 endforeach(dir ${mayBeExternal})
 
-foreach(dir ${dirs})
+foreach(dir ${module_dirs})
     add_subdirectory(${dir})
-endforeach(dir ${dirs})
+endforeach(dir ${module_dirs})
 if(all_modules)
     message("All module will be forced ON")
-    foreach(dir ${toggabledirs})
-        set(module_${dir} ON CACHE BOOL "activate module ${dir}" FORCE)
-    endforeach(dir ${toggabledirs})
+    foreach(dir ${module_dirs})
+        if(${module_default_${dir}} STREQUAL "always")
+            continue()
+            else()
+            set(module_${dir} ON CACHE BOOL "activate module ${dir}" FORCE)
+        endif()
+    endforeach(dir ${module_dirs})
 endif()
 
 #adding -lstdc++ -lc++ is done automatically by cmake
@@ -215,12 +219,12 @@ endif()
 ################################################################################
 
 #for debugging purpose
-#foreach(dir ${dirs} ${execDirs} ${mayBeExternal})
+#foreach(dir ${module_dirs} ${execDirs} ${mayBeExternal})
 #    message("${dir}: ${module_${dir}}")
-#endforeach(dir ${dirs} ${execDirs} ${mayBeExternal})
+#endforeach(dir ${module_dirs} ${execDirs} ${mayBeExternal})
 
 #check module dependencies
-foreach(dir ${dirs} ${mayBeExternal})
+foreach(dir ${module_dirs})
     if(${module_${dir}})
         set(notFound "")
         #message("${dir} ${moduleNeeds_${dir}}")
@@ -242,7 +246,7 @@ foreach(dir ${dirs} ${mayBeExternal})
         endif(notFound)
         unset(notFound)
     endif(${module_${dir}})
-endforeach(dir ${dirs})
+endforeach(dir ${module_dirs})
 if (${modulesDependenciesProblems})
     message(FATAL_ERROR "Problems in module dependencies")
 endif(${modulesDependenciesProblems})
