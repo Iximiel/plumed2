@@ -402,11 +402,16 @@ int main(void) { f(); return 0; }"
     HAVE_${testlib})
     if (HAVE_${testlib})
         list(APPEND PLUMED_DYNAMIC_LIBS ${testlib})
+        #adds only the first c++ main library
         break()
     endif (HAVE_${testlib})
     endforeach(testlib)
 endif(enable_libsearch)
 
+if(CMAKE_ENABLE_EXPORTS)
+    #this is maybe a bit too crude
+    list(APPEND PLUMED_DYNAMIC_LIBS -rdynamic)
+endif(CMAKE_ENABLE_EXPORTS)
 set(PLUMED_LD_FLAGS ${PLUMED_LD_FLAGS} PARENT_SCOPE)
 set(PLUMED_LIBS ${PLUMED_LIBS} PARENT_SCOPE)
 set(PLUMED_DYNAMIC_LIBS ${PLUMED_DYNAMIC_LIBS} PARENT_SCOPE)

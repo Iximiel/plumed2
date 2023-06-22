@@ -132,28 +132,40 @@ PERMISSIONS
  OWNER_READ GROUP_READ WORLD_READ
 )
 
-#the list are not modi
-list(JOIN PLUMED_LIBS " " PLUMED_LIBS)
-list(JOIN PLUMED_DYNAMIC_LIBS " " PLUMED_DYNAMIC_LIBS)
-list(JOIN PLUMED_DYNAMIC_LIBS " " PLUMED_DYNAMIC_LIBS)
+#the list are not modified in the parent scope
+foreach(v PLUMED_LIBS  PLUMED_DYNAMIC_LIBS)
+    set(t "")
+    foreach(s ${${v}})
+        string(REGEX REPLACE ".*lib" "-l" tt ${s})
+        string(REGEX REPLACE "(\.so$|\.a$)" "" tt ${tt})
+        list(APPEND t ${tt})
+    endforeach()
+    #list(SORT t)
+    list(JOIN t " " ${v})
 
+endforeach(v )
+
+#list(JOIN PLUMED_LIBS " " PLUMED_LIBS)
+#list(JOIN PLUMED_DYNAMIC_LIBS " " PLUMED_DYNAMIC_LIBS)
+list(JOIN PLUMED_LD_FLAGS " " PLUMED_LD_FLAGS)
+file(REAL_PATH ${CMAKE_INSTALL_PREFIX} CMAKE_INSTALL_PATH)
 #$(LIBS) and $(LDFLAGS) are not so easy to get without using strange tricks
 set (Plumed_inc "")
 set (Plumed_inc_runtime [[
-PLUMED_RUNTIME_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@Wrapper.a" @PLUMED_LIBS@ @PLUMED_LD_FLAGS@
+PLUMED_RUNTIME_LOAD= "@CMAKE_INSTALL_PATH@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@Wrapper.a" @PLUMED_LIBS@ @PLUMED_LD_FLAGS@
 PLUMED_RUNTIME_DEPENDENCIES= ""
 ]])
 set (Plumed_inc_static [[
-PLUMED_STATIC_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a" @PLUMED_LIBS@ @PLUMED_DYNAMIC_LIBS@ @PLUMED_LD_FLAGS@
-PLUMED_STATIC_DEPENDENCIES= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a"
+PLUMED_STATIC_LOAD= "@CMAKE_INSTALL_PATH@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a" @PLUMED_LIBS@ @PLUMED_DYNAMIC_LIBS@ @PLUMED_LD_FLAGS@
+PLUMED_STATIC_DEPENDENCIES= "@CMAKE_INSTALL_PATH@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.a"
 ]])
 set (Plumed_inc_shared [[
-PLUMED_SHARED_LOAD= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@" @PLUMED_LIBS@ @PLUMED_LD_FLAGS@
-PLUMED_SHARED_DEPENDENCIES= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@"
+PLUMED_SHARED_LOAD= "@CMAKE_INSTALL_PATH@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@" @PLUMED_LIBS@ @PLUMED_LD_FLAGS@
+PLUMED_SHARED_DEPENDENCIES= "@CMAKE_INSTALL_PATH@/@CMAKE_INSTALL_LIBDIR@/lib@program_name@.@SOEXT@"
 ]])
 set (Plumed_inc_fortran [[
-PLUMED_FORTRAN= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/@program_name@/fortran/plumed.f90"
-PLUMED_FORTRAN08= "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/@program_name@/fortran/plumed_f08.f90"
+PLUMED_FORTRAN= "@CMAKE_INSTALL_PATH@/@CMAKE_INSTALL_LIBDIR@/@program_name@/fortran/plumed.f90"
+PLUMED_FORTRAN08= "@CMAKE_INSTALL_PATH@/@CMAKE_INSTALL_LIBDIR@/@program_name@/fortran/plumed_f08.f90"
 ]])
 ###
 ###TODO: the toggle for the runtime plumed

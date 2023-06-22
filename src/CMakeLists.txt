@@ -38,7 +38,8 @@ set(PLUMED_DYNAMIC_LIBS "")
 
 #this may be deactivated when we want to copile something more static
 #This automatically adds the correct equivalent to -fPIC to the compiler
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+option(CMAKE_POSITION_INDEPENDENT_CODE "set the flags for position independent code" ON)
+option(CMAKE_ENABLE_EXPORTS "Set the -rdynamic equivalent for your compiler" ON)
 #  --enable-basic-warnings enable basic warnings, default: yes
 option(enable_warnings_basic "enable basic warnings" ON)
 if(enable_warnings_basic)
