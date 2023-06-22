@@ -70,6 +70,33 @@ DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 set(listModules)
 set(PLUMED_HAS)
 set(PLUMED_HAS_wip)
+#this is a wip, need to be more automated
+set(PLUMED_HAS_not
+__PLUMED_HAS_ARRAYFIRE_CUDA
+__PLUMED_HAS_ARRAYFIRE_OCL
+__PLUMED_HAS_ARRAYFIRE
+__PLUMED_HAS_ASMJIT
+__PLUMED_HAS_BOOST_GRAPH
+__PLUMED_HAS_BOOST_SERIALIZATION
+__PLUMED_HAS_CHDIR
+__PLUMED_HAS_CREGEX
+__PLUMED_HAS_DLOPEN
+__PLUMED_HAS_EXECINFO
+__PLUMED_HAS_EXTERNAL_BLAS
+__PLUMED_HAS_EXTERNAL_LAPACK
+__PLUMED_HAS_EXTERNAL_MOLFILE_PLUGINS
+__PLUMED_HAS_FFTW
+__PLUMED_HAS_GETCWD
+__PLUMED_HAS_GSL
+__PLUMED_HAS_LIBTORCH
+__PLUMED_HAS_MOLFILE_PLUGINS
+__PLUMED_HAS_MPI
+__PLUMED_HAS_POPEN
+__PLUMED_HAS_PYTHON
+__PLUMED_HAS_READDIR_R
+__PLUMED_HAS_RTLD_DEFAULT
+__PLUMED_HAS_SUBPROCESS
+__PLUMED_HAS_ZLIB)
 macro(CHECKHASDEFINES module)
     message("CHECKHASDEFINES ${module}")
     if(TARGET ${module})
@@ -77,38 +104,47 @@ macro(CHECKHASDEFINES module)
         foreach(def ${module_has})
             string(REGEX MATCH "__PLUMED_HAS_[A-Z_]*" t ${def}) 
             list(APPEND PLUMED_HAS_wip ${t})
+            list(REMOVE_ITEM PLUMED_HAS_not ${t})
         endforeach()
         get_target_property(module_has ${module} INTERFACE_COMPILE_DEFINITIONS)
         foreach(def ${module_has})
             string(REGEX MATCH "__PLUMED_HAS_[A-Z_]*" t ${def}) 
             list(APPEND PLUMED_HAS_wip ${t})
+            list(REMOVE_ITEM PLUMED_HAS_not ${t})
         endforeach()
     endif(TARGET ${module})
 endmacro(CHECKHASDEFINES)
 
-foreach(dir ${toggabledirs} ${mayBeExternal})
-    set (temp "module ${dir} ${module_${dir}} (default-?)")
+foreach(dir ${alwaysOnDirs} ${toggabledirs} ${mayBeExternal})
+    if(${module_default_${dir}} STREQUAL "always")
+        set (default "always")
+    elseif(${module_default_${dir}})
+        set (default "default-on")
+    else()
+        set (default "default-off")
+    endif()
+    set (temp "module ${dir} ${module_${dir}} (${default})")
     string(TOLOWER ${temp} temp)
     list(APPEND listModules ${temp})
     CHECKHASDEFINES(${dir})
-endforeach(dir ${toggabledirs} ${mayBeExternal})
-foreach(dir ${alwaysOnDirs})
-    set (temp "module ${dir} ${module_${dir}} (always)")
-    string(TOLOWER ${temp} temp)
-    list(APPEND listModules ${temp})
-    get_target_property(module_has ${dir} COMPILE_DEFINITIONS)
-    CHECKHASDEFINES(${dir})
-endforeach(dir ${alwaysOnDirs})
+endforeach(dir ${toggabledirs} ${mayBeExternal_toggable})
+
 CHECKHASDEFINES(config)
+list(REMOVE_DUPLICATES listModules)
 list(SORT listModules)
 list(REMOVE_DUPLICATES PLUMED_HAS_wip)
 
-message(${PLUMED_HAS_wip})
 
 foreach(t ${PLUMED_HAS_wip})
     string(REGEX REPLACE "__PLUMED_HAS_"  "" t ${t})
     string(TOLOWER ${t} t)
     LIST(APPEND PLUMED_HAS "has ${t} on")
+endforeach(t ${PLUMED_HAS_wip})
+
+foreach(t ${PLUMED_HAS_not})
+    string(REGEX REPLACE "__PLUMED_HAS_"  "" t ${t})
+    string(TOLOWER ${t} t)
+    LIST(APPEND PLUMED_HAS "has ${t} off")
 endforeach(t ${PLUMED_HAS_wip})
 list(SORT PLUMED_HAS)
 list(JOIN PLUMED_HAS "\n" PLUMED_HAS)
