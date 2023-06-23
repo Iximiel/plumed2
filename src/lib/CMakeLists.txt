@@ -70,7 +70,7 @@ DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 set(listModules)
 set(PLUMED_HAS)
 set(PLUMED_HAS_wip)
-#this is a wip, need to be more automated
+#PLUMED_HAS_not is a wip, need to be more automated
 set(PLUMED_HAS_not
 __PLUMED_HAS_ARRAYFIRE_CUDA
 __PLUMED_HAS_ARRAYFIRE_OCL
@@ -149,13 +149,9 @@ endforeach(t ${PLUMED_HAS_wip})
 list(SORT PLUMED_HAS)
 list(JOIN PLUMED_HAS "\n" PLUMED_HAS)
 
-SET(CONTENTS "")
-FOREACH(line IN LISTS listModules)
-   SET(CONTENTS "${CONTENTS}${line}\n")
-ENDFOREACH(line)
-#message(${CONTENTS})
-#set(toggabledirs ${dirs})
-#list(REMOVE_ITEM toggabledirs core tools lepton blas lapack asmjit)
+list(JOIN listModules "\n" CONTENTS)
+
+
 if (MPIEXEC_EXECUTABLE)
     set (MPIEXEC_EXECUTABLE_name ${MPIEXEC_EXECUTABLE})
 endif()
