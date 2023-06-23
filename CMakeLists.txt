@@ -14,6 +14,14 @@ execute_process(
 set(PLUMED_VERSION_MAJOR 2)
 set(PLUMED_VERSION_MINOR 10)
 set(PLUMED_VERSION_PATCH 0)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release
+RelWithDebInfo MinSizeRel." FORCE)
+endif(NOT CMAKE_BUILD_TYPE)
+
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithDebInfo MinSizeRel)
+
 #as now CMake is only experimental, it can be useful if you use vscode or other
 #IDE that have an interface with it, but we are not still confident that it is ready
 #for installation purposes
@@ -25,6 +33,7 @@ endif(NOT risk_accepted)
 set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 include(GNUInstallDirs)
 #set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${program_name})
+
 
 add_subdirectory(src)
 add_subdirectory(scripts)

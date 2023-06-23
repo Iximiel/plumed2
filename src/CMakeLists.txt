@@ -7,8 +7,6 @@ set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 
 include(GNUInstallDirs)
 
-set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithDebInfo MinSizeRel)
 #some settingsvalues
 set(program_name "plumed" CACHE STRING "the name of the main executable")
 string(REPLACE "." "" soextension ${CMAKE_SHARED_LIBRARY_SUFFIX})
