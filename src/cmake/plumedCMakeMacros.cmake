@@ -1,61 +1,72 @@
 include_guard(GLOBAL)
-macro(ADDMODULETOKERNEL module_name)
-    #use: ADDMODULETOKERNEL(module_name SOURCES listOfSources
+macro(DECLAREPLUMEDMODULE module_name default_status)
+    #use: DECLAREPLUMEDMODULE(<module_name> <default_status>
+    #SOURCES listOfSources
     #[EXTRA_HEADERS files]
     #[NEEDS module names]
     #[DEPENDS module names]
     #)
     #Please write the source files explicitly
+    # ``<default_status>`` must be either ON OFF or "always"
+    
+    #the first set and option are not overriden on subsequent runs of cmake
+    if(${default_status} STREQUAL "always")
+        set(module_${module_name} ON CACHE INTERNAL "always active module ${module_name}")
+        else()
+        option(module_${module_name} "activate module ${module_name}" ${default_status})
+    endif(${default_status} STREQUAL "always")
+    set(module_default_${module_name} ${default_status} CACHE INTERNAL "default status of the module ${module_name}")
+    
     set(options "")
     set(oneValueArgs "")
     set(multiValueArgs SOURCES EXTRA_HEADERS NEEDS DEPENDS)
-    cmake_parse_arguments(ADDMODULETOKERNEL "${options}" "${oneValueArgs}"
+    cmake_parse_arguments(DECLAREPLUMEDMODULE "${options}" "${oneValueArgs}"
                       "${multiValueArgs}" "${ARGN}" )
     if (VERBOSE)
         message("for module ${module_name}")
-        message("SOURCES ${ADDMODULETOKERNEL_SOURCES}")
-        if(ADDMODULETOKERNEL_NEEDS)
-            message("NEEDS ${ADDMODULETOKERNEL_NEEDS}")
+        message("SOURCES ${DECLAREPLUMEDMODULE_SOURCES}")
+        if(DECLAREPLUMEDMODULE_NEEDS)
+            message("NEEDS ${DECLAREPLUMEDMODULE_NEEDS}")
         endif()
-        if(ADDMODULETOKERNEL_DEPENDS)
-            message("DEPENDS ${ADDMODULETOKERNEL_DEPENDS}")
+        if(DECLAREPLUMEDMODULE_DEPENDS)
+            message("DEPENDS ${DECLAREPLUMEDMODULE_DEPENDS}")
         endif()
-        if(ADDMODULETOKERNEL_EXTRA_HEADERS)
-            message("EXTRA_HEADERS ${ADDMODULETOKERNEL_EXTRA_HEADERS}")
+        if(DECLAREPLUMEDMODULE_EXTRA_HEADERS)
+            message("EXTRA_HEADERS ${DECLAREPLUMEDMODULE_EXTRA_HEADERS}")
         endif()
     endif()
 
-    set(moduleNeeds_${module_name} ${ADDMODULETOKERNEL_NEEDS} PARENT_SCOPE)
+    set(moduleNeeds_${module_name} ${DECLAREPLUMEDMODULE_NEEDS} PARENT_SCOPE)
     
     if(${module_${module_name}} )
-        add_library(${module_name} OBJECT ${ADDMODULETOKERNEL_SOURCES})
+        add_library(${module_name} OBJECT ${DECLAREPLUMEDMODULE_SOURCES})
         target_include_directories(${module_name} PRIVATE ${PLUMED_SRC})
         list(APPEND modulesForKernel ${module_name})
         set(modulesForKernel ${modulesForKernel} PARENT_SCOPE)
         #add default headers
-        foreach(file ${ADDMODULETOKERNEL_SOURCES})
+        foreach(file ${DECLAREPLUMEDMODULE_SOURCES})
             get_filename_component(filename ${file} NAME_WE)    
             if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/${filename}.h")
                 set_property(TARGET ${module_name} APPEND
                     PROPERTY PUBLIC_HEADER "${filename}.h")
             endif ()
         endforeach()
-        if (ADDMODULETOKERNEL_DEPENDS)
-            foreach(lib ${ADDMODULETOKERNEL_DEPENDS})
+        if (DECLAREPLUMEDMODULE_DEPENDS)
+            foreach(lib ${DECLAREPLUMEDMODULE_DEPENDS})
                 #message("${module_name} is linked with ${lib}")
                 target_link_libraries(${module_name} PUBLIC ${lib})
-            endforeach(lib ${ADDMODULETOKERNEL_DEPENDS})
-        endif(ADDMODULETOKERNEL_DEPENDS)
-        if(ADDMODULETOKERNEL_EXTRA_HEADERS)
+            endforeach(lib ${DECLAREPLUMEDMODULE_DEPENDS})
+        endif(DECLAREPLUMEDMODULE_DEPENDS)
+        if(DECLAREPLUMEDMODULE_EXTRA_HEADERS)
             set_property(TARGET ${module_name} APPEND
-                PROPERTY PUBLIC_HEADER ${ADDMODULETOKERNEL_EXTRA_HEADERS})
+                PROPERTY PUBLIC_HEADER ${DECLAREPLUMEDMODULE_EXTRA_HEADERS})
         endif()
         install (TARGETS ${module_name}
             PUBLIC_HEADER
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plumed/${module_name}
         )
     endif(${module_${module_name}})
-endmacro(ADDMODULETOKERNEL)
+endmacro(DECLAREPLUMEDMODULE)
 
 function(CONFIGSETTINGS module_name settingFlag)
     set(options "")

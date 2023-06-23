@@ -20,22 +20,25 @@ createCMakeLists() {
 			(
 				cd $dir || exit
 				{
-					echo "message(WARNING \"${dir} has an automatically generated CMakeLists.txt, if it does not work modify it and remove this warning\")"
+					echo "message(WARNING \"${dir} has an automatically generated CMakeLists.txt by createCMakeLists.sh, if it does not work modify it and remove this warning\")"
 					echo "#the variable module_name is set up as a sugar to reduce \"copy-paste\" errors"
 					echo "set (module_name \"${dir}\")"
-					echo "#Note that the macros here require this directory added as a subdir of plumed/src"
+					echo "#Note that the macro DECLAREPLUMEDMODULE require this directory added as a subdir of plumed/src or plumedCMakeMacros included"
 
 					if [[ $(wc -l <Makefile) -gt 4 ]]; then
 						#this makes you work on the CMakeLists.txt to keep up with the non-standard Makefile
 						echo "message (FATAL_ERROR \"\${module_name} has a non standard Makefile (more than 4 lines) you need to modify the CMakeLists.txt!\")"
 					fi
 
+					echo "DECLAREPLUMEDMODULE(\${module_name}"
+					#default activation state of the module
 					case "$(cat "module.type")" in
-					always) echo "set(module_\${module_name} ON CACHE INTERNAL \"always active module \${module_name}\")" ;;
-					default-on) echo "option(module_\${module_name} \"activate module \${module_name}\" ON)" ;;
-					default-off) echo "option(module_\${module_name} \"activate module \${module_name}\" OFF)" ;;
+						always) echo "\"always\"" ;;
+						default-on) echo "ON" ;;
+						default-off) echo "OFF" ;;
+						#defaults to off
+						*) echo "OFF" ;;
 					esac
-					echo "ADDMODULETOKERNEL(\${module_name}"
 					echo "SOURCES"
 					ls -1 *.cpp
 					if grep -q USE Makefile; then

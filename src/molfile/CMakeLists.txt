@@ -1,11 +1,10 @@
 #the variable module_name is set up as a sugar to reduce "copy-paste" errors
 set (module_name "molfile")
-set(module_default_${module_name} ON CACHE INTERNAL "default status of the module ${module_name}")
 string(TOUPPER ${module_name} externalLib)
 #Note that the macros here require this directory added as a subdir of plumed/src
 option(useExternal_${module_name} "enable search for external ${module_name}, default OFF" OFF)
-option(module_${module_name} "activate module ${module_name}" ON)
-ADDMODULETOKERNEL(${module_name}
+DECLAREPLUMEDMODULE(${module_name}
+ON
 SOURCES
 crdplugin.cpp
 dcdplugin.cpp
