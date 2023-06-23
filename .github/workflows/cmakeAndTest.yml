@@ -30,7 +30,7 @@ jobs:
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       #set up without warnings
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Drisk_accepted=ON -all_modules_activate=ON -Denable_warnings_basic=OFF -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Drisk_accepted=ON -Dall_modules_activate=ON -Denable_warnings_basic=OFF -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
 
     - name: Build
       # Build your program with the given configuration
