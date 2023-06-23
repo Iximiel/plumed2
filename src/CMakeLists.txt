@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.20.2)
 project(Plumed2 LANGUAGES C CXX)
 
 set (CMAKE_CXX_STANDARD 11)
-set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 
 include(GNUInstallDirs)
 
