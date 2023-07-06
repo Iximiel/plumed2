@@ -82,6 +82,8 @@ public:
   unsigned size() const;
 /// Get the i-th pair of the neighbor list
   std::pair<unsigned,unsigned> getClosePair(unsigned i) const;
+  /// Get the pairs of the neighbor list
+  std::vector<unsigned> getClosePairs() const;
 /// Get the list of neighbors of the i-th atom
   std::vector<unsigned> getNeighbors(unsigned i);
   ~NeighborList() {}

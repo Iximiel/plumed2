@@ -207,6 +207,17 @@ std::pair<unsigned,unsigned> NeighborList::getClosePair(unsigned i) const {
   return neighbors_[i];
 }
 
+std::vector<unsigned>NeighborList:: getClosePairs() const{
+  //the pair are returned on an aligned array: 2*i is first and 2*i+1 is the second element
+  std::vector<unsigned> pairs(neighbors_.size());
+  //needs some optimization
+  for(auto i=0u;i<neighbors_.size();++i){
+    pairs[2*i] = neighbors_[i].first;
+    pairs[2*i+1] = neighbors_[i].second;
+  }
+  return pairs;
+}
+
 std::pair<AtomNumber,AtomNumber> NeighborList::getClosePairAtomNumber(unsigned i) const {
   std::pair<AtomNumber,AtomNumber> Aneigh;
   Aneigh=std::pair<AtomNumber,AtomNumber>(fullatomlist_[neighbors_[i].first],fullatomlist_[neighbors_[i].second]);
