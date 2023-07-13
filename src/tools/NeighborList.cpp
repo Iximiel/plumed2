@@ -207,9 +207,10 @@ std::pair<unsigned,unsigned> NeighborList::getClosePair(unsigned i) const {
   return neighbors_[i];
 }
 
-std::vector<unsigned>NeighborList:: getClosePairs() const {
+std::vector<unsigned> NeighborList:: getClosePairs() const {
   //the pair are returned on an aligned array: 2*i is first and 2*i+1 is the second element
-  std::vector<unsigned> pairs(neighbors_.size());
+  std::vector<unsigned> pairs(2*neighbors_.size());
+  ///TODO: test this for correctness
   //needs some optimization
   for(auto i=0u; i<neighbors_.size(); ++i) {
     pairs[2*i] = neighbors_[i].first;
