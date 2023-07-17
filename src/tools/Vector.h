@@ -313,29 +313,30 @@ std::ostream & operator<<(std::ostream &os, const VectorGeneric<n>& v) {
   return os;
 }
 
-
+//using syntax is more modern
 /// \ingroup TOOLBOX
 /// Alias for one dimensional vectors
-typedef VectorGeneric<1> Vector1d;
+using Vector1d = VectorGeneric<1>;
 /// \ingroup TOOLBOX
 /// Alias for two dimensional vectors
-typedef VectorGeneric<2> Vector2d;
+using Vector2d = VectorGeneric<2>;
 /// \ingroup TOOLBOX
 /// Alias for three dimensional vectors
-typedef VectorGeneric<3> Vector3d;
+using Vector3d = VectorGeneric<3>;
 /// \ingroup TOOLBOX
 /// Alias for four dimensional vectors
-typedef VectorGeneric<4> Vector4d;
+using Vector4d = VectorGeneric<4>;
 /// \ingroup TOOLBOX
 /// Alias for five dimensional vectors
-typedef VectorGeneric<5> Vector5d;
+using Vector5d = VectorGeneric<5>;
 /// \ingroup TOOLBOX
 /// Alias for three dimensional vectors
-typedef Vector3d Vector;
+using Vector = Vector3d;
 
 static_assert(sizeof(VectorGeneric<2>)==2*sizeof(double), "code cannot work if this is not satisfied");
 static_assert(sizeof(VectorGeneric<3>)==3*sizeof(double), "code cannot work if this is not satisfied");
 static_assert(sizeof(VectorGeneric<4>)==4*sizeof(double), "code cannot work if this is not satisfied");
+static_assert(sizeof(VectorGeneric<5>)==5*sizeof(double), "code cannot work if this is not satisfied");
 
 }
 
