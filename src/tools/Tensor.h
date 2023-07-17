@@ -486,17 +486,17 @@ std::ostream & operator<<(std::ostream &os, const TensorGeneric<n,m>& t) {
 }
 
 /// \ingroup TOOLBOX
-typedef TensorGeneric<1,1> Tensor1d;
+using Tensor1d = TensorGeneric<1,1>;
 /// \ingroup TOOLBOX
-typedef TensorGeneric<2,2> Tensor2d;
+using Tensor2d = TensorGeneric<2,2>;
 /// \ingroup TOOLBOX
-typedef TensorGeneric<3,3> Tensor3d;
+using Tensor3d = TensorGeneric<3,3>;
 /// \ingroup TOOLBOX
-typedef TensorGeneric<4,4> Tensor4d;
+using Tensor4d = TensorGeneric<4,4>;
 /// \ingroup TOOLBOX
-typedef TensorGeneric<5,5> Tensor5d;
+using Tensor5d = TensorGeneric<5,5>;
 /// \ingroup TOOLBOX
-typedef Tensor3d Tensor;
+using Tensor = Tensor3d;
 
 inline
 TensorGeneric<3,3> VcrossTensor(const VectorGeneric<3>&v1,const TensorGeneric<3,3>&v2) {
