@@ -176,12 +176,12 @@ VectorGeneric<n>::VectorGeneric(double first,Args... arg)
 
 template <unsigned n>
 void VectorGeneric<n>::zero() {
-  LoopUnroller<n>::_zero(d.data());
+  LoopUnroller::_zero<n>(d.data());
 }
 
 template <unsigned n>
 VectorGeneric<n>::VectorGeneric() {
-  LoopUnroller<n>::_zero(d.data());
+  LoopUnroller::_zero<n>(d.data());
 }
 
 template <unsigned n>
@@ -206,25 +206,25 @@ const double & VectorGeneric<n>::operator()(unsigned i)const {
 
 template <unsigned n>
 VectorGeneric<n>& VectorGeneric<n>::operator +=(const VectorGeneric<n>& b) {
-  LoopUnroller<n>::_add(d.data(),b.d.data());
+  LoopUnroller::_add<n>(d.data(),b.d.data());
   return *this;
 }
 
 template <unsigned n>
 VectorGeneric<n>& VectorGeneric<n>::operator -=(const VectorGeneric<n>& b) {
-  LoopUnroller<n>::_sub(d.data(),b.d.data());
+  LoopUnroller::_sub<n>(d.data(),b.d.data());
   return *this;
 }
 
 template <unsigned n>
 VectorGeneric<n>& VectorGeneric<n>::operator *=(double s) {
-  LoopUnroller<n>::_mul(d.data(),s);
+  LoopUnroller::_mul<n>(d.data(),s);
   return *this;
 }
 
 template <unsigned n>
 VectorGeneric<n>& VectorGeneric<n>::operator /=(double s) {
-  LoopUnroller<n>::_mul(d.data(),1.0/s);
+  LoopUnroller::_mul<n>(d.data(),1.0/s);
   return *this;
 }
 
@@ -236,7 +236,7 @@ VectorGeneric<n>  VectorGeneric<n>::operator +()const {
 template <unsigned n>
 VectorGeneric<n> VectorGeneric<n>::operator -()const {
   VectorGeneric<n> r;
-  LoopUnroller<n>::_neg(r.d.data(),d.data());
+  LoopUnroller::_neg<n>(r.d.data(),d.data());
   return r;
 }
 
@@ -275,12 +275,12 @@ VectorGeneric<n> delta(const VectorGeneric<n>&v1,const VectorGeneric<n>&v2) {
 
 template <unsigned n>
 double VectorGeneric<n>::modulo2()const {
-  return LoopUnroller<n>::_sum2(d.data());
+  return LoopUnroller::_sum2<n>(d.data());
 }
 
 template <unsigned n>
 double dotProduct(const VectorGeneric<n>& v1,const VectorGeneric<n>& v2) {
-  return LoopUnroller<n>::_dot(v1.d.data(),v2.d.data());
+  return LoopUnroller::_dot<n>(v1.d.data(),v2.d.data());
 }
 
 inline
