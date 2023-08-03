@@ -19,8 +19,8 @@ cmake_path (GET PLUMED_SRC PARENT_PATH PLUMED_MAIN_DIR)
 set (PLUMED_SCRIPTS ${PLUMED_MAIN_DIR}/scripts)
 set (PLUMED_PATCHES ${PLUMED_MAIN_DIR}/patches)
 
-option(all_modules_activate "Activates all modules" OFF)
-option(all_modules_default "Revert all module to their default state" OFF)
+option(allmodules_activate "Activates all modules" OFF)
+option(allmodules_default "Revert all module to their default state" OFF)
 
 #this is a list of the activated modules that will be included into the kernel
 set(modulesForKernel "")
@@ -118,7 +118,7 @@ set(execDirs config wrapper) #removed main
 #these are directory with codes that may be external
 set(mayBeExternal blas lapack molfile)
 list(REMOVE_ITEM module_dirs main ${utildirs} ${execDirs})
-#this is needed for making "all_modules_activate" work
+#this is needed for making "allmodules_activate" work
 #set(toggabledirs ${module_dirs})
 #set(mayBeExternal_toggable ${mayBeExternal})
 #set(alwaysOnDirs core tools lepton blas lapack asmjit)
@@ -133,7 +133,7 @@ endforeach(dir ${execDirs})
 foreach(dir ${module_dirs})
     add_subdirectory(${dir})
 endforeach(dir ${module_dirs})
-if(all_modules_activate)
+if(allmodules_activate)
     message("All module will be forced ON")
     foreach(dir ${module_dirs})
         if(${module_default_${dir}} STREQUAL "always")
@@ -143,10 +143,10 @@ if(all_modules_activate)
         endif()
     endforeach(dir ${module_dirs})
     #I set up the "autoshutdown" for this option to make it appear in the gui
-    set(all_modules_activate OFF CACHE BOOL "Activates all modules" FORCE)
+    set(allmodules_activate OFF CACHE BOOL "Activates all modules" FORCE)
 endif()
 
-if(all_modules_default)
+if(allmodules_default)
     message("All module will be forced to their default status")
     foreach(dir ${module_dirs})
         if(${module_default_${dir}} STREQUAL "always")
@@ -156,7 +156,7 @@ if(all_modules_default)
         endif()
     endforeach(dir ${module_dirs})
     #I set up the "autoshutdown" for this option to make it appear in the gui
-    set(all_modules_default OFF CACHE BOOL "Revert all module to their default state" FORCE)
+    set(allmodules_default OFF CACHE BOOL "Revert all module to their default state" FORCE)
 endif()
 
 #adding -lstdc++ -lc++ is done automatically by cmake
@@ -342,18 +342,6 @@ set (TODO [[
 -DHAVE_INTTYPES_H=1
 -DHAVE_STDINT_H=1
 -DHAVE_UNISTD_H=1
-
--D__PLUMED_HAS_MOLFILE_PLUGINS=1
-
-
--D__PLUMED_HAS_CREGEX=1
-
--D__PLUMED_HAS_RTLD_DEFAULT=1
--D__PLUMED_HAS_CHDIR=1
--D__PLUMED_HAS_SUBPROCESS=1
--D__PLUMED_HAS_GETCWD=1
--D__PLUMED_HAS_POPEN=1
--D__PLUMED_HAS_EXECINFO=1
 
 ]])
 

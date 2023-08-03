@@ -31,6 +31,7 @@ if(NOT risk_accepted)
    message(FATAL_ERROR "You must accept the risk to use the experimental cmake compilation: -Drisk_accepted=ON")
 endif(NOT risk_accepted)
 include(GNUInstallDirs)
+#this forces CMAKE_INSTALL_LIBDIR to be lib and not lib64
 set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 #set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${program_name})
 
@@ -38,6 +39,8 @@ set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 add_subdirectory(src)
 add_subdirectory(scripts)
 add_subdirectory(fortran)
+enable_testing()
+add_subdirectory(regtest)
 #add_subdirectory(vim)
 
 install(DIRECTORY patches
