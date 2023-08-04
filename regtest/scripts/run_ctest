@@ -1,37 +1,41 @@
 #! /usr/bin/env bash
+##########This will be deleted for debugging purpose##########
 echo pwd: $PWD
-ls
-if test -n "$PLUMED_PREPEND_PATH" ; then
+###############
+if test -n "$PLUMED_PREPEND_PATH"; then
   PATH="$PLUMED_PREPEND_PATH:$PATH"
 fi
 
-if test -n "$PLUMED_MAKE" ; then
-  make="$PLUMED_MAKE"
-else
-  make=make
-fi
 work=$1
-shift 1
+executable=$2
 export valgrind=env
-if [[ $work = setup ]]; then 
+if [[ $work = setup ]]; then
   echo "setting up"
-elif [[ $work = check ]]; then 
+elif [[ $work = check ]]; then
   echo "checking the results up"
+elif [[ $work = run ]]; then
+  echo "running $2"
 else
-  echo "FAILURE: ${0##*/} accept \"setup\" or \"check\" as first argument"
+  echo "FAILURE: ${0##*/} accept \"setup\", \"run\" or \"check\" as first argument"
   exit 1
 fi
-echo $work
+
+echo exe:$executable
+echo work:$work
+shift 2
+
 while getopts "vd:a:t:p:s:" option; do
   echo $option
   case "$option" in
-    v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
-    d) dir=${OPTARG} ;;
-    a) args=${OPTARG};;
-    t) type=${OPTARG} ;;
-    p) mpiprocs=${OPTARG} ;;
-    s) sourcedir=${OPTARG} ;;
-    *) echo "ERROR: unknown argument" ; exit 1;;
+  v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
+  d) dir=${OPTARG} ;;
+  a) args=${OPTARG} ;;
+  p) mpiprocs=${OPTARG} ;;
+  s) sourcedir=${OPTARG} ;;
+  *)
+    echo "ERROR: unknown argument"
+    exit 1
+    ;;
   esac
 done
 
@@ -42,239 +46,206 @@ echo "++ Test type: $type"
 echo "++ Arguments: \"$args\""
 echo "++ Processors: $mpiprocs"
 
-setup(){
+setup() {
+  #copies files into tmp and check if plumed can be run in this environment
 
-date
-echo "Setting up regtest from $(pwd)"
+  date
+  echo "Setting up regtest from $(pwd)"
 
-if [ "$valgrind" = valgrind ] ; then
-  echo "using valgrind"
-fi
-
-rm -fr tmp
-mkdir tmp
-cd tmp
-cp -fv ${dir}/* . 2>/dev/null
-
-test -f "$dir/config" || {
-  echo "FAILURE: config not found"
-  exit 1
-}
-
-mpiprocs=0
-
-plumed_needs=
-plumed_modules=
-
-plumed_language=c++
-
-source "$dir/config"
-
-for file in $extra_files
-do
-  cp -f ${dir}/$file .
-done
-
-echo "++ Test type: $type"
-echo "++ Arguments: $arg"
-echo "++ Processors: $mpiprocs"
-
-
-
-mpi=env
-
-# this is the executable used for running the tests:
-plumed="${PLUMED_PROGRAM_NAME:-plumed}"
-
-# this is the executable used for getting the configuration:
-plumed_nompi="$plumed --no-mpi"
-
-root=$($plumed_nompi info --root)
-
-if test -z "$root" ; then
-  echo "FAILURE: plumed executable not available"
-  exit 1
-fi
-
-cd ../../../../
-if [[ "${PWD}"/ != "$root" ]] ; then
-echo "WARNING using plumed from $root"
-fi
-cd -
-
-
-if ((mpiprocs>0)); then
-mpi=""
-if $plumed_nompi config -q mpiexec
-then
-  mpi="$($plumed_nompi config mpiexec)"
-fi
-if test -z "$mpi" ; then
-  mpi="${PLUMED_MPIRUN:-mpirun}"
-fi
-mpi="$mpi -np $mpiprocs"
-
-if ! $plumed_nompi config -q has mpi
-then
-    if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
-      if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
-        echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-      else
-        echo "SKIP_ON_TRAVIS found!"
-      fi
-    else
-      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-    fi
-  exit 0;
-fi
-
-else
-
-plumed="$plumed --no-mpi"
-
-fi
-
-if ((mpiprocs>0)) && [[ "$valgrind" != "env" ]]
-then
-    if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
-      if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
-        echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
-      else
-        echo "SKIP_ON_TRAVIS found!"
-      fi
-    else
-      echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
-    fi
-  exit 0;
-fi
-
-for need in $plumed_needs
-do
-  echo "Checking for $need"
-  if ! $plumed_nompi config -q has $need
-  then
-    if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
-      if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
-        echo "NOT_APPLICABLE ($need NOT ENABLED)"
-      else
-        echo "SKIP_ON_TRAVIS found!"
-      fi
-    else
-      echo "NOT_APPLICABLE ($need NOT ENABLED)"
-    fi
-    exit 0;
+  if [ "$valgrind" = valgrind ]; then
+    echo "using valgrind"
   fi
-done
 
-for module in $plumed_modules
-do
-  echo "Checking for $module"
-  if ! $plumed_nompi config -q module $module
-  then
-    if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
-      if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
-        echo "NOT_APPLICABLE ($module MODULE NOT INSTALLED)"
-      else
-        echo "SKIP_ON_TRAVIS found!"
-      fi
-    else
-      echo "NOT_APPLICABLE ($module MODULE NOT INSTALLED)"
-    fi
-    exit 0;
-  fi
-done
+  rm -fr tmp
+  mkdir tmp
+  cd tmp
+  cp -f ${dir}/* . 2>/dev/null
 
-if type -t plumed_custom_skip 1>/dev/null ; then
-  if plumed_custom_skip ; then
-    if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ] ; then
-      if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ] ; then
-        echo "NOT_APPLIABLE (plumed_custom_skip)"
-      else
-        echo "SKIP_ON_TRAVIS found!"
-      fi
-    else
-      echo "NOT_APPLIABLE (plumed_custom_skip)"
-    fi
-    exit 0;
-  fi
-fi
-
-if $plumed_nompi --is-installed ; then
-  export PLUMED_KERNEL="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}Kernel.$($plumed_nompi info --soext)"
-  export PLUMED_LIB="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}.$($plumed_nompi info --soext)"
-else
-  export PLUMED_KERNEL="$root/src/lib/libplumedKernel.$($plumed_nompi info --soext)"
-  export PLUMED_LIB="$root/src/lib/libplumed.$($plumed_nompi info --soext)"
-fi
-if type -t plumed_regtest_before 1>/dev/null ; then
-  plumed_regtest_before
-fi
-
-
-echo "*** mpi=${mpi}"
-echo "*** plumed=${plumed}"
-echo "*** root=${plumed}"
-echo "*** "
-}
-
-other(){
-case "$type" in
-(simplemd)
-  test -f in || {
-    echo "FAILURE: in file not present"
+  test -f "$dir/config" || {
+    echo "FAILURE: config not found"
     exit 1
   }
-  $mpi $valgrind $plumed simplemd < in > out 2> err
-  ;;
-(driver)
-  $mpi $valgrind $plumed driver $arg > out 2> err
-  ;;
-(sum_hills)
-  $mpi $valgrind $plumed sum_hills $arg > out 2> err
- ;;
-(make)
-  $plumed_nompi --is-installed || ln -s "$root/src" plumed
-  if test "$plumed_language" = fortran || test "$plumed_language" = fortran08 || test "$plumed_language" = c ; then
-    cat <($plumed_nompi info --configuration) "$root/src/lib/Plumed.inc.shared" ../../../scripts/exe.make > Makefile 
-  else
-    cat <($plumed_nompi info --configuration) "$root/src/lib/Plumed.inc.static" ../../../scripts/exe.make > Makefile 
+
+  mpiprocs=0
+
+  plumed_needs=
+  plumed_modules=
+
+  plumed_language=c++
+
+  source "$dir/config"
+
+  for file in $extra_files; do
+    cp -f ${dir}/$file .
+  done
+
+  echo "++ Test type: $type"
+  echo "++ Arguments: $arg"
+  echo "++ Processors: $mpiprocs"
+
+  mpi=env
+
+  # this is the executable used for running the tests:
+  plumed=$executable
+  echo plumed:$plumed
+  # this is the executable used for getting the configuration:
+  plumed_nompi="$plumed --no-mpi"
+
+  root=$($plumed_nompi info --root)
+
+  if test -z "$root"; then
+    echo $executable
+    echo "root: $root"
+    echo "FAILURE: plumed executable not available"
+    exit 1
   fi
-  if test "$plumed_language" = fortran || test "$plumed_language" = fortran08 ; then
-    if make print-fortran | grep "FC=$" 1>/dev/null ; then
-      echo "NOT_APPLICABLE (FC NOT FOUND)"
-      exit 0
+
+  if ((mpiprocs > 0)); then
+    mpi=""
+    if $plumed_nompi config -q mpiexec; then
+      mpi="$($plumed_nompi config mpiexec)"
+    fi
+    if test -z "$mpi"; then
+      mpi="${PLUMED_MPIRUN:-mpirun}"
+    fi
+    mpi="$mpi -np $mpiprocs"
+
+    if ! $plumed_nompi config -q has mpi; then
+      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
+      return 1
+    fi
+    if [[ "$valgrind" != "env" ]]; then
+      echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
+      return 1
+    fi
+  else
+
+    plumed="$plumed --no-mpi"
+
+  fi
+
+  for need in $plumed_needs; do
+    echo "Checking for $need"
+    if ! $plumed_nompi config -q has $need; then
+      if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ]; then
+        if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ]; then
+          echo "NOT_APPLICABLE ($need NOT ENABLED)"
+        else
+          echo "SKIP_ON_TRAVIS found!"
+        fi
+      else
+        echo "NOT_APPLICABLE ($need NOT ENABLED)"
+      fi
+      return 0
+    fi
+  done
+
+  for module in $plumed_modules; do
+    echo "Checking for $module"
+    if ! $plumed_nompi config -q module $module; then
+      if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ]; then
+        if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ]; then
+          echo "NOT_APPLICABLE ($module MODULE NOT INSTALLED)"
+        else
+          echo "SKIP_ON_TRAVIS found!"
+        fi
+      else
+        echo "NOT_APPLICABLE ($module MODULE NOT INSTALLED)"
+      fi
+      return 0
+    fi
+  done
+
+  if type -t plumed_custom_skip 1>/dev/null; then
+    if plumed_custom_skip; then
+      if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ]; then
+        if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ]; then
+          echo "NOT_APPLIABLE (plumed_custom_skip)"
+        else
+          echo "SKIP_ON_TRAVIS found!"
+        fi
+      else
+        echo "NOT_APPLIABLE (plumed_custom_skip)"
+      fi
+      return 0
+    fi
+  fi
+
+  if $plumed_nompi --is-installed; then
+    export PLUMED_KERNEL="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}Kernel.$($plumed_nompi info --soext)"
+    export PLUMED_LIB="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}.$($plumed_nompi info --soext)"
+  else
+    export PLUMED_KERNEL="$root/src/lib/libplumedKernel.$($plumed_nompi info --soext)"
+    export PLUMED_LIB="$root/src/lib/libplumed.$($plumed_nompi info --soext)"
+  fi
+  if type -t plumed_regtest_before 1>/dev/null; then
+    plumed_regtest_before
+  fi
+
+  echo "*** mpi=${mpi}"
+  echo "*** plumed=${plumed}"
+  echo "*** root=${plumed}"
+  echo "*** "
+}
+
+other() {
+  case "$type" in
+  simplemd)
+    test -f in || {
+      echo "FAILURE: in file not present"
+      return 1
+    }
+    $mpi $valgrind $plumed simplemd <in >out 2>err
+    ;;
+  driver)
+    $mpi $valgrind $plumed driver $arg >out 2>err
+    ;;
+  sum_hills)
+    $mpi $valgrind $plumed sum_hills $arg >out 2>err
+    ;;
+  make)
+    $plumed_nompi --is-installed || ln -s "$root/src" plumed
+    if test "$plumed_language" = fortran || test "$plumed_language" = fortran08 || test "$plumed_language" = c; then
+      cat <($plumed_nompi info --configuration) "$root/src/lib/Plumed.inc.shared" ../../../scripts/exe.make >Makefile
     else
-      if test "$plumed_language" = fortran08 ; then
-        cat > __test_fortran08.f90 << EOF
+      cat <($plumed_nompi info --configuration) "$root/src/lib/Plumed.inc.static" ../../../scripts/exe.make >Makefile
+    fi
+    if test "$plumed_language" = fortran || test "$plumed_language" = fortran08; then
+      if make print-fortran | grep "FC=$" 1>/dev/null; then
+        echo "NOT_APPLICABLE (FC NOT FOUND)"
+        return 2
+      else
+        if test "$plumed_language" = fortran08; then
+          cat >__test_fortran08.f90 <<EOF
 module test_fortran08_a
 implicit none
 type b
 contains
-  final :: c
+final :: c
 end type b
 contains
-  impure elemental subroutine c(x)
-    type(b), intent(inout) :: x
-  end subroutine c
-  subroutine sub(x)
-    integer :: x(:)
-    write(*,*) is_contiguous(x)
-  end subroutine sub
+impure elemental subroutine c(x)
+type(b), intent(inout) :: x
+end subroutine c
+subroutine sub(x)
+integer :: x(:)
+write(*,*) is_contiguous(x)
+end subroutine sub
 end module test_fortran08_a
 EOF
-        if make test-fortran08 2>err | grep SUCCESS=YES 1> /dev/null ; then
-          make exe-fortran08 1>out 2>err
+          if make test-fortran08 2>err | grep SUCCESS=YES 1>/dev/null; then
+            make exe-fortran08 1>out 2>err
+          else
+            echo "NOT_APPLICABLE (FC does not support f2008)"
+            return 2
+          fi
         else
-          echo "NOT_APPLICABLE (FC does not support f2008)"
-          exit 0
+          make exe-fortran 1>out 2>err
         fi
-      else
-        make exe-fortran 1>out 2> err
       fi
-    fi
-  elif test "$plumed_language" = c || test "$plumed_language" = c11 ; then
-    if test "$plumed_language" = c11 ; then
-      cat > __test_c11.c << EOF
+    elif test "$plumed_language" = c || test "$plumed_language" = c11; then
+      if test "$plumed_language" = c11; then
+        cat >__test_c11.c <<EOF
 #ifdef __STDC_VERSION__
 #if __STDC_VERSION__ < 201112L
 error
@@ -284,87 +255,132 @@ error
 #endif
 
 int f(int a){
-  int x;
-  x=_Generic( 'a', char: 1, int: 2, long: 3, default: 0);
-  return a;
+int x;
+x=_Generic( 'a', char: 1, int: 2, long: 3, default: 0);
+return a;
 }
 EOF
-      if make test-c11 2>err | grep SUCCESS=YES 1> /dev/null ; then
-        rm __test_c11.c
-        make exe-c 1>out 2> err
-      else
+        if make test-c11 2>err | grep SUCCESS=YES 1>/dev/null; then
+          rm __test_c11.c
+          make exe-c 1>out 2>err
+        else
           echo "NOT_APPLICABLE (CC does not support c11)"
-          exit 0
+          return 2
+        fi
+      else
+        make exe-c 1>out 2>err
       fi
     else
-      make exe-c 1>out 2> err
+      make exe 1>out 2>err
+    fi
+    $mpi $valgrind ./exe $arg >>out 2>>err
+    ;;
+  plumed)
+    $mpi $valgrind $plumed $arg >out 2>err
+    ;;
+  python)
+    # make sure the right python module is in the path based on plumed root
+    PYTHONPATH="$root/python:$PYTHONPATH" $($plumed_nompi config python_bin) $arg >out 2>err
+    ;;
+  *)
+    echo "FAILURE: unknown test type \"${type}\""
+    return 1
+    ;;
+  esac
+  exitcode="$?"
+  if test $exitcode -ne 0; then
+    echo "FAILURE: exit code $exitcode"
+    return 1
+  fi
+}
+
+run() {
+  plumed=$executable
+  plumed_nompi="$plumed --no-mpi"
+  if ((mpiprocs > 0)); then
+    mpi=""
+    if $plumed_nompi config -q mpiexec; then
+      mpi="$($plumed_nompi config mpiexec)"
+    fi
+    if test -z "$mpi"; then
+      mpi="${PLUMED_MPIRUN:-mpirun}"
+    fi
+    mpi="$mpi -np $mpiprocs"
+
+    if ! $plumed_nompi config -q has mpi; then
+      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
+      return 1
+    fi
+    if [[ "$valgrind" != "env" ]]; then
+      echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
+      return 1
     fi
   else
-    make exe 1>out 2> err
+
+    plumed="$plumed --no-mpi"
+
   fi
-  $mpi $valgrind ./exe $arg >> out 2>> err
- ;;
-(plumed)
-  $mpi $valgrind $plumed $arg > out 2> err
-  ;;
-(python)
-# make sure the right python module is in the path based on plumed root
-  PYTHONPATH="$root/python:$PYTHONPATH" $($plumed_nompi config python_bin) $arg > out 2> err
-  ;;
-(*) echo "FAILURE: unknown test type \"${type}\"" ; exit 1 ;;
-esac
-exitcode="$?"
-if test $exitcode -ne 0 ; then
-  echo "FAILURE: exit code $exitcode"
-fi
+  runcommand=$mpi $plumed
+  echo "running \"$runcommand ${args} > out 2> err\""
+  $runcommand ${args} >out 2>err
+  if [[ -s err ]]; then
+    echo "####stderr contains:####"
+    cat err
+    echo "########################"
+  fi
 }
-check(){
-if type -t plumed_regtest_after 1>/dev/null ; then
-  plumed_regtest_after
-fi
 
-echo pwd: $PWD
-ls
-#cat err
-
-
-if ls *.reference > /dev/null
-then
-for file in *.reference ; do
-  new="${file%.reference}"
-  if test -f "$new" ; then
-    ${sourcedir}/regtest/scripts/fixzeroes.sh "$file"
-    cp "$new" "$new.zfix"
-    ${sourcedir}/regtest/scripts/fixzeroes.sh "$new.zfix"
-    DIFFOPT=""
-# this is to enforce ASCII check
-# I add this option since sometime on travis some of the diff files are not shown
-# (files are thought to be binary for some reason)
-# In this way, at least PLUMED native files (with fields) will be assumed to be
-# ASCII and diff will be shown in the log
-    test "$(head -c 10 "$file")" = "#! FIELDS " && DIFFOPT="-a"
-    out="$(diff $DIFFOPT "$file" "$new.zfix")"
-    test -n "$out" && {
-      echo FAILURE
-      echo "Diff for ${file%.reference}:"
-      echo "$out"
-    }
-  else
-    echo FAILURE
-    echo FILE $new does not exist
+check() {
+  if type -t plumed_regtest_after 1>/dev/null; then
+    plumed_regtest_after
   fi
-done
-else
+
+  ##########This will be deleted for debugging purpose##########
+  echo pwd: $PWD
+  ###############
+  if [[ -s err ]]; then
+    echo "####stderr contains:####"
+    cat err
+    echo "########################"
+  fi
+
+  exitcode=0
+  if ls *.reference >/dev/null; then
+    for file in *.reference; do
+      new="${file%.reference}"
+      if test -f "$new"; then
+        ${sourcedir}/regtest/scripts/fixzeroes.sh "$file"
+        cp "$new" "$new.zfix"
+        ${sourcedir}/regtest/scripts/fixzeroes.sh "$new.zfix"
+        DIFFOPT=""
+        # this is to enforce ASCII check
+        # I add this option since sometime on travis some of the diff files are not shown
+        # (files are thought to be binary for some reason)
+        # In this way, at least PLUMED native files (with fields) will be assumed to be
+        # ASCII and diff will be shown in the log
+        test "$(head -c 10 "$file")" = "#! FIELDS " && DIFFOPT="-a"
+        out="$(diff $DIFFOPT "$file" "$new.zfix")"
+        test -n "$out" && {
+          echo FAILURE
+          echo "Diff for ${file%.reference}:"
+          echo "$out"
+        }
+      else
+        echo FAILURE
+        echo FILE $new does not exist
+        exitcode=1
+      fi
+    done
+  else
     echo WARNING
     echo no file has been checked
-fi
+    exitcode=2
+  fi
 
+  cd ../
+  return $exitcode
+}
 
-cd ../
-
-} 
-{
-
-  ${work}
-
-}| tee report.txt
+#this trick make the pipe exit with failure code of any command
+set -o pipefail
+${work} | tee report.txt

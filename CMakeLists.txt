@@ -26,7 +26,7 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithD
 #IDE that have an interface with it, but we are not still confident that it is ready
 #for installation purposes
 #set(CMAKE_SKIP_INSTALL_RULES YES)
-option(risk_accepted "CMake is experimental use at your own risk" OFF)
+option(risk_accepted "CMake is experimental use at your own risk" ON)
 if(NOT risk_accepted)
    message(FATAL_ERROR "You must accept the risk to use the experimental cmake compilation: -Drisk_accepted=ON")
 endif(NOT risk_accepted)
