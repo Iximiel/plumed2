@@ -13,7 +13,7 @@ set_target_properties(plumed_bin
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}
     )
 target_include_directories(plumed_bin PRIVATE ${PLUMED_SRC})
-
+add_executable(PLUMED2::plumed ALIAS plumed_bin)
 #statically linked plumed
 #$(PLUMED_MAIN_STATIC): $(OBJ_MAIN) $(OBJ_KERNEL) $(OBJ_WRAPPER)
 add_executable(plumed_bin_static main.cpp) #$(OBJ_MAIN)
@@ -27,7 +27,7 @@ set_target_properties(plumed_bin_static
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-static
     )
 target_include_directories(plumed_bin_static PRIVATE ${PLUMED_SRC})
-
+add_executable(PLUMED2::plumed-static ALIAS plumed_bin_static)
 #runtime linked plumed
 #$(PLUMED_MAIN_RUNTIME): $(OBJ_MAIN) $(OBJ_DYNAMIC_WRAPPER)
 add_executable(plumed_bin_runtime main.cpp)
@@ -39,7 +39,7 @@ set_target_properties(plumed_bin_runtime
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-runtime
     )
 target_include_directories(plumed_bin_runtime PRIVATE ${PLUMED_SRC})
-
+add_executable(PLUMED2::plumed-runtime ALIAS plumed_bin_runtime)
 install (TARGETS plumed_bin 
 RUNTIME
 DESTINATION ${CMAKE_INSTALL_BINDIR})
