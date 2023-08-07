@@ -6,31 +6,24 @@ if test -n "$PLUMED_PREPEND_PATH"; then
   PATH="$PLUMED_PREPEND_PATH:$PATH"
 fi
 
-work=$1
-executable=$2
+# this is the executable used for running the tests:
+plumed=$1
 export valgrind=env
-if [[ $work = setup ]]; then
-  echo "setting up"
-elif [[ $work = check ]]; then
-  echo "checking the results up"
-elif [[ $work = run ]]; then
-  echo "running $2"
-else
-  echo "FAILURE: ${0##*/} accept \"setup\", \"run\" or \"check\" as first argument"
-  exit 1
-fi
 
-echo exe:$executable
-echo work:$work
-shift 2
+echo exe:$plumed
+# this is the executable used for getting the configuration:
+plumed_nompi="$plumed --no-mpi"
+shift 1
 
 while getopts "vd:a:t:p:s:" option; do
   echo $option
   case "$option" in
   v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
+  #the directory with the source of the ttest
   d) dir=${OPTARG} ;;
   a) args=${OPTARG} ;;
   p) mpiprocs=${OPTARG} ;;
+  #the plumed root directory
   s) sourcedir=${OPTARG} ;;
   *)
     echo "ERROR: unknown argument"
@@ -55,10 +48,11 @@ setup() {
   if [ "$valgrind" = valgrind ]; then
     echo "using valgrind"
   fi
-
+  pwd
   rm -fr tmp
   mkdir tmp
   cd tmp
+  pwd
   cp -f ${dir}/* . 2>/dev/null
 
   test -f "$dir/config" || {
@@ -86,15 +80,11 @@ setup() {
   mpi=env
 
   # this is the executable used for running the tests:
-  plumed=$executable
   echo plumed:$plumed
-  # this is the executable used for getting the configuration:
-  plumed_nompi="$plumed --no-mpi"
-
+  
   root=$($plumed_nompi info --root)
 
   if test -z "$root"; then
-    echo $executable
     echo "root: $root"
     echo "FAILURE: plumed executable not available"
     exit 1
@@ -292,11 +282,10 @@ EOF
     echo "FAILURE: exit code $exitcode"
     return 1
   fi
+  
 }
 
 run() {
-  plumed=$executable
-  plumed_nompi="$plumed --no-mpi"
   if ((mpiprocs > 0)); then
     mpi=""
     if $plumed_nompi config -q mpiexec; then
@@ -309,18 +298,19 @@ run() {
 
     if ! $plumed_nompi config -q has mpi; then
       echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-      return 1
+      return 127
     fi
     if [[ "$valgrind" != "env" ]]; then
       echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
-      return 1
+      return 127
     fi
   else
 
     plumed="$plumed --no-mpi"
 
   fi
-  runcommand=$mpi $plumed
+
+  runcommand="$mpi $plumed"
   echo "running \"$runcommand ${args} > out 2> err\""
   $runcommand ${args} >out 2>err
   if [[ -s err ]]; then
@@ -377,10 +367,20 @@ check() {
     exitcode=2
   fi
 
-  cd ../
   return $exitcode
 }
 
 #this trick make the pipe exit with failure code of any command
 set -o pipefail
-${work} | tee report.txt
+{
+  
+  for runner in setup run check; do
+    if ! $runner; then
+      rt=$?
+      echo "CAUSE: $runner"
+      exit $rt
+    fi
+  done
+  
+  
+} | tee report.txt
