@@ -30,6 +30,9 @@ Check if plumed as module colvar active
 # hardcoded in a comment written in the log from src/core/PlumedMain.cpp
 # if you change it here, also change it there!
 configfile="$PLUMED_ROOT"/src/config/config.txt
+if [[ ! -f $configfile ]]; then
+  configfile="${PLUMED_ROOT}/build/src/lib/config.txt"
+fi
 
 quiet=no
 list=no
@@ -114,6 +117,9 @@ case $action in
 ;;
 (mpiexec)
   mpi=$(cat "$configfile" | grep -v \# | awk '{ if($1=="mpiexec") { sub(" *mpiexec ","",$0);  print} }')
+  if [[ $mpi = MPIEXEC_EXECUTABLE-NOTFOUND ]]; then 
+    mpi="";
+  fi
   if test -n "$mpi" ; then
     retval=0
     test "$quiet" = no && echo "$mpi"

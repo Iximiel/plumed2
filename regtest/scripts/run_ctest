@@ -16,7 +16,6 @@ plumed_nompi="$plumed --no-mpi"
 shift 1
 
 while getopts "vd:a:t:p:s:" option; do
-  echo $option
   case "$option" in
   v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
   #the directory with the source of the ttest
@@ -48,11 +47,11 @@ setup() {
   if [ "$valgrind" = valgrind ]; then
     echo "using valgrind"
   fi
-  pwd
+  
   rm -fr tmp
   mkdir tmp
-  cd tmp
-  pwd
+  cd tmp || return 1
+  
   cp -f ${dir}/* . 2>/dev/null
 
   test -f "$dir/config" || {
@@ -102,11 +101,11 @@ setup() {
 
     if ! $plumed_nompi config -q has mpi; then
       echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-      return 1
+      return 127
     fi
     if [[ "$valgrind" != "env" ]]; then
       echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
-      return 1
+      return 127
     fi
   else
 
@@ -126,7 +125,7 @@ setup() {
       else
         echo "NOT_APPLICABLE ($need NOT ENABLED)"
       fi
-      return 0
+      return 127
     fi
   done
 
@@ -142,7 +141,7 @@ setup() {
       else
         echo "NOT_APPLICABLE ($module MODULE NOT INSTALLED)"
       fi
-      return 0
+      return 127
     fi
   done
 
@@ -157,7 +156,7 @@ setup() {
       else
         echo "NOT_APPLIABLE (plumed_custom_skip)"
       fi
-      return 0
+      return 127
     fi
   fi
 
@@ -312,6 +311,7 @@ run() {
 
   runcommand="$mpi $plumed"
   echo "running \"$runcommand ${args} > out 2> err\""
+  #here I need splitting
   $runcommand ${args} >out 2>err
   if [[ -s err ]]; then
     echo "####stderr contains:####"
@@ -323,15 +323,6 @@ run() {
 check() {
   if type -t plumed_regtest_after 1>/dev/null; then
     plumed_regtest_after
-  fi
-
-  ##########This will be deleted for debugging purpose##########
-  echo pwd: $PWD
-  ###############
-  if [[ -s err ]]; then
-    echo "####stderr contains:####"
-    cat err
-    echo "########################"
   fi
 
   exitcode=0
@@ -375,9 +366,10 @@ set -o pipefail
 {
   
   for runner in setup run check; do
-    if ! $runner; then
-      rt=$?
-      echo "CAUSE: $runner"
+    $runner
+    rt=$?
+    if [[ $rt != 0 ]] ; then
+      echo "CAUSE: $runner exited with $rt"
       exit $rt
     fi
   done
