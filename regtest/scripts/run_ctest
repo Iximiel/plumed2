@@ -1,59 +1,19 @@
 #! /usr/bin/env bash
-##########This will be deleted for debugging purpose##########
-echo pwd: $PWD
-###############
-if test -n "$PLUMED_PREPEND_PATH"; then
-  PATH="$PLUMED_PREPEND_PATH:$PATH"
-fi
 
-# this is the executable used for running the tests:
-plumed=$1
-shift 1
-# this is the executable used for getting the configuration:
-plumed_nompi="$plumed --no-mpi"
+fixzeroes () {
+file=$1
 
-mpi=""
-plumed_needs=""
-extra_files=""
-export valgrind=env
+grep -q "\x00" "$file"  && exit 0
 
-echo exe:$plumed
-for i in "$@"; do
-  echo "* $i"
-done
+sed "s/-\(0\.0*0 \)/ \1/g; 
+     s/-\(0\.0*0$\)/ \1/g" "$file" > "$file.$$.tmp"
+mv "$file.$$.tmp" "$file"
 
-while getopts "a:d:e:n:p:s:v:" option; do
-  echo "option $option : $OPTARG"
-  case "$option" in
-  #the directory with the source of the ttest
-  a) args=${OPTARG} ;;
-  d) dir=${OPTARG} ;;
-  e) extra_files=${OPTARG} ;;
-  n) plumed_needs=${OPTARG} ;;
-  p) mpiprocs=${OPTARG} ;;
-  #the plumed root directory
-  s) sourcedir=${OPTARG} ;;
-  #activates valgrind
-  v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
-  *)
-    echo "ERROR: unknown argument"
-    exit 1
-    ;;
-  esac
-done
+}
 
-echo "++ dir:  $dir"
-#if these works, there should not be reason to use config for the settings anymore
-#but only for the functions plumed_regtest_after and plumed_regtest_before
-echo "++ Test type: $type"
-echo "++ Arguments: \"$args\""
-echo "++ Processors: $mpiprocs"
-echo "++ Extra files: $extra_files"
-echo "++ Plumed needs: $plumed_needs"
-
-setupAndCheckMPI(){
+setupAndCheckMPI() {
   if ((mpiprocs > 0)); then
-    
+
     if $plumed_nompi config -q mpiexec; then
       mpi="$($plumed_nompi config mpiexec)"
     fi
@@ -77,8 +37,8 @@ setupAndCheckMPI(){
   fi
 }
 
-checkDependencies(){
-  
+checkDependencies() {
+
   for need in $plumed_needs; do
     echo "Checking for $need"
     if ! $plumed_nompi config -q has $need; then
@@ -121,11 +81,11 @@ setup() {
   if [ "$valgrind" = valgrind ]; then
     echo "using valgrind"
   fi
-  
+
   rm -fr tmp
   mkdir tmp
   cd tmp || return 1
-  
+
   cp -f ${dir}/* . 2>/dev/null
 
   for file in $extra_files; do
@@ -138,7 +98,7 @@ setup() {
 
   # this is the executable used for running the tests:
   echo plumed:$plumed
-  
+
   root=$($plumed_nompi info --root)
 
   if test -z "$root"; then
@@ -283,7 +243,7 @@ EOF
     echo "FAILURE: exit code $exitcode"
     return 1
   fi
-  
+
 }
 
 run() {
@@ -309,10 +269,11 @@ check() {
   if ls *.reference >/dev/null; then
     for file in *.reference; do
       new="${file%.reference}"
+      echo "checking $new"
       if test -f "$new"; then
-        ${sourcedir}/regtest/scripts/fixzeroes.sh "$file"
+        fixzeroes "$file"
         cp "$new" "$new.zfix"
-        ${sourcedir}/regtest/scripts/fixzeroes.sh "$new.zfix"
+        fixzeroes "$new.zfix"
         DIFFOPT=""
         # this is to enforce ASCII check
         # I add this option since sometime on travis some of the diff files are not shown
@@ -343,11 +304,64 @@ check() {
 
 #this settings make the pipe exit with failure code of any command
 set -o pipefail
-{  
-  for runner in setupAndCheckMPI  checkDependencies setup run check; do
+{
+  if test -n "$PLUMED_PREPEND_PATH"; then
+    PATH="$PLUMED_PREPEND_PATH:$PATH"
+  fi
+
+  # this is the executable used for running the tests:
+  plumed=$1
+  shift 1
+  # this is the executable used for getting the configuration:
+  plumed_nompi="$plumed --no-mpi"
+
+  mpi=""
+  plumed_needs=""
+  extra_files=""
+  export valgrind=env
+
+  ##########This will be deleted for debugging purpose##########
+  echo pwd: $PWD
+  echo exe:$plumed
+  for i in "$@"; do
+    echo "* $i"
+  done
+  ###############
+  while getopts "a:d:e:n:p:s:v" option; do
+    ##########This will be deleted for debugging purpose##########
+    echo "option $option : $OPTARG"
+    ###############
+    case "$option" in
+    #the directory with the source of the ttest
+    a) args=${OPTARG} ;;
+    d) dir=${OPTARG} ;;
+    e) extra_files=${OPTARG} ;;
+    n) plumed_needs=${OPTARG} ;;
+    p) mpiprocs=${OPTARG} ;;
+    #the plumed root directory
+    s) sourcedir=${OPTARG} ;;
+    #activates valgrind
+    v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
+    *)
+      echo "ERROR: unknown argument"
+      exit 1
+      ;;
+    esac
+  done
+
+  echo "++ dir:  $dir"
+  #if these works, there should not be reason to use config for the settings anymore
+  #but only for the functions plumed_regtest_after and plumed_regtest_before
+  echo "++ Test type: $type"
+  echo "++ Arguments: \"$args\""
+  echo "++ Processors: $mpiprocs"
+  echo "++ Extra files: $extra_files"
+  echo "++ Plumed needs: $plumed_needs"
+  #this runs the different set ups function, the test and the checks and communicate where something is going wrong 
+  for runner in setupAndCheckMPI checkDependencies setup run check; do
     $runner
     rt=$?
-    if [[ $rt != 0 ]] ; then
+    if [[ $rt != 0 ]]; then
       echo "CAUSE: $runner exited with $rt"
       exit $rt
     fi
