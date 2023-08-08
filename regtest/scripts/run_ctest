@@ -8,22 +8,33 @@ fi
 
 # this is the executable used for running the tests:
 plumed=$1
+shift 1
+# this is the executable used for getting the configuration:
+plumed_nompi="$plumed --no-mpi"
+
+mpi=""
+plumed_needs=""
+extra_files=""
 export valgrind=env
 
 echo exe:$plumed
-# this is the executable used for getting the configuration:
-plumed_nompi="$plumed --no-mpi"
-shift 1
+for i in "$@"; do
+  echo "* $i"
+done
 
-while getopts "vd:a:t:p:s:" option; do
+while getopts "a:d:e:n:p:s:v:" option; do
+  echo "option $option : $OPTARG"
   case "$option" in
-  v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
   #the directory with the source of the ttest
-  d) dir=${OPTARG} ;;
   a) args=${OPTARG} ;;
+  d) dir=${OPTARG} ;;
+  e) extra_files=${OPTARG} ;;
+  n) plumed_needs=${OPTARG} ;;
   p) mpiprocs=${OPTARG} ;;
   #the plumed root directory
   s) sourcedir=${OPTARG} ;;
+  #activates valgrind
+  v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
   *)
     echo "ERROR: unknown argument"
     exit 1
@@ -37,60 +48,12 @@ echo "++ dir:  $dir"
 echo "++ Test type: $type"
 echo "++ Arguments: \"$args\""
 echo "++ Processors: $mpiprocs"
+echo "++ Extra files: $extra_files"
+echo "++ Plumed needs: $plumed_needs"
 
-setup() {
-  #copies files into tmp and check if plumed can be run in this environment
-
-  date
-  echo "Setting up regtest from $(pwd)"
-
-  if [ "$valgrind" = valgrind ]; then
-    echo "using valgrind"
-  fi
-  
-  rm -fr tmp
-  mkdir tmp
-  cd tmp || return 1
-  
-  cp -f ${dir}/* . 2>/dev/null
-
-  test -f "$dir/config" || {
-    echo "FAILURE: config not found"
-    exit 1
-  }
-
-  mpiprocs=0
-
-  plumed_needs=
-  plumed_modules=
-
-  plumed_language=c++
-
-  source "$dir/config"
-
-  for file in $extra_files; do
-    cp -f ${dir}/$file .
-  done
-
-  echo "++ Test type: $type"
-  echo "++ Arguments: $arg"
-  echo "++ Processors: $mpiprocs"
-
-  mpi=env
-
-  # this is the executable used for running the tests:
-  echo plumed:$plumed
-  
-  root=$($plumed_nompi info --root)
-
-  if test -z "$root"; then
-    echo "root: $root"
-    echo "FAILURE: plumed executable not available"
-    exit 1
-  fi
-
+setupAndCheckMPI(){
   if ((mpiprocs > 0)); then
-    mpi=""
+    
     if $plumed_nompi config -q mpiexec; then
       mpi="$($plumed_nompi config mpiexec)"
     fi
@@ -112,7 +75,10 @@ setup() {
     plumed="$plumed --no-mpi"
 
   fi
+}
 
+checkDependencies(){
+  
   for need in $plumed_needs; do
     echo "Checking for $need"
     if ! $plumed_nompi config -q has $need; then
@@ -144,6 +110,42 @@ setup() {
       return 127
     fi
   done
+}
+
+setup() {
+  #copies files into tmp and check if plumed can be run in this environment
+
+  date
+  echo "Setting up regtest from $(pwd)"
+
+  if [ "$valgrind" = valgrind ]; then
+    echo "using valgrind"
+  fi
+  
+  rm -fr tmp
+  mkdir tmp
+  cd tmp || return 1
+  
+  cp -f ${dir}/* . 2>/dev/null
+
+  for file in $extra_files; do
+    cp -f ${dir}/$file .
+  done
+
+  echo "++ Test type: $type"
+  echo "++ Arguments: $arg"
+  echo "++ Processors: $mpiprocs"
+
+  # this is the executable used for running the tests:
+  echo plumed:$plumed
+  
+  root=$($plumed_nompi info --root)
+
+  if test -z "$root"; then
+    echo "root: $root"
+    echo "FAILURE: plumed executable not available"
+    exit 1
+  fi
 
   if type -t plumed_custom_skip 1>/dev/null; then
     if plumed_custom_skip; then
@@ -285,39 +287,17 @@ EOF
 }
 
 run() {
-  if ((mpiprocs > 0)); then
-    mpi=""
-    if $plumed_nompi config -q mpiexec; then
-      mpi="$($plumed_nompi config mpiexec)"
-    fi
-    if test -z "$mpi"; then
-      mpi="${PLUMED_MPIRUN:-mpirun}"
-    fi
-    mpi="$mpi -np $mpiprocs"
-
-    if ! $plumed_nompi config -q has mpi; then
-      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-      return 127
-    fi
-    if [[ "$valgrind" != "env" ]]; then
-      echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
-      return 127
-    fi
-  else
-
-    plumed="$plumed --no-mpi"
-
-  fi
-
   runcommand="$mpi $plumed"
   echo "running \"$runcommand ${args} > out 2> err\""
   #here I need splitting
   $runcommand ${args} >out 2>err
+  returnvalue=$?
   if [[ -s err ]]; then
     echo "####stderr contains:####"
     cat err
     echo "########################"
   fi
+  return $returnvalue
 }
 
 check() {
@@ -361,11 +341,10 @@ check() {
   return $exitcode
 }
 
-#this trick make the pipe exit with failure code of any command
+#this settings make the pipe exit with failure code of any command
 set -o pipefail
-{
-  
-  for runner in setup run check; do
+{  
+  for runner in setupAndCheckMPI  checkDependencies setup run check; do
     $runner
     rt=$?
     if [[ $rt != 0 ]] ; then
@@ -373,6 +352,4 @@ set -o pipefail
       exit $rt
     fi
   done
-  
-  
 } | tee report.txt
