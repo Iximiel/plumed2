@@ -20,7 +20,7 @@ function(PLUMED_TEST)
 #I will then separate the different test types in driver, compile ecc...
   set(options "")
   set(oneValueArgs "NAME;ARGS;TYPE;MPIPROCS")
-  set(multiValueArgs "EXTRAFILES;NEEDS")
+  set(multiValueArgs "EXTRAFILES;NEEDS;LABELS")
   cmake_parse_arguments(PARSE_ARGV 0 PLUMED_TEST "${options}" "${oneValueArgs}"
     "${multiValueArgs}" )
 #   cmake_parse_arguments(PLUMED_TEST "${options}" "${oneValueArgs}"
@@ -72,10 +72,12 @@ function(PLUMED_TEST)
   )
   message("Test ${testname}::adding test")
   
+  LIST(APPEND PLUMED_TEST_LABELS ${TEST_DIR})
+message(${PLUMED_TEST_LABELS})
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"
     SKIP_RETURN_CODE 127
-    LABELS ${TEST_DIR})
+    LABELS "${PLUMED_TEST_LABELS}")
 endfunction(PLUMED_TEST)
 
 
