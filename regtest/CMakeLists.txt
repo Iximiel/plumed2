@@ -20,7 +20,7 @@ function(PLUMED_TEST)
 #I will then separate the different test types in driver, compile ecc...
   set(options "")
   set(oneValueArgs "NAME;ARGS;TYPE;MPIPROCS")
-  set(multiValueArgs "EXTRAFILES;NEEDS;MODULES")
+  set(multiValueArgs "EXTRAFILES;NEEDS")
   cmake_parse_arguments(PARSE_ARGV 0 PLUMED_TEST "${options}" "${oneValueArgs}"
     "${multiValueArgs}" )
 #   cmake_parse_arguments(PLUMED_TEST "${options}" "${oneValueArgs}"
@@ -66,6 +66,7 @@ function(PLUMED_TEST)
     ${popt} ${PLUMED_TEST_MPIPROCS}
     ${eopt} ${PLUMED_TEST_EXTRAFILES}
     ${nopt} ${PLUMED_TEST_NEEDS}
+    #${nopt} ${PLUMED_TEST_NEEDS}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 
   )

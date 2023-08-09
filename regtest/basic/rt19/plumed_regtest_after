@@ -1,0 +1,5 @@
+#! /usr/bin/env bash
+gunzip COLVAR.gz
+gunzip COLVAR.res.gz
+gunzip HH.gz
+gunzip CC.gz
