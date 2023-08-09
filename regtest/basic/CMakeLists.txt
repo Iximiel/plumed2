@@ -2,6 +2,8 @@ enable_testing()
 
 project(Basic)
 set(TEST_DIR "basic")
+#add_subdirectory(rt-chdir)
+add_subdirectory(rt-fix-226)
 add_subdirectory(rt15)
 add_subdirectory(rt40)
 add_subdirectory(rt40-mpi)
