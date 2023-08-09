@@ -129,8 +129,8 @@ setup() {
     export PLUMED_KERNEL="$root/src/lib/libplumedKernel.$($plumed_nompi info --soext)"
     export PLUMED_LIB="$root/src/lib/libplumed.$($plumed_nompi info --soext)"
   fi
-  if type -t plumed_regtest_before 1>/dev/null; then
-    plumed_regtest_before
+  if [[ -x plumed_regtest_before ]]; then
+    ./plumed_regtest_before
   fi
 
   echo "*** mpi=${mpi}"
@@ -261,8 +261,8 @@ run() {
 }
 
 check() {
-  if type -t plumed_regtest_after 1>/dev/null; then
-    plumed_regtest_after
+  if [[ -x plumed_regtest_after ]]; then
+    ./plumed_regtest_after
   fi
 
   exitcode=0
