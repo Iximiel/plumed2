@@ -266,7 +266,7 @@ check() {
   fi
 
   exitcode=0
-  if ls *.reference >/dev/null; then
+  if ls ./*.reference >/dev/null; then
     for file in *.reference; do
       new="${file%.reference}"
       echo "checking $new"
@@ -288,14 +288,12 @@ check() {
           echo "$out"
         }
       else
-        echo FAILURE
-        echo FILE $new does not exist
+        echo "FAILURE: FILE $new does not exist"
         exitcode=1
       fi
     done
   else
-    echo WARNING
-    echo no file has been checked
+    echo "WARNING: no file has been checked"
     exitcode=2
   fi
 
@@ -303,6 +301,8 @@ check() {
 }
 
 #this settings make the pipe exit with failure code of any command
+#so the program exits with the exit state of the scripta and not the 
+#one of tee
 set -o pipefail
 {
   if test -n "$PLUMED_PREPEND_PATH"; then
@@ -316,8 +316,11 @@ set -o pipefail
   plumed_nompi="$plumed --no-mpi"
 
   mpi=""
+  args=""
+  plumed_modules=""
   plumed_needs=""
   extra_files=""
+  
   export valgrind=env
 
   ##########This will be deleted for debugging purpose##########
@@ -327,7 +330,7 @@ set -o pipefail
     echo "* $i"
   done
   ###############
-  while getopts "a:d:e:n:p:s:v" option; do
+  while getopts "a:d:e:m:n:p:s:v" option; do
     ##########This will be deleted for debugging purpose##########
     echo "option $option : $OPTARG"
     ###############
@@ -336,6 +339,7 @@ set -o pipefail
     a) args=${OPTARG} ;;
     d) dir=${OPTARG} ;;
     e) extra_files=${OPTARG} ;;
+    m) plumed_modules=${OPTARG} ;;
     n) plumed_needs=${OPTARG} ;;
     p) mpiprocs=${OPTARG} ;;
     #the plumed root directory

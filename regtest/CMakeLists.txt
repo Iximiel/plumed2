@@ -20,7 +20,7 @@ function(PLUMED_TEST)
 #I will then separate the different test types in driver, compile ecc...
   set(options "")
   set(oneValueArgs "NAME;ARGS;TYPE;MPIPROCS")
-  set(multiValueArgs "EXTRAFILES;NEEDS;LABELS")
+  set(multiValueArgs "EXTRAFILES;NEEDS;LABELS;MODULES")
   cmake_parse_arguments(PARSE_ARGV 0 PLUMED_TEST "${options}" "${oneValueArgs}"
     "${multiValueArgs}" )
 #   cmake_parse_arguments(PLUMED_TEST "${options}" "${oneValueArgs}"
@@ -58,6 +58,12 @@ function(PLUMED_TEST)
     set (nopt "-n")
   endif()
 
+  if(PLUMED_TEST_MODULES)
+    list(JOIN PLUMED_TEST_MODULES " " t)
+    set (PLUMED_TEST_MODULES  ${t})
+    set (mopt "-n")
+  endif()
+
   add_test(NAME ${testname} COMMAND ${CMAKE_SOURCE_DIR}/regtest/scripts/run_ctest
     $<TARGET_FILE:PLUMED2::plumed>
     -a "${type} ${args}"
@@ -66,13 +72,14 @@ function(PLUMED_TEST)
     ${popt} ${PLUMED_TEST_MPIPROCS}
     ${eopt} ${PLUMED_TEST_EXTRAFILES}
     ${nopt} ${PLUMED_TEST_NEEDS}
-    #${nopt} ${PLUMED_TEST_NEEDS}
+    ${mopt} ${PLUMED_TEST_MODULES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 
   )
   message("Test ${testname}::adding test")
   
   LIST(APPEND PLUMED_TEST_LABELS ${TEST_DIR})
+
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"
     SKIP_RETURN_CODE 127
