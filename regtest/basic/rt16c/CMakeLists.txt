@@ -1,0 +1,11 @@
+PLUMED_TEST(NAME rt16c TYPE driver
+ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --pdb test.pdb --charge-units=10 --mass-units=2"
+EXTRAFILES ../../trajectories/trajectory.xyz
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=driver
+# this will multiply charges and masses by 10 and 2
+arg="--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --pdb test.pdb --charge-units=10 --mass-units=2"
+extra_files="../../trajectories/trajectory.xyz"
+]] )

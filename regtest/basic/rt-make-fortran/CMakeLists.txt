@@ -1,0 +1,17 @@
+PLUMED_TEST(NAME rt-make-fortran TYPE make
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=make
+plumed_language=fortran
+
+function plumed_regtest_before(){
+grep -v "USE PLUMED_MODULE" test1.f90 | sed "s/TEST1/TEST2/" > test2.f90
+}
+
+function plumed_regtest_after(){
+# this should be empty since _ and __ names are not used
+nm test1.o | grep "plumed_f_[A-Za-z0-9]*_$" > names.dat
+}
+
+]] )

@@ -29,8 +29,7 @@ function(PLUMED_TEST)
   set(args ${PLUMED_TEST_ARGS})
   set(testname ${TEST_DIR}-${PLUMED_TEST_NAME})
   set(type ${PLUMED_TEST_TYPE})
-  message("Test ${testname}::adding test")
-  message("Test ${testname}::extra:${PLUMED_TEST_EXTRAFILES}")
+  #message("Test ${testname}::extra:${PLUMED_TEST_EXTRAFILES}")
   
   if(NOT PLUMED_TEST_TYPE)
     message(FATAL_ERROR "Test ${testname}::Test need TYPE to be indicated")
@@ -38,9 +37,10 @@ function(PLUMED_TEST)
 
   list(FIND PLUMED_TEST_KNOWN_TYPES ${type} TYPE_KNOWN)
   if(TYPE_KNOWN EQUAL -1)
-    message(FATAL_ERROR
+    message(WARNING #FATAL_ERROR
     "Test ${testname}::Test TYPE \"${type}\" is not in the"
     "supported list \"${PLUMED_TEST_KNOWN_TYPES}\"")
+    return()
   endif()
 
   if(PLUMED_TEST_MPIPROCS)
@@ -70,6 +70,7 @@ function(PLUMED_TEST)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 
   )
+  message("Test ${testname}::adding test")
   
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"

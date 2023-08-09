@@ -1,0 +1,2 @@
+#! /usr/bin/env bash
+sed "s:@PLUMED_KERNEL@:$PLUMED_KERNEL:" plumed_template.dat > plumed.dat
