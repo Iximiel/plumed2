@@ -343,7 +343,7 @@ set -o pipefail
     #activates valgrind
     v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
     *)
-      echo "ERROR: unknown argument"
+      echo "ERROR: unknown argument \"$option\""
       exit 1
       ;;
     esac

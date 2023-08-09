@@ -7,22 +7,42 @@ endif()
 #set (failRegex "FAILURE;ERROR;WARNING")
 set (failRegex "FAILURE;ERROR")
 
+set(PLUMED_TEST_KNOWN_TYPES
+  #simplemd
+  driver
+  #sum_hills
+  #make
+  #plumed
+  #python
+)
+
 function(PLUMED_TEST)
 #I will then separate the different test types in driver, compile ecc...
   set(options "")
   set(oneValueArgs "NAME;ARGS;TYPE;MPIPROCS")
-  set(multiValueArgs "EXTRAFILES;NEEDS")
+  set(multiValueArgs "EXTRAFILES;NEEDS;MODULES")
   cmake_parse_arguments(PARSE_ARGV 0 PLUMED_TEST "${options}" "${oneValueArgs}"
     "${multiValueArgs}" )
 #   cmake_parse_arguments(PLUMED_TEST "${options}" "${oneValueArgs}"
 # "${multiValueArgs}" "${ARGN}" )
   
   set(args ${PLUMED_TEST_ARGS})
-  set(testname ${PLUMED_TEST_NAME})
+  set(testname ${TEST_DIR}-${PLUMED_TEST_NAME})
   set(type ${PLUMED_TEST_TYPE})
-  message("adding test ${testname}")
-  message("extra:${PLUMED_TEST_EXTRAFILES}")
+  message("Test ${testname}::adding test")
+  message("Test ${testname}::extra:${PLUMED_TEST_EXTRAFILES}")
   
+  if(NOT PLUMED_TEST_TYPE)
+    message(FATAL_ERROR "Test ${testname}::Test need TYPE to be indicated")
+  endif()
+
+  list(FIND PLUMED_TEST_KNOWN_TYPES ${type} TYPE_KNOWN)
+  if(TYPE_KNOWN EQUAL -1)
+    message(FATAL_ERROR
+    "Test ${testname}::Test TYPE \"${type}\" is not in the"
+    "supported list \"${PLUMED_TEST_KNOWN_TYPES}\"")
+  endif()
+
   if(PLUMED_TEST_MPIPROCS)
     set(PLUMED_TEST_MPIPROCS "${PLUMED_TEST_MPIPROCS}")
     set(popt "-p")
@@ -47,11 +67,13 @@ function(PLUMED_TEST)
     ${eopt} ${PLUMED_TEST_EXTRAFILES}
     ${nopt} ${PLUMED_TEST_NEEDS}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+
   )
   
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"
-    SKIP_RETURN_CODE 127)
+    SKIP_RETURN_CODE 127
+    LABELS ${TEST_DIR})
 endfunction(PLUMED_TEST)
 
 
