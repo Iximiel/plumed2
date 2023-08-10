@@ -98,7 +98,7 @@ __PLUMED_HAS_RTLD_DEFAULT
 __PLUMED_HAS_SUBPROCESS
 __PLUMED_HAS_ZLIB)
 macro(CHECKHASDEFINES module)
-    message("CHECKHASDEFINES ${module}")
+    #message("CHECKHASDEFINES ${module}")
     if(TARGET ${module})
         get_target_property(module_has ${module} COMPILE_DEFINITIONS)
         foreach(def ${module_has})
@@ -188,6 +188,39 @@ mpiexec @MPIEXEC_EXECUTABLE_name@
 
 # Makefile.conf file
 # syntax: makefile_conf followed by a single space followed by a line from makefile_conf
+]]
+)
+set(listHASModules)
+#reconstrunct the module for the Config_lib.inc
+foreach(dir ${module_dirs})
+    if(${module_default_${dir}} STREQUAL "always")
+        set (status "always")
+    elseif(${module_${dir}})
+        set (status "on")
+    else()
+        set (status "off")
+    endif()
+    string(TOLOWER ${dir} tmp)
+    set (temp "if (moduleName == \"${tmp}\"){return presence::${status}")
+    
+    list(APPEND listHASModules ${temp})
+endforeach(dir ${module_dirs})
+message("${listHASModules}")
+list(JOIN listHASModules ";}\n" CONTENTS)
+file(CONFIGURE OUTPUT ../config/Config_lib.inc
+     CONTENT [[
+presence plumedHasFeature(std::string featureName){
+    @listHASFeatures@
+    return presence::notFound;
+}
+     
+presence plumedHasModule(std::string moduleName){
+@CONTENTS@;}
+return presence::notFound;
+}
+std::string getMPI_EXEC(){
+    return "@MPIEXEC_EXECUTABLE@";
+}
 ]]
 )
 

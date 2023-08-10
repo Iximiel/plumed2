@@ -177,7 +177,7 @@ std::string getCompilationTime() {
   return __TIME__;
 }
 
-
+#include "Config_lib.inc"
 }
 }
 
