@@ -116,6 +116,7 @@ presence plumedHasFeature(std::string);
 presence plumedHasModule(std::string);
 ///returns the MPI executable, if plumed has been compiled with MPI
 std::string getMPI_EXEC();
+std::string getPythonBin();
 }
 }
 

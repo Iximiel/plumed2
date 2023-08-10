@@ -47,7 +47,7 @@ plumed config has core
 
 class CLConfig:
   public CLTool {
-   public:
+public:
   static void registerKeywords( Keywords& keys );
   explicit CLConfig(const CLToolOptions& co );
   int main(FILE* in, FILE*out,Communicator& pc) override;
@@ -67,11 +67,11 @@ void CLConfig::registerKeywords( Keywords& keys ) {
            "check if plumed has the specified features");
   keys.add("optional","module", //[word1 [word2]..]
            "check if plumed has the specified module enabled");
-   keys.addFlag("python_bin",false,"write the path to the python bin and return "
+  keys.addFlag("python_bin",false,"write the path to the python bin and return "
                "if plumed has been conmpiled with it");
-   keys.addFlag("mpiexec",false,"write the path to the mpiexec bin and return if"
+  keys.addFlag("mpiexec",false,"write the path to the mpiexec bin and return if"
                " plumed has been conmpiled with it");
-           
+
   //keys.addFlag("makefile_conf",false,"dumps the Makefile.conf file");
 
 }
@@ -86,12 +86,18 @@ int CLConfig::main(FILE* in, FILE*out,Communicator& pc) {
   bool quiet, q;
   parseFlag("-q",q);
   parseFlag("--quiet",quiet);
-   quiet|=q;
+  quiet|=q;
   //parseFlag("-q/--quiet",quiet);
+  bool python_binMode;
+  parseFlag("python_bin",python_binMode);
+  bool mpiexecMode;
+  parseFlag("mpiexec",mpiexecMode);
   std::string moduleCheck;
-  bool moduleMode=parse("module",moduleCheck);
+  parse("module",moduleCheck);
+  bool moduleMode=moduleCheck.length()>0;
   std::string featureCheck;
-  bool featureMode=parse("has",featureCheck);
+  parse("has",featureCheck);
+  bool featureMode=featureCheck.length()>0;
   if(moduleMode) {
     switch (config::plumedHasModule(moduleCheck)) {
     case config::presence::always : [[falltrough]];
@@ -145,6 +151,28 @@ int CLConfig::main(FILE* in, FILE*out,Communicator& pc) {
     break;
     }
   }
+
+  if (python_binMode) {
+    auto t=config::getPythonBin();
+    if (!quiet) {
+      std::fprintf(out,"%s\n",t.c_str());
+    }
+    if(t.length() > 0) {
+      return 0;
+    }
+    return 1;
+  }
+  if (mpiexecMode) {
+    auto t=config::getMPI_EXEC();
+    if (!quiet) {
+      std::fprintf(out,"%s\n",t.c_str());
+    }
+    if(t.length() > 0) {
+      return 0;
+    }
+    return 1;
+  }
+  return 1;
   // bool show;
   // parseFlag("show",show);
   // bool makefile_conf;

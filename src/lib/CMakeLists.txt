@@ -190,27 +190,48 @@ mpiexec @MPIEXEC_EXECUTABLE_name@
 # syntax: makefile_conf followed by a single space followed by a line from makefile_conf
 ]]
 )
-set(listHASModules)
-#reconstrunct the module for the Config_lib.inc
-foreach(dir ${module_dirs})
-    if(${module_default_${dir}} STREQUAL "always")
-        set (status "always")
-    elseif(${module_${dir}})
-        set (status "on")
-    else()
-        set (status "off")
-    endif()
-    string(TOLOWER ${dir} tmp)
-    set (temp "if (moduleName == \"${tmp}\"){return presence::${status}")
+# set(listHASModules)
+# #reconstrunct the module for the Config_lib.inc
+# foreach(dir ${module_dirs})
+#     if(${module_default_${dir}} STREQUAL "always")
+#         set (status "always")
+#     elseif(${module_${dir}})
+#         set (status "on")
+#     else()
+#         set (status "off")
+#     endif()
+#     string(TOLOWER ${dir} tmp)
+#     set (temp "if (moduleName == \"${tmp}\"){return presence::${status}")
     
-    list(APPEND listHASModules ${temp})
-endforeach(dir ${module_dirs})
-message("${listHASModules}")
-list(JOIN listHASModules ";}\n" CONTENTS)
+#     list(APPEND listHASModules ${temp})
+# endforeach(dir ${module_dirs})
+# message("${listHASModules}")
+# list(JOIN listHASModules ";}\n" CONTENTS)
+
+#use https://regexr.com/ to better understand this
+string(REGEX REPLACE 
+[[module ([a-z0-9_]*) (on|off) \(default-(on|off)\)]]
+[[if (moduleName == "\1") {return presence::\2}]]
+CONTENTS
+${CONTENTS}
+)
+string(REGEX REPLACE 
+[[module ([a-z0-9_]*) on \((always)\)]]
+[[if (moduleName == "\1") {return presence::\2}]]
+CONTENTS
+${CONTENTS}
+)
+string(REGEX REPLACE 
+[[}]]
+[[;}]]
+CONTENTS
+${CONTENTS}
+)
+
 
 #We are shure that everithing is lowercase
 string(REGEX REPLACE "has ([a-z_]*) (on|off)" 
-     "if (featureName == \"\\1\") {return presence::\\2;}"
+     [[if (featureName == "\1") {return presence::\2;}]]
      PLUMED_HAS ${PLUMED_HAS})
 
 
@@ -222,12 +243,18 @@ return presence::notFound;
 }
      
 presence plumedHasModule(std::string moduleName){
-@CONTENTS@;}
+@CONTENTS@
 return presence::notFound;
 }
+
 std::string getMPI_EXEC(){
     return "@MPIEXEC_EXECUTABLE@";
 }
+
+std::string getPythonBin(){
+    return "@Python_EXECUTABLE@";
+}
+
 ]]
 )
 
