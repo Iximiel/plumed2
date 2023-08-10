@@ -67,6 +67,11 @@ void CLConfig::registerKeywords( Keywords& keys ) {
            "check if plumed has the specified features");
   keys.add("optional","module", //[word1 [word2]..]
            "check if plumed has the specified module enabled");
+   keys.addFlag("python_bin",false,"write the path to the python bin and return "
+               "if plumed has been conmpiled with it");
+   keys.addFlag("mpiexec",false,"write the path to the mpiexec bin and return if"
+               " plumed has been conmpiled with it");
+           
   //keys.addFlag("makefile_conf",false,"dumps the Makefile.conf file");
 
 }
@@ -84,8 +89,10 @@ int CLConfig::main(FILE* in, FILE*out,Communicator& pc) {
    quiet|=q;
   //parseFlag("-q/--quiet",quiet);
   std::string moduleCheck;
-  parse("module",moduleCheck);
-  if(moduleCheck.length()>0) {
+  bool moduleMode=parse("module",moduleCheck);
+  std::string featureCheck;
+  bool featureMode=parse("has",featureCheck);
+  if(moduleMode) {
     switch (config::plumedHasModule(moduleCheck)) {
     case config::presence::always : [[falltrough]];
     case config::presence::on : {
@@ -111,8 +118,35 @@ int CLConfig::main(FILE* in, FILE*out,Communicator& pc) {
     break;
     }
   }
+
+  if(featureMode) {
+    switch (config::plumedHasFeature(featureCheck)) {
+    case config::presence::always : [[falltrough]];//this should not happen
+    case config::presence::on : {
+      if (!quiet) {
+        std::fprintf(out,"%s on\n",featureCheck.c_str());
+      }
+      return 0;
+    }
+    break;
+    case config::presence::off: {
+      if (!quiet) {
+        std::fprintf(out,"%s off\n",featureCheck.c_str());
+      }
+      return 1;
+    }
+    break;
+    case config::presence::notFound : {
+      if (!quiet) {
+        std::fprintf(out,"%s not found\n",featureCheck.c_str());
+      }
+      return 1;
+    }
+    break;
+    }
+  }
   // bool show;
-  // parseFlag("show",quiet);
+  // parseFlag("show",show);
   // bool makefile_conf;
   // parseFlag("makefile_conf",makefile_conf);
 

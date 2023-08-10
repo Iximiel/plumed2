@@ -207,11 +207,18 @@ foreach(dir ${module_dirs})
 endforeach(dir ${module_dirs})
 message("${listHASModules}")
 list(JOIN listHASModules ";}\n" CONTENTS)
+
+#We are shure that everithing is lowercase
+string(REGEX REPLACE "has ([a-z_]*) (on|off)" 
+     "if (featureName == \"\\1\") {return presence::\\2;}"
+     PLUMED_HAS ${PLUMED_HAS})
+
+
 file(CONFIGURE OUTPUT ../config/Config_lib.inc
      CONTENT [[
 presence plumedHasFeature(std::string featureName){
-    @listHASFeatures@
-    return presence::notFound;
+@PLUMED_HAS@
+return presence::notFound;
 }
      
 presence plumedHasModule(std::string moduleName){
