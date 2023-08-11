@@ -107,6 +107,17 @@ bool hasExternalMolfile();
 
 bool hasZlib();
 
+
+//stringviwe will be used with c++17
+enum class presence {always, on, off,notFound};
+//bool plumedHasFeature(std::string_view);
+presence plumedHasFeature(std::string);
+//bool plumedHasModule(std::string_view);
+presence plumedHasModule(std::string);
+presence plumedHasModuleDefault(std::string);
+///returns the MPI executable, if plumed has been compiled with MPI
+std::string getMPI_EXEC();
+std::string getPythonBin();
 }
 }
 

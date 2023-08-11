@@ -4,6 +4,7 @@ set (module_name "cltools")
 DECLAREPLUMEDMODULE(${module_name}
 ON
 SOURCES
+CLConfig.cpp
 CLTool.cpp
 Completion.cpp
 Driver.cpp
