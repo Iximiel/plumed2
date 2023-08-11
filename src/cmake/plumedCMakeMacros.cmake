@@ -62,6 +62,7 @@ macro(DECLAREPLUMEDMODULE module_name default_status)
                 PROPERTY PUBLIC_HEADER ${DECLAREPLUMEDMODULE_EXTRA_HEADERS})
         endif()
         install (TARGETS ${module_name}
+            EXPORT Plumed2MODULES
             PUBLIC_HEADER
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plumed/${module_name}
         )
@@ -95,13 +96,3 @@ function(CONFIGSETTINGS module_name settingFlag)
         endif()
     endif(${settingFlag})    
 endfunction(CONFIGSETTINGS)
-
-function(print_target_property target_name property)
-    get_target_property(my${property} ${target_name} ${property})
-    if (my${property})
-        message("-- ${target_name} <${property}>: ${my${property}}")
-        else()
-        message("-- ${target_name} <${property}>:")
-    endif()
-    unset(my${property})    
-endfunction(print_target_property)

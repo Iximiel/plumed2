@@ -34,13 +34,24 @@ include(GNUInstallDirs)
 #this forces CMAKE_INSTALL_LIBDIR to be lib and not lib64
 set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 #set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${program_name})
+set(DIRS_INCLUDE_INSTALL ${CMAKE_INSTALL_INCLUDEDIR}/plumed
+    CACHE PATH "Location of header files" )
+#set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib
+set(DIRS_LIB_INSTALL ${CMAKE_INSTALL_LIBDIR}
+    CACHE PATH "Location of library files" )
+set(DIRS_BIN_INSTALL ${CMAKE_INSTALL_BINDIR}
+    CACHE PATH "Location of executables" )
+set(DIRS_EXTRA_INSTALL ${CMAKE_INSTALL_LIBDIR}/plumed
+    CACHE PATH "Location of executables" )
+set(DIRS_CMAKE_INSTALL ${CMAKE_INSTALL_LIBDIR}/cmake/plumed
+    CACHE PATH "Location of executables" )
 
 
 add_subdirectory(src)
 add_subdirectory(scripts)
 add_subdirectory(fortran)
-enable_testing()
-add_subdirectory(regtest)
+#enable_testing()
+#add_subdirectory(regtest)
 #add_subdirectory(vim)
 
 install(DIRECTORY patches

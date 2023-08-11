@@ -5,6 +5,7 @@ set(module_${module_name} ON CACHE INTERNAL "always active core module ${module_
 #dynamically linked plumed
 #$(PLUMED_MAIN_SHARED): $(OBJ_MAIN) $(OBJ_WRAPPER) $(PLUMED_KERNEL)
 add_executable(plumed_bin main.cpp)#OBJ_MAIN
+add_executable(Plumed2::plumed_bin ALIAS plumed_bin)
 target_link_libraries(plumed_bin PUBLIC
     sharedplumedKernel #PLUMED_KERNEL
     PlumedStaticWrapper #OBJ_WRAPPER
@@ -17,6 +18,7 @@ target_include_directories(plumed_bin PRIVATE ${PLUMED_SRC})
 #statically linked plumed
 #$(PLUMED_MAIN_STATIC): $(OBJ_MAIN) $(OBJ_KERNEL) $(OBJ_WRAPPER)
 add_executable(plumed_bin_static main.cpp) #$(OBJ_MAIN)
+add_executable(Plumed2::plumed_bin_static ALIAS plumed_bin_static)
 target_link_libraries(plumed_bin_static PUBLIC
     PlumedStaticWrapper #$(OBJ_WRAPPER)
     archiveplumedKernel
@@ -31,6 +33,7 @@ target_include_directories(plumed_bin_static PRIVATE ${PLUMED_SRC})
 #runtime linked plumed
 #$(PLUMED_MAIN_RUNTIME): $(OBJ_MAIN) $(OBJ_DYNAMIC_WRAPPER)
 add_executable(plumed_bin_runtime main.cpp)
+add_executable(Plumed2::plumed_bin_runtime ALIAS plumed_bin_runtime)
 target_link_libraries(plumed_bin_runtime
     PUBLIC
     PlumedDynamicWrapper #OBJ_DYNAMIC_WRAPPER
@@ -40,13 +43,15 @@ set_target_properties(plumed_bin_runtime
     )
 target_include_directories(plumed_bin_runtime PRIVATE ${PLUMED_SRC})
 
-install (TARGETS plumed_bin 
+install (TARGETS plumed_bin
+EXPORT Plumed2EXEC
 RUNTIME
-DESTINATION ${CMAKE_INSTALL_BINDIR})
+DESTINATION ${DIRS_BIN_INSTALL})
 
 install (TARGETS plumed_bin_runtime
+EXPORT Plumed2EXEC
 RUNTIME
-DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name})
+DESTINATION ${DIRS_EXTRA_INSTALL})
 
 #consider adding install manifest:
 #install(CODE "string(REPLACE \";\" \"\\n\" MY_CMAKE_INSTALL_MANIFEST_CONTENT \"\$\{CMAKE_INSTALL_MANIFEST_FILES\}\")\n\

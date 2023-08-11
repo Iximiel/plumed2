@@ -257,3 +257,24 @@ foreach(type runtime shared static)
         CONTENT ${Plumed_inc}
     )    
 endforeach(type runtime shared static)
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    PlumedConfig.cmake.in
+    Plumed2Config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cmake/Plumed
+    PATH_VARS DIRS_INCLUDE_INSTALL 
+    DIRS_LIB_INSTALL
+    DIRS_BIN_INSTALL
+
+)
+write_basic_package_version_file(Plumed2ConfigVersion.cmake
+  VERSION ${PLUMED_VERSION_MAJOR}.${PLUMED_VERSION_MINOR}.${PLUMED_VERSION_PATCH}
+  #COMPATIBILITY <AnyNewerVersion|SameMajorVersion|SameMinorVersion|ExactVersion>
+  COMPATIBILITY SameMinorVersion
+)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Plumed2Config.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/PlumedConfigVersion.cmake
+        DESTINATION ${LIB_INSTALL_DIR}/plumed/cmake )

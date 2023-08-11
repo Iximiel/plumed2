@@ -294,13 +294,41 @@ target_link_libraries(archiveplumedKernel PUBLIC
     )
 #add_library(libplumedStatic OBJECT ${KernelTargets})
 #target_link_libraries(libplumedStatic INTERFACE ${modulesForKernel})
+install (TARGETS PlumedDynamicWrapper PlumedStaticWrapper
+    EXPORT Plumed2WRAPPERS
+    ARCHIVE DESTINATION ${DIRS_LIB_INSTALL}
+    LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
+)
+
 install (TARGETS archiveplumedKernel sharedplumedKernel
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
-    )
+    EXPORT Plumed2KERNELS
+    ARCHIVE DESTINATION ${DIRS_LIB_INSTALL}
+    LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
+)
 
 add_subdirectory(main)
 add_subdirectory(lib)
+
+install(EXPORT Plumed2WRAPPERS
+    FILE Plumed2WRAPPERS.cmake
+    NAMESPACE Plumed2::
+    DESTINATION ${DIRS_CMAKE_INSTALL}
+)
+install(EXPORT Plumed2MODULES
+    FILE Plumed2MODULES.cmake
+    NAMESPACE Plumed2::
+    DESTINATION ${DIRS_CMAKE_INSTALL}
+)
+install(EXPORT Plumed2KERNELS
+    FILE Plumed2KERNELS.cmake
+    NAMESPACE Plumed2::
+    DESTINATION ${DIRS_CMAKE_INSTALL}
+)
+install(EXPORT Plumed2EXEC
+    FILE Plumed2EXEC.cmake
+    NAMESPACE Plumed2::
+    DESTINATION ${DIRS_CMAKE_INSTALL}
+)
 
 #print_target_property(cltools COMPILE_DEFINITIONS)
 #print_target_property(molfile COMPILE_DEFINITIONS)
@@ -390,18 +418,18 @@ target_link_libraries(LinkShared sharedplumedKernel PlumedStaticWrapper)
 target_link_libraries(LinkStatic archiveplumedKernel PlumedStaticWrapper)
 target_link_libraries(LinkRuntime PlumedDynamicWrapper)
 
-print_target_property(cltools COMPILE_DEFINITIONS)    
+include(CMakePrintHelpers)
+cmake_print_properties(TARGETS cltools plumed_bin
+    PROPERTIES COMPILE_DEFINITIONS)
 
-foreach(opt STATIC_LIBRARY_OPTIONS 
-            INTERFACE_LINK_OPTIONS        LINK_OPTIONS
-            INTERFACE_LINK_FLAGS          LINK_FLAGS 
-            INTERFACE_COMPILE_DEFINITIONS COMPILE_DEFINITIONS
-            INTERFACE_COMPILE_OPTIONS     COMPILE_OPTIONS 
-            INTERFACE_LINK_LIBRARIES      LINK_LIBRARIES
-            INTERFACE_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES
-            )
-print_target_property(blas "${opt}" )    
-endforeach()
+cmake_print_properties(TARGETS blas PROPERTIES STATIC_LIBRARY_OPTIONS 
+INTERFACE_LINK_OPTIONS        LINK_OPTIONS
+INTERFACE_LINK_FLAGS          LINK_FLAGS 
+INTERFACE_COMPILE_DEFINITIONS COMPILE_DEFINITIONS
+INTERFACE_COMPILE_OPTIONS     COMPILE_OPTIONS 
+INTERFACE_LINK_LIBRARIES      LINK_LIBRARIES
+INTERFACE_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES )    
+
 
 message("PLUMED_LIBS: ${PLUMED_LIBS}")
 message("PLUMED_DYNAMIC_LIBS: ${PLUMED_DYNAMIC_LIBS}")

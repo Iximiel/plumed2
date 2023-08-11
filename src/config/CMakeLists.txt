@@ -382,7 +382,8 @@ add_custom_command(OUTPUT Makefile.conf.xxd
 set_property(TARGET Config
     APPEND PROPERTY PUBLIC_HEADER
     ${CMAKE_CURRENT_BINARY_DIR}/version.h Config.h)
-install (TARGETS Config
+install (TARGETS Config config
+    EXPORT Plumed2MODULES
     PUBLIC_HEADER
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${program_name}/config
 )
