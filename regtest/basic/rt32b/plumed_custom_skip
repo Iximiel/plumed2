@@ -1,0 +1,15 @@
+#! /usr/bin/env bash
+if test -n "$PLUMED_PYTHON_SELECT"; then
+    export PLUMED_PYTHON_BIN="$PLUMED_PYTHON_SELECT"
+    exit 1
+fi
+for python_bin in python python2.7 python3.6 python3.7
+do
+    if $python_bin -c "import MDAnalysis; import mdtraj" 2> /dev/null; then
+        if [ $python_bin != python ]; then
+            export PLUMED_PYTHON_BIN=$python_bin
+        fi
+        exit 1
+    fi
+done
+exit 0

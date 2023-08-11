@@ -15,16 +15,15 @@ source config
 #PLUMED_NUM_THREADS
 #plumed_regtest_before
 #plumed_regtest_after
-for i in plumed_regtest_before plumed_regtest_after
-do
-if declare -f $i  > /dev/null; then
-#displaying the function
-{
-  echo "#! /usr/bin/env bash"
-  declare -f $i | head -n-1 | tail -n+3 | sed -e 's/;$//' -e 's/^    //'
-} | tee $i
-chmod +x "$i"
-fi
+for i in plumed_regtest_before plumed_regtest_after plumed_custom_skip; do
+  if declare -f $i >/dev/null; then
+    #displaying the function
+    {
+      echo "#! /usr/bin/env bash"
+      declare -f $i | head -n-1 | tail -n+3 | sed -e 's/;$//' -e 's/^    //' -e 's/return/exit/'
+    } | tee $i
+    chmod +x "$i"
+  fi
 done
 name=${PWD##*/}
 echo ""
@@ -51,4 +50,3 @@ echo ""
   cat config
   echo "]] )"
 } | tee CMakeLists.txt
-
