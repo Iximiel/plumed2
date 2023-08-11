@@ -52,7 +52,7 @@ public:
   explicit CLConfig(const CLToolOptions& co );
   int main(FILE* in, FILE*out,Communicator& pc) override;
   std::string description()const override {
-    return "provide informations about your plumed configuration";
+    return "provide informations about the compiled plumed configuration";
   }
 };
 
@@ -151,7 +151,7 @@ int CLConfig::main(FILE* in, FILE*out,Communicator& pc) {
     break;
     }
   }
-  
+
   if (python_binMode) {
     auto t=config::getPythonBin();
     if (!quiet) {
