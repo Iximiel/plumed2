@@ -277,4 +277,4 @@ write_basic_package_version_file(Plumed2ConfigVersion.cmake
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Plumed2Config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/PlumedConfigVersion.cmake
-        DESTINATION ${LIB_INSTALL_DIR}/plumed/cmake )
+        DESTINATION ${DIRS_CMAKE_INSTALL})

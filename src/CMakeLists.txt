@@ -309,13 +309,13 @@ install (TARGETS archiveplumedKernel sharedplumedKernel
 add_subdirectory(main)
 add_subdirectory(lib)
 
-install(EXPORT Plumed2WRAPPERS
-    FILE Plumed2WRAPPERS.cmake
+install(EXPORT Plumed2MODULES
+    FILE Plumed2MODULES.cmake
     NAMESPACE Plumed2::
     DESTINATION ${DIRS_CMAKE_INSTALL}
 )
-install(EXPORT Plumed2MODULES
-    FILE Plumed2MODULES.cmake
+install(EXPORT Plumed2WRAPPERS
+    FILE Plumed2WRAPPERS.cmake
     NAMESPACE Plumed2::
     DESTINATION ${DIRS_CMAKE_INSTALL}
 )

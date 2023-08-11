@@ -368,6 +368,10 @@ target_link_libraries(Config PUBLIC config)
 target_include_directories(Config PRIVATE 
     ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
+target_include_directories(Config PUBLIC
+    $<INSTALL_INTERFACE:${DIRS_INCLUDE_INSTALL}>
+    )
+
 configure_file(Makefile.conf.xxd.compiler.sh.in
                  Makefile.conf.xxd.compiler.sh @ONLY)
 configure_file(${PLUMED_MAIN_DIR}/Makefile.conf.in
