@@ -190,71 +190,40 @@ mpiexec @MPIEXEC_EXECUTABLE_name@
 # syntax: makefile_conf followed by a single space followed by a line from makefile_conf
 ]]
 )
-# set(listHASModules)
-# #reconstrunct the module for the Config_lib.inc
-# foreach(dir ${module_dirs})
-#     if(${module_default_${dir}} STREQUAL "always")
-#         set (status "always")
-#     elseif(${module_${dir}})
-#         set (status "on")
-#     else()
-#         set (status "off")
-#     endif()
-#     string(TOLOWER ${dir} tmp)
-#     set (temp "if (moduleName == \"${tmp}\"){return presence::${status}")
+set(listHASModules)
+#reconstrunct the module for the Config_lib.inc
+foreach(dir ${module_dirs})
+    if(${module_default_${dir}} STREQUAL "always")
+        set (default "always")
+        set (status "always")
+    else()
+        
+        set (status "${module_${dir}}")
+        
+        set (default "${module_default_${dir}}")
+        
+            
+            
+        
+    endif()
+    set (temp "{\"${dir}\", {presence::${status}, presence::${default}}}")
+    string(TOLOWER ${temp} temp)
     
-#     list(APPEND listHASModules ${temp})
-# endforeach(dir ${module_dirs})
-# message("${listHASModules}")
-# list(JOIN listHASModules ";}\n" CONTENTS)
-
-#use https://regexr.com/ to better understand this
-string(REGEX REPLACE 
-[[module ([a-z0-9_]*) (on|off) \(default-(on|off)\)]]
-[[if (moduleName == "\1") {return presence::\2}]]
-CONTENTS
-${CONTENTS}
-)
-string(REGEX REPLACE 
-[[module ([a-z0-9_]*) on \((always)\)]]
-[[if (moduleName == "\1") {return presence::\2}]]
-CONTENTS
-${CONTENTS}
-)
-string(REGEX REPLACE 
-[[}]]
-[[;}]]
-CONTENTS
-${CONTENTS}
-)
+    list(APPEND listHASModules ${temp})
+endforeach(dir ${module_dirs})
+#message("${listHASModules}")
+list(JOIN listHASModules ",\n" listHASModules)
 
 
-#We are shure that everithing is lowercase
-string(REGEX REPLACE "has ([a-z_]*) (on|off)" 
-     [[if (featureName == "\1") {return presence::\2;}]]
-     PLUMED_HAS ${PLUMED_HAS})
-
-
-file(CONFIGURE OUTPUT ../config/Config_lib.inc
+file(CONFIGURE OUTPUT ../config/Config_Features.inc
      CONTENT [[
-presence plumedHasFeature(std::string featureName){
-@PLUMED_HAS@
-return presence::notFound;
-}
-     
-presence plumedHasModule(std::string moduleName){
-@CONTENTS@
-return presence::notFound;
-}
+@listHASFeatures@
+]]
+)
 
-std::string getMPI_EXEC(){
-    return "@MPIEXEC_EXECUTABLE@";
-}
-
-std::string getPythonBin(){
-    return "@Python_EXECUTABLE@";
-}
-
+file(CONFIGURE OUTPUT ../config/Config_Modules.inc
+     CONTENT [[
+@listHASModules@
 ]]
 )
 

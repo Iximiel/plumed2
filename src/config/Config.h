@@ -114,6 +114,7 @@ enum class presence {always, on, off,notFound};
 presence plumedHasFeature(std::string);
 //bool plumedHasModule(std::string_view);
 presence plumedHasModule(std::string);
+presence plumedHasModuleDefault(std::string);
 ///returns the MPI executable, if plumed has been compiled with MPI
 std::string getMPI_EXEC();
 std::string getPythonBin();

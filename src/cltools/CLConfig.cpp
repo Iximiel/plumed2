@@ -151,13 +151,13 @@ int CLConfig::main(FILE* in, FILE*out,Communicator& pc) {
     break;
     }
   }
-
+  
   if (python_binMode) {
     auto t=config::getPythonBin();
     if (!quiet) {
       std::fprintf(out,"%s\n",t.c_str());
     }
-    if(t.length() > 0) {
+    if(t.length() > 0 && t != "Python_EXECUTABLE-NOTFOUND") {
       return 0;
     }
     return 1;
@@ -167,7 +167,7 @@ int CLConfig::main(FILE* in, FILE*out,Communicator& pc) {
     if (!quiet) {
       std::fprintf(out,"%s\n",t.c_str());
     }
-    if(t.length() > 0) {
+    if(t.length() > 0 && t != "MPIEXEC_EXECUTABLE-NOTFOUND") {
       return 0;
     }
     return 1;
