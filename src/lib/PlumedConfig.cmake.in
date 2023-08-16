@@ -2,17 +2,14 @@ set(Plumed2_VERSION @PLUMED_VERSION_MAJOR@.@PLUMED_VERSION_MINOR@.@PLUMED_VERSIO
 
 @PACKAGE_INIT@
 
+include(CMakeFindDependencyMacro)
+
+@EXTERNAL_PACKAGES@
 
 include("${CMAKE_CURRENT_LIST_DIR}/Plumed2MODULES.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/Plumed2WRAPPERS.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/Plumed2KERNELS.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/Plumed2EXEC.cmake")
-
-include(CMakeFindDependencyMacro)
-
-foreach(dep MPI GSL ZLIB Backtrace Boost OpenMP PkgConfig)
-  find_dependency(${dep})
-endforeach()
 
 set_and_check(Plumed2_INCLUDE_DIR "@PACKAGE_DIRS_INCLUDE_INSTALL@")
 set_and_check(Plumed2_LIB_DIR "@PACKAGE_DIRS_LIB_INSTALL@")

@@ -260,6 +260,27 @@ endforeach(type runtime shared static)
 
 include(CMakePackageConfigHelpers)
 
+set (EXTERNAL_PACKAGES)
+foreach(dep MPI GSL ZLIB Backtrace OpenMP PkgConfig)
+    if(${${dep}_PLMD_FOUND})
+        list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep} ${${dep}_PLMD_VERSION})")
+    endif()
+endforeach()
+#todo: boost serialization and boost graph
+
+get_target_property(configDEFS config
+INTERFACE_COMPILE_DEFINITIONS)
+message("configDEFS ${configDEFS}")
+if("__PLUMED_HAS_BOOST_GRAPH=1" IN_LIST configDEFS)
+    list(APPEND EXTERNAL_PACKAGES "find_dependency(Boost COMPONENTS graph)")
+endif()
+if("__PLUMED_HAS_BOOST_SERIALIZATION=1" IN_LIST configDEFS)
+    list(APPEND EXTERNAL_PACKAGES "find_dependency(Boost COMPONENTS serialization)")
+endif()
+
+
+list(JOIN EXTERNAL_PACKAGES "\n" EXTERNAL_PACKAGES)
+
 configure_package_config_file(
     PlumedConfig.cmake.in
     Plumed2Config.cmake

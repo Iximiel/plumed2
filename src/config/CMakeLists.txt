@@ -37,15 +37,31 @@ add_library(config INTERFACE)
 ################################################################################
 #                     options and external libraries                           #
 ################################################################################
+macro(PlumedLibsCheck Name)
+    #this sets a check for installed libraries that will be used in the package 
+    #installing procedure
+    unset(${Name}_PLMD_FOUND CACHE)
+    unset(${Name}_PLMD_VERSION CACHE)
+    if(${Name}_FOUND)
+        set(${Name}_PLMD_FOUND ON CACHE INTERNAL "")
+        set(${Name}_PLMD_VERSION ${${Name}_VERSION} CACHE INTERNAL "")
+        mark_as_advanced(${Name}_PLMD_FOUND ${Name}_PLMD_VERSION)
+    endif()
+endmacro(PlumedLibsCheck)
 find_package(PkgConfig REQUIRED)
+PlumedLibsCheck(PkgConfig)
 include(CheckSourceCompiles)
 include(CheckSourceRuns)
 include(CheckCXXSymbolExists)
 include(CMakePushCheckState)
 #  --enable-mpi            enable search for mpi, default: yes
 option(enable_mpi "enable search for mpi" ON)
+
 if(enable_mpi)
+
     find_package(MPI)
+    PlumedLibsCheck(MPI)
+    
     CONFIGSETTINGS(config MPI_CXX_FOUND
         LINK_LIBRARIES MPI::MPI_CXX
         COMPILE_DEFINITIONS __PLUMED_HAS_MPI
@@ -103,6 +119,7 @@ endif(enable_fftw)
 option(enable_gsl "enable search for gsl" ON)
 if(enable_gsl)
     find_package(GSL)
+    PlumedLibsCheck(GSL)
     CONFIGSETTINGS(config GSL_FOUND
             LINK_LIBRARIES GSL::gsl GSL::gslcblas
             COMPILE_DEFINITIONS __PLUMED_HAS_GSL
@@ -113,6 +130,8 @@ endif(enable_gsl)
 option(enable_zlib "enable search for zlib" ON)
 if(enable_zlib)
     find_package(ZLIB)
+    PlumedLibsCheck(ZLIB)
+
     CONFIGSETTINGS(config ZLIB_FOUND
             LINK_LIBRARIES ZLIB::ZLIB
             COMPILE_DEFINITIONS __PLUMED_HAS_ZLIB
@@ -204,6 +223,7 @@ endif(enable_popen)
 option(enable_execinfo  "enable search for execinfo" ON)
 if(enable_execinfo)
     find_package(Backtrace)
+    PlumedLibsCheck(Backtrace)
     CONFIGSETTINGS(config Backtrace_FOUND
         COMPILE_DEFINITIONS __PLUMED_HAS_EXECINFO
         LINK_LIBRARIES "${Backtrace_LIBRARY}"
@@ -338,6 +358,7 @@ endif(enable_bsymbolic)
 option(enable_openmp "enable search for openmp" ON)
 if(enable_openmp)
     find_package(OpenMP)
+    PlumedLibsCheck(OpenMP)
     CONFIGSETTINGS(config OpenMP_CXX_FOUND
         LINK_LIBRARIES OpenMP::OpenMP_CXX
         PLUMED_DYNAMIC_LIBS ${OpenMP_CXX_FLAGS}
