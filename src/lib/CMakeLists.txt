@@ -263,10 +263,18 @@ include(CMakePackageConfigHelpers)
 set (EXTERNAL_PACKAGES)
 #when package are found in src/config the ${dep}_FOUND is made PARENT_SCOPE avaiable
 foreach(dep PkgConfig OpenMP MPI GSL ZLIB Backtrace)
-    if(${${dep}_FOUND})
+    if(${dep}_FOUND)
         list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep} ${${dep}_VERSION})")
     endif()
 endforeach()
+
+if(PkgConfig_FOUND)
+    #foreach(dep FFTW)
+    if(FFTW_FOUND)
+        list(APPEND EXTERNAL_PACKAGES "pkg_search_module(FFTW fftw3 IMPORTED_TARGET)")
+    endif()
+    #endforeach()
+endif()
 
 #this adds the dependecies to Boost if they are present
 set(BoostCompontents)

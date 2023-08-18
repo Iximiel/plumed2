@@ -306,6 +306,8 @@ install (TARGETS archiveplumedKernel sharedplumedKernel
     LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
 )
 
+#in the cmake subdir there are the macro for creatin a new plumed plugin
+add_subdirectory(cmake)
 add_subdirectory(main)
 add_subdirectory(lib)
 

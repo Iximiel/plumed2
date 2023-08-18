@@ -107,6 +107,7 @@ if(enable_fftw)
     #consider to make this more elegant: see lammps or eigen or use
     # https://github.com/egpbos/findFFTW
     pkg_search_module(FFTW fftw3 IMPORTED_TARGET)
+    PlumedLibsCheck(FFTW)
     CONFIGSETTINGS(config FFTW_FOUND
         LINK_LIBRARIES PkgConfig::FFTW
         COMPILE_DEFINITIONS __PLUMED_HAS_FFTW
