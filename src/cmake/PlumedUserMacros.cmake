@@ -7,6 +7,12 @@ macro(add_plumed_plugin plugin_name)
   #This creates a target library called <plugin_name> that is linked to
   #Plumed2::Config and has will produce a <plugin_name>.so or <plugin_name>.dylib
   #You can add extra libraries by using the standard target_link_libraries()
+  # this macro is equivalent to
+  # ```cmake
+  # add_library(<plugin_name> SHARED <listOfSources>)
+  # target_link_libraries(<plugin_name>PUBLIC Plumed2::Config)
+  # set_target_properties(<plugin_name> PROPERTIES PREFIX "")
+  #```
 
   set(options "")
   set(oneValueArgs "")
