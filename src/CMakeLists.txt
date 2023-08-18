@@ -309,6 +309,7 @@ install (TARGETS archiveplumedKernel sharedplumedKernel
 add_subdirectory(main)
 add_subdirectory(lib)
 
+#This install the .cmake files needed to get the various plumed targets with find_package(Plumed2)
 install(EXPORT Plumed2MODULES
     FILE Plumed2MODULES.cmake
     NAMESPACE Plumed2::
@@ -330,14 +331,6 @@ install(EXPORT Plumed2EXEC
     DESTINATION ${DIRS_CMAKE_INSTALL}
 )
 
-#print_target_property(cltools COMPILE_DEFINITIONS)
-#print_target_property(molfile COMPILE_DEFINITIONS)
-
-# foreach(module_name blas lapack)
-# print_target_property(${module_name} COMPILE_OPTIONS)
-# print_target_property(${module_name} COMPILE_DEFINITIONS)
-# print_target_property(${module_name} INTERFACE_COMPILE_DEFINITIONS)
-# endforeach()
 ################################################################################
 #One can also use -DCMAKE_EXPORT_COMPILE_COMMANDS=ON in that case, such that we 
 #have all the commands in the file compile_commands.json without actually 
@@ -346,7 +339,7 @@ install(EXPORT Plumed2EXEC
 #thanks https://stackoverflow.com/questions/2670121/using-cmake-with-gnu-make-how-can-i-see-the-exact-commands#comment112625585_2673355
 ################################################################################
 
-file(CONFIGURE OUTPUT sourceme.sh
+file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/sourceme.sh
      CONTENT [[export PATH="@CMAKE_BINARY_DIR@/src/main/:$PATH"
 export LIBRARY_PATH="@CMAKE_BINARY_DIR@/src/:$LIBRARY_PATH"
 export LD_LIBRARY_PATH="@CMAKE_BINARY_DIR@/src/:$LD_LIBRARY_PATH"
@@ -373,8 +366,6 @@ set (TODO [[
 
 ]])
 
-
-
 set(
     CMAKE_ECHO_LINK_EXECUTABLE 
     "<CMAKE_COMMAND> -E echo \"Flags: <FLAGS>\""
@@ -391,27 +382,23 @@ set(CMAKE_ECHO_COMPILE_OBJECT
 
 file(WRITE null.echo "")
 
-
-
-
 #add_executable(LinkLine "")
 foreach(linkelper Shared Static Runtime)
-add_executable(Link${linkelper}
-    null.echo
-)
-
-set_target_properties(
-    Link${linkelper}  
-        PROPERTIES
-            LINKER_LANGUAGE ECHO
-            SUFFIX          ".txt"
-)
-add_custom_command(
-    TARGET Link${linkelper}
-    POST_BUILD
-    # COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
-    COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
-)
+    add_executable(Link${linkelper}
+        null.echo
+    )
+    set_target_properties(
+        Link${linkelper}  
+            PROPERTIES
+                LINKER_LANGUAGE ECHO
+                SUFFIX          ".txt"
+    )
+    add_custom_command(
+        TARGET Link${linkelper}
+        POST_BUILD
+        # COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
+        COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
+    )
 endforeach(linkelper )
 
 target_link_libraries(LinkShared sharedplumedKernel PlumedStaticWrapper)
@@ -430,11 +417,9 @@ INTERFACE_COMPILE_OPTIONS     COMPILE_OPTIONS
 INTERFACE_LINK_LIBRARIES      LINK_LIBRARIES
 INTERFACE_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES )    
 
-
 message("PLUMED_LIBS: ${PLUMED_LIBS}")
 message("PLUMED_DYNAMIC_LIBS: ${PLUMED_DYNAMIC_LIBS}")
 message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
 message("CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
 #LIST(REMOVE_DUPLICATES PLUMED_LD_FLAGS)
 #message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
-

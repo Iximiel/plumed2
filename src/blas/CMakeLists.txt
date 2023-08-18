@@ -58,7 +58,7 @@ if (BLAS_FOUND)
     # elseif(noUnderscodeBlas AND UnderscodeBlas)
     #     message(WARNING "both srtog_ and srtog are linkable")
     # if both can be linked, use the underscore version
-    endif(noUnderscodeBlas AND NOT UnderscodeBlas)
+    endif(noUnderscodeBlas)
 
     target_link_libraries(${module_name}
         PUBLIC

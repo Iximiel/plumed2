@@ -26,7 +26,7 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithD
 #IDE that have an interface with it, but we are not still confident that it is ready
 #for installation purposes
 #set(CMAKE_SKIP_INSTALL_RULES YES)
-option(risk_accepted "CMake is experimental use at your own risk" OFF)
+option(risk_accepted "CMake is experimental use at your own risk" ON)
 if(NOT risk_accepted)
    message(FATAL_ERROR "You must accept the risk to use the experimental cmake compilation: -Drisk_accepted=ON")
 endif(NOT risk_accepted)
@@ -44,8 +44,17 @@ set(DIRS_BIN_INSTALL ${CMAKE_INSTALL_BINDIR}
 set(DIRS_EXTRA_INSTALL ${CMAKE_INSTALL_LIBDIR}/plumed
     CACHE PATH "Location of executables" )
 set(DIRS_CMAKE_INSTALL ${CMAKE_INSTALL_LIBDIR}/cmake/plumed
+
     CACHE PATH "Location of executables" )
 
+option(CMAKE_EXPORT_COMPILE_COMMANDS "Enable/Disable output of compile commands during generation." ON)
+################################################################################
+#One can also use -DCMAKE_EXPORT_COMPILE_COMMANDS=ON in that case, such that we 
+#have all the commands in the file compile_commands.json without actually 
+#building the sources.
+#-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#thanks https://stackoverflow.com/questions/2670121/using-cmake-with-gnu-make-how-can-i-see-the-exact-commands#comment112625585_2673355
+################################################################################
 
 add_subdirectory(src)
 add_subdirectory(scripts)

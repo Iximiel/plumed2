@@ -40,12 +40,10 @@ add_library(config INTERFACE)
 macro(PlumedLibsCheck Name)
     #this sets a check for installed libraries that will be used in the package 
     #installing procedure
-    unset(${Name}_PLMD_FOUND CACHE)
-    unset(${Name}_PLMD_VERSION CACHE)
     if(${Name}_FOUND)
-        set(${Name}_PLMD_FOUND ON CACHE INTERNAL "")
-        set(${Name}_PLMD_VERSION ${${Name}_VERSION} CACHE INTERNAL "")
-        mark_as_advanced(${Name}_PLMD_FOUND ${Name}_PLMD_VERSION)
+        set(${Name}_FOUND ON PARENT_SCOPE)
+        set(${Name}_VERSION ${${Name}_VERSION} PARENT_SCOPE)
+        mark_as_advanced(${Name}_FOUND ${Name}_VERSION)
     endif()
 endmacro(PlumedLibsCheck)
 find_package(PkgConfig REQUIRED)
@@ -289,6 +287,7 @@ if(enable_boost_graph)
     find_package(Boost
         COMPONENTS graph
     )
+    PlumedLibsCheck(Boost_GRAPH)
     CONFIGSETTINGS(config Boost_GRAPH_FOUND
         LINK_LIBRARIES Boost::graph
         COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_GRAPH
@@ -302,6 +301,7 @@ if(enable_boost_serialization)
     find_package(Boost
         COMPONENTS serialization
     )
+    PlumedLibsCheck(Boost_SERIALIZATION)
     CONFIGSETTINGS(config Boost_SERIALIZATION_FOUND
         LINK_LIBRARIES Boost::serialization
         COMPILE_DEFINITIONS __PLUMED_HAS_BOOST_SERIALIZATION

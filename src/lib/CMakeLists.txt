@@ -261,23 +261,26 @@ endforeach(type runtime shared static)
 include(CMakePackageConfigHelpers)
 
 set (EXTERNAL_PACKAGES)
-foreach(dep MPI GSL ZLIB Backtrace OpenMP PkgConfig)
-    if(${${dep}_PLMD_FOUND})
-        list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep} ${${dep}_PLMD_VERSION})")
+#when package are found in src/config the ${dep}_FOUND is made PARENT_SCOPE avaiable
+foreach(dep PkgConfig OpenMP MPI GSL ZLIB Backtrace)
+    if(${${dep}_FOUND})
+        list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep} ${${dep}_VERSION})")
     endif()
 endforeach()
-#todo: boost serialization and boost graph
 
-get_target_property(configDEFS config
-INTERFACE_COMPILE_DEFINITIONS)
-message("configDEFS ${configDEFS}")
-if("__PLUMED_HAS_BOOST_GRAPH=1" IN_LIST configDEFS)
-    list(APPEND EXTERNAL_PACKAGES "find_dependency(Boost COMPONENTS graph)")
+#this adds the dependecies to Boost if they are present
+set(BoostCompontents)
+if(Boost_GRAPH_FOUND)
+    list(APPEND BoostCompontents "graph")
 endif()
-if("__PLUMED_HAS_BOOST_SERIALIZATION=1" IN_LIST configDEFS)
-    list(APPEND EXTERNAL_PACKAGES "find_dependency(Boost COMPONENTS serialization)")
+if(Boost_SERIALIZATION_FOUND)
+    list(APPEND BoostCompontents "serialization")
 endif()
 
+if(BoostCompontents)
+    list(JOIN BoostCompontents " " BoostCompontents)
+    list(APPEND EXTERNAL_PACKAGES "find_dependency(Boost COMPONENTS ${BoostCompontents})")
+endif()
 
 list(JOIN EXTERNAL_PACKAGES "\n" EXTERNAL_PACKAGES)
 
@@ -288,8 +291,8 @@ configure_package_config_file(
     PATH_VARS DIRS_INCLUDE_INSTALL 
     DIRS_LIB_INSTALL
     DIRS_BIN_INSTALL
-
 )
+
 write_basic_package_version_file(Plumed2ConfigVersion.cmake
   VERSION ${PLUMED_VERSION_MAJOR}.${PLUMED_VERSION_MINOR}.${PLUMED_VERSION_PATCH}
   #COMPATIBILITY <AnyNewerVersion|SameMajorVersion|SameMinorVersion|ExactVersion>
