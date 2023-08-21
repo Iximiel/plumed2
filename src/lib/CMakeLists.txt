@@ -258,25 +258,44 @@ foreach(type runtime shared static)
     )    
 endforeach(type runtime shared static)
 
-include(CMakePackageConfigHelpers)
 
+################################################################################
+##########################Creating PlumedConfig.cmake###########################
+################################################################################
+include(CMakePackageConfigHelpers)
 set (EXTERNAL_PACKAGES)
-#when package are found in src/config the ${dep}_FOUND is made PARENT_SCOPE avaiable
-foreach(dep PkgConfig OpenMP MPI GSL ZLIB Backtrace)
+#when package are found in src/* the ${dep}_FOUND should be made PARENT_SCOPE
+
+#export eventual helper variables options
+foreach(opt
+    #blas and lapack
+    MKLROOT BLA_STATIC BLA_VENDOR BLA_F95 BLA_PREFER_PKGCONFIG
+    #GSL options
+    GSL_ROOT_DIR
+    )
+    if(${opt})
+        list(APPEND EXTERNAL_PACKAGES "set(${opt} ${${opt}})")
+    endif()
+endforeach()
+
+#these packages are called with find_package(name) without options
+foreach(dep BLAS LAPACK OpenMP MPI GSL ZLIB Backtrace)
     if(${dep}_FOUND)
-        list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep} ${${dep}_VERSION})")
+        list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep})")
     endif()
 endforeach()
 
 if(PkgConfig_FOUND)
+    list(APPEND EXTERNAL_PACKAGES "\nfind_dependency(PkgConfig)")
     #foreach(dep FFTW)
     if(FFTW_FOUND)
-        list(APPEND EXTERNAL_PACKAGES "pkg_search_module(FFTW fftw3 IMPORTED_TARGET)")
+        list(APPEND EXTERNAL_PACKAGES 
+        "pkg_search_module(FFTW fftw3 IMPORTED_TARGET)")
     endif()
     #endforeach()
 endif()
 
-#this adds the dependecies to Boost if they are present
+#this adds the dependecies to Boost if they are required
 set(BoostCompontents)
 if(Boost_GRAPH_FOUND)
     list(APPEND BoostCompontents "graph")
@@ -287,7 +306,8 @@ endif()
 
 if(BoostCompontents)
     list(JOIN BoostCompontents " " BoostCompontents)
-    list(APPEND EXTERNAL_PACKAGES "find_dependency(Boost COMPONENTS ${BoostCompontents})")
+    list(APPEND EXTERNAL_PACKAGES 
+    "find_dependency(Boost COMPONENTS ${BoostCompontents})")
 endif()
 
 list(JOIN EXTERNAL_PACKAGES "\n" EXTERNAL_PACKAGES)
@@ -295,7 +315,8 @@ list(JOIN EXTERNAL_PACKAGES "\n" EXTERNAL_PACKAGES)
 configure_package_config_file(
     PlumedConfig.cmake.in
     Plumed2Config.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cmake/Plumed
+    INSTALL_DESTINATION 
+    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cmake/Plumed
     PATH_VARS DIRS_INCLUDE_INSTALL 
     DIRS_LIB_INSTALL
     DIRS_BIN_INSTALL
