@@ -90,17 +90,6 @@ endif(enable_warnings_errors)
 ################################################################################
 #Macro definitions
 ################################################################################
-MACRO(SUBDIRLIST result curdir)
-  #This macro is from a lot of posts on stackoverflow
-  FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)
-  SET(dirlist "")
-  FOREACH(child ${children})
-    IF(IS_DIRECTORY ${curdir}/${child})
-      LIST(APPEND dirlist ${child})
-    ENDIF()
-  ENDFOREACH()
-  SET(${result} ${dirlist})
-ENDMACRO()
 # support directory with .cmake files with useful macros
 list(APPEND CMAKE_MODULE_PATH "${PLUMED_SRC}/cmake")
 include(plumedCMakeMacros)
@@ -109,23 +98,24 @@ include(plumedCMakeMacros)
 #Setting up Modules
 ################################################################################
 
-SUBDIRLIST(alldirs ${CMAKE_CURRENT_SOURCE_DIR})# CACHE INTERNAL FORCE)
+#getting the list of direcotries in src/
+FILE(GLOB children RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*)
+SET(alldirs "")
+FOREACH(child ${children})
+    IF(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${child})
+        LIST(APPEND alldirs ${child})
+    ENDIF()
+ENDFOREACH()
+
 set(module_dirs ${alldirs})# CACHE INTERNAL FORCE)
 #directories that do not contain modules
 set(utildirs lib include maketools cmake)
-#these are the diretory to compile that do not have a module.type inside
 set(execDirs config wrapper) #removed main
 #these are directory with codes that may be external
 set(mayBeExternal blas lapack molfile)
 list(REMOVE_ITEM module_dirs main ${utildirs} ${execDirs})
-#this is needed for making "allmodules_activate" work
-#set(toggabledirs ${module_dirs})
-#set(mayBeExternal_toggable ${mayBeExternal})
-#set(alwaysOnDirs core tools lepton blas lapack asmjit)
 
-#list(REMOVE_ITEM toggabledirs ${alwaysOnDirs})
-#list(REMOVE_ITEM mayBeExternal_toggable ${alwaysOnDirs})
-
+#the first subdir should is config
 foreach(dir ${execDirs})
     add_subdirectory(${dir})
 endforeach(dir ${execDirs})
@@ -133,6 +123,7 @@ endforeach(dir ${execDirs})
 foreach(dir ${module_dirs})
     add_subdirectory(${dir})
 endforeach(dir ${module_dirs})
+
 if(allmodules_activate)
     message("All module will be forced ON")
     foreach(dir ${module_dirs})
@@ -142,7 +133,8 @@ if(allmodules_activate)
             set(module_${dir} ON CACHE BOOL "activate module ${dir}" FORCE)
         endif()
     endforeach(dir ${module_dirs})
-    #I set up the "autoshutdown" for this option to make it appear in the gui
+    #I set up the "autoshutdown" for this option,
+    #so it is not triggered at each subsequent cmake run
     set(allmodules_activate OFF CACHE BOOL "Activates all modules" FORCE)
 endif()
 
@@ -155,7 +147,8 @@ if(allmodules_default)
             set(module_${dir} ${module_default_${dir}} CACHE BOOL "activate module ${dir}" FORCE)
         endif()
     endforeach(dir ${module_dirs})
-    #I set up the "autoshutdown" for this option to make it appear in the gui
+    #I set up the "autoshutdown" for this option,
+    #so it is not triggered at each subsequent cmake run
     set(allmodules_default OFF CACHE BOOL "Revert all module to their default state" FORCE)
 endif()
 
@@ -227,11 +220,6 @@ endif()
 
 ################################################################################
 
-#for debugging purpose
-#foreach(dir ${module_dirs} ${execDirs} ${mayBeExternal})
-#    message("${dir}: ${module_${dir}}")
-#endforeach(dir ${module_dirs} ${execDirs} ${mayBeExternal})
-
 #check module dependencies
 foreach(dir ${module_dirs})
     if(${module_${dir}})
@@ -241,6 +229,7 @@ foreach(dir ${module_dirs})
             if (NOT module_${otherModule})
                 list(FIND mayBeExternal ${otherModule} isExternal)
                 if(${isExternal})
+                    #this may be removed?
                     string(TOUPPER ${otherModule} capsName)
                     if(${capsName}_FOUND)
                         continue()
@@ -306,29 +295,26 @@ install (TARGETS archiveplumedKernel sharedplumedKernel
     LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
 )
 
-#in the cmake subdir there are the macro for creatin a new plumed plugin
+#these subdirectories contains informations for installing plumed
 add_subdirectory(cmake)
-add_subdirectory(main)
 add_subdirectory(lib)
+#the codes for the executable are within the main subdir
+add_subdirectory(main)
 
 #This install the .cmake files needed to get the various plumed targets with find_package(Plumed2)
 install(EXPORT Plumed2MODULES
-    FILE Plumed2MODULES.cmake
     NAMESPACE Plumed2::
     DESTINATION ${DIRS_CMAKE_INSTALL}
 )
 install(EXPORT Plumed2WRAPPERS
-    FILE Plumed2WRAPPERS.cmake
     NAMESPACE Plumed2::
     DESTINATION ${DIRS_CMAKE_INSTALL}
 )
 install(EXPORT Plumed2KERNELS
-    FILE Plumed2KERNELS.cmake
     NAMESPACE Plumed2::
     DESTINATION ${DIRS_CMAKE_INSTALL}
 )
 install(EXPORT Plumed2EXEC
-    FILE Plumed2EXEC.cmake
     NAMESPACE Plumed2::
     DESTINATION ${DIRS_CMAKE_INSTALL}
 )
