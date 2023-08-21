@@ -1,8 +1,16 @@
+cmake_minimum_required(VERSION 3.20.2)
+
+project(Plumed2Tests LANGUAGES CXX)
+
 enable_testing()
 
-if(NOT TARGET PLUMED2::plumed)
-    find_package(PLUMED2 REQUIRED)
+if(NOT TARGET Plumed2::plumed_bin)
+    find_package(Plumed2 REQUIRED)
 endif()
+
+set(run_ctest
+  ${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_ctest
+)
 
 #set (failRegex "FAILURE;ERROR;WARNING")
 set (failRegex "FAILURE;ERROR")
@@ -64,8 +72,8 @@ function(PLUMED_TEST)
     set (mopt "-n")
   endif()
 
-  add_test(NAME ${testname} COMMAND ${CMAKE_SOURCE_DIR}/regtest/scripts/run_ctest
-    $<TARGET_FILE:PLUMED2::plumed>
+  add_test(NAME ${testname} COMMAND ${run_ctest}
+    $<TARGET_FILE:Plumed2::plumed_bin>
     -a "${type} ${args}"
     -d ${CMAKE_CURRENT_SOURCE_DIR}
     -s ${CMAKE_SOURCE_DIR}
