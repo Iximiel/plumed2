@@ -13,9 +13,10 @@ string(REPLACE "." "" soextension ${CMAKE_SHARED_LIBRARY_SUFFIX})
 set(SOEXT ${soextension} CACHE INTERNAL "The extension of dynamic libraries (so/dylib)")
 #set_property(CACHE SOEXT PROPERTY STRINGS "so" "dylib")
 
-set (PLUMED_SRC ${CMAKE_CURRENT_SOURCE_DIR})
-set (PLUMED_MAKETOOLS ${PLUMED_SRC}/maketools )
-cmake_path (GET PLUMED_SRC PARENT_PATH PLUMED_MAIN_DIR)
+set (PLUMED_SOURCE_SRC ${CMAKE_CURRENT_SOURCE_DIR})
+set (PLUMED_BINARY_SRC ${CMAKE_CURRENT_BINARY_DIR})
+set (PLUMED_MAKETOOLS ${PLUMED_SOURCE_SRC}/maketools )
+cmake_path (GET PLUMED_SOURCE_SRC PARENT_PATH PLUMED_MAIN_DIR)
 set (PLUMED_SCRIPTS ${PLUMED_MAIN_DIR}/scripts)
 set (PLUMED_PATCHES ${PLUMED_MAIN_DIR}/patches)
 
@@ -91,7 +92,7 @@ endif(enable_warnings_errors)
 #Macro definitions
 ################################################################################
 # support directory with .cmake files with useful macros
-list(APPEND CMAKE_MODULE_PATH "${PLUMED_SRC}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${PLUMED_SOURCE_SRC}/cmake")
 include(plumedCMakeMacros)
 
 ################################################################################
@@ -296,29 +297,13 @@ install (TARGETS archiveplumedKernel sharedplumedKernel
 )
 
 #these subdirectories contains informations for installing plumed
-add_subdirectory(cmake)
 add_subdirectory(lib)
 #the codes for the executable are within the main subdir
 add_subdirectory(main)
-
-#This install the .cmake files needed to get the various plumed targets with find_package(Plumed2)
-install(EXPORT Plumed2MODULES
-    NAMESPACE Plumed2::
-    DESTINATION ${DIRS_CMAKE_INSTALL}
-)
-install(EXPORT Plumed2WRAPPERS
-    NAMESPACE Plumed2::
-    DESTINATION ${DIRS_CMAKE_INSTALL}
-)
-install(EXPORT Plumed2KERNELS
-    NAMESPACE Plumed2::
-    DESTINATION ${DIRS_CMAKE_INSTALL}
-)
-install(EXPORT Plumed2EXEC
-    NAMESPACE Plumed2::
-    DESTINATION ${DIRS_CMAKE_INSTALL}
-)
-
+#this subdirectory contains the informations for accessing the compiled plumed
+#without installing it,
+#AND installs the user macros for creating a plumed2 plugin (using LOAD FILE=file.cpp)
+add_subdirectory(cmake)
 ################################################################################
 #One can also use -DCMAKE_EXPORT_COMPILE_COMMANDS=ON in that case, such that we 
 #have all the commands in the file compile_commands.json without actually 
@@ -328,12 +313,16 @@ install(EXPORT Plumed2EXEC
 ################################################################################
 
 file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/sourceme.sh
-     CONTENT [[export PATH="@CMAKE_BINARY_DIR@/src/main/:$PATH"
+     CONTENT [[#by sourcing this file you will be able to run plumed from the build directory
+export PATH="@CMAKE_BINARY_DIR@/src/main/:$PATH"
 export LIBRARY_PATH="@CMAKE_BINARY_DIR@/src/:$LIBRARY_PATH"
 export LD_LIBRARY_PATH="@CMAKE_BINARY_DIR@/src/:$LD_LIBRARY_PATH"
 export PLUMED_KERNEL="@CMAKE_BINARY_DIR@/src/libplumedKernel.so"
 export PLUMED_VIMPATH="@CMAKE_SOURCE_DIR@/vim"
 export PYTHONPATH="@CMAKE_SOURCE_DIR@/python:$PYTHONPATH"
+export PYTHONPATH="@CMAKE_SOURCE_DIR@/python:$PYTHONPATH"
+export CMAKE_PREFIX_PATH="@CMAKE_BINARY_DIR@/src/cmake:$CMAKE_PREFIX_PATH"
+export PLUMED_ROOT="@CMAKE_BINARY_DIR@"
 ]]
      #ESCAPE_QUOTES
      @ONLY
@@ -354,56 +343,57 @@ set (TODO [[
 
 ]])
 
-set(
-    CMAKE_ECHO_LINK_EXECUTABLE 
-    "<CMAKE_COMMAND> -E echo \"Flags: <FLAGS>\""
-    "<CMAKE_COMMAND> -E echo \"LinkFlags: <LINK_FLAGS>\""
-    "echo \"LinkLibraries: <LINK_LIBRARIES>\" > <TARGET>"
-)
-set(CMAKE_ECHO_STANDARD_LIBRARIES ${CMAKE_CXX_STANDARD_LIBRARIES})
-set(CMAKE_ECHO_FLAGS ${CMAKE_CXX_FLAGS})
-set(CMAKE_ECHO_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
-set(CMAKE_ECHO_IMPLICIT_LINK_DIRECTORIES ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
-
-set(CMAKE_ECHO_COMPILE_OBJECT
-"<CMAKE_COMMAND> -E echo \"<DEFINES>\" >> <TARGET>")
-
-file(WRITE null.echo "")
-
-#add_executable(LinkLine "")
-foreach(linkelper Shared Static Runtime)
-    add_executable(Link${linkelper}
-        null.echo
+if(SHOW_LINKING)
+    set(
+        CMAKE_ECHO_LINK_EXECUTABLE 
+        "<CMAKE_COMMAND> -E echo \"Flags: <FLAGS>\""
+        "<CMAKE_COMMAND> -E echo \"LinkFlags: <LINK_FLAGS>\""
+        "echo \"LinkLibraries: <LINK_LIBRARIES>\" > <TARGET>"
     )
-    set_target_properties(
-        Link${linkelper}  
-            PROPERTIES
-                LINKER_LANGUAGE ECHO
-                SUFFIX          ".txt"
-    )
-    add_custom_command(
-        TARGET Link${linkelper}
-        POST_BUILD
-        # COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
-        COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
-    )
-endforeach(linkelper )
+    set(CMAKE_ECHO_STANDARD_LIBRARIES ${CMAKE_CXX_STANDARD_LIBRARIES})
+    set(CMAKE_ECHO_FLAGS ${CMAKE_CXX_FLAGS})
+    set(CMAKE_ECHO_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
+    set(CMAKE_ECHO_IMPLICIT_LINK_DIRECTORIES ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
 
-target_link_libraries(LinkShared sharedplumedKernel PlumedStaticWrapper)
-target_link_libraries(LinkStatic archiveplumedKernel PlumedStaticWrapper)
-target_link_libraries(LinkRuntime PlumedDynamicWrapper)
+    set(CMAKE_ECHO_COMPILE_OBJECT
+    "<CMAKE_COMMAND> -E echo \"<DEFINES>\" >> <TARGET>")
 
-include(CMakePrintHelpers)
-cmake_print_properties(TARGETS cltools plumed_bin
-    PROPERTIES COMPILE_DEFINITIONS)
+    file(WRITE null.echo "")
 
-cmake_print_properties(TARGETS blas config PROPERTIES STATIC_LIBRARY_OPTIONS 
-INTERFACE_LINK_OPTIONS        LINK_OPTIONS
-INTERFACE_LINK_FLAGS          LINK_FLAGS 
-INTERFACE_COMPILE_DEFINITIONS COMPILE_DEFINITIONS
-INTERFACE_COMPILE_OPTIONS     COMPILE_OPTIONS 
-INTERFACE_LINK_LIBRARIES      LINK_LIBRARIES
-INTERFACE_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES )    
+    #add_executable(LinkLine "")
+    foreach(linkelper Shared Static Runtime)
+        add_executable(Link${linkelper}
+            null.echo
+        )
+        set_target_properties(
+            Link${linkelper}  
+                PROPERTIES
+                    LINKER_LANGUAGE ECHO
+                    SUFFIX          ".txt"
+        )
+        add_custom_command(
+            TARGET Link${linkelper}
+            POST_BUILD
+            # COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
+            COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
+        )
+    endforeach(linkelper )
+
+    target_link_libraries(LinkShared sharedplumedKernel PlumedStaticWrapper)
+    target_link_libraries(LinkStatic archiveplumedKernel PlumedStaticWrapper)
+    target_link_libraries(LinkRuntime PlumedDynamicWrapper)
+endif(SHOW_LINKING)
+# include(CMakePrintHelpers)
+# cmake_print_properties(TARGETS cltools plumed_bin
+#     PROPERTIES COMPILE_DEFINITIONS)
+
+# cmake_print_properties(TARGETS blas config PROPERTIES STATIC_LIBRARY_OPTIONS 
+# INTERFACE_LINK_OPTIONS        LINK_OPTIONS
+# INTERFACE_LINK_FLAGS          LINK_FLAGS 
+# INTERFACE_COMPILE_DEFINITIONS COMPILE_DEFINITIONS
+# INTERFACE_COMPILE_OPTIONS     COMPILE_OPTIONS 
+# INTERFACE_LINK_LIBRARIES      LINK_LIBRARIES
+# INTERFACE_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES )    
 
 message("PLUMED_LIBS: ${PLUMED_LIBS}")
 message("PLUMED_DYNAMIC_LIBS: ${PLUMED_DYNAMIC_LIBS}")

@@ -1,6 +1,6 @@
 set(SCRIPTS
 config.sh
-mklib.sh
+mklib.sh 
 newcv.sh
 partial_tempering.sh
 patch.sh
@@ -16,6 +16,12 @@ foreach(script ${SCRIPTS})
         OWNER_READ GROUP_READ WORLD_READ
         OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE
     )
+    #This copy makes plumed work in the builddir
+    file(COPY ${script}
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+        USE_SOURCE_PERMISSIONS
+    )
+
     get_filename_component(adaptedScript ${script} NAME_WE) 
     set(adaptedScript plumed-${adaptedScript})
     # The logic implemented here should be the same as in config/Config.inc.in

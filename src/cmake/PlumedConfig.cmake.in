@@ -14,8 +14,8 @@ include("${CMAKE_CURRENT_LIST_DIR}/Plumed2EXEC.cmake")
 #user macros are included in this .cmake
 include("${CMAKE_CURRENT_LIST_DIR}/PlumedUserMacros.cmake")
 
-set_and_check(Plumed2_INCLUDE_DIR "@PACKAGE_DIRS_INCLUDE_INSTALL@")
-set_and_check(Plumed2_LIB_DIR "@PACKAGE_DIRS_LIB_INSTALL@")
-set_and_check(Plumed2_BIN_DIR "@PACKAGE_DIRS_BIN_INSTALL@")
+#set_and_check(Plumed2_INCLUDE_DIR "@PACKAGE_DIRS_INCLUDE_INSTALL@")
+#set_and_check(Plumed2_LIB_DIR "@PACKAGE_DIRS_LIB_INSTALL@")
+#set_and_check(Plumed2_BIN_DIR "@PACKAGE_DIRS_BIN_INSTALL@")
 
 check_required_components(Plumed2)

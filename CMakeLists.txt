@@ -65,3 +65,5 @@ add_subdirectory(fortran)
 
 install(DIRECTORY patches
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name})
+#This copy makes plumed work in the builddir
+file(COPY patches DESTINATION ${CMAKE_BINARY_DIR})

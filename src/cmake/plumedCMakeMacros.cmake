@@ -40,7 +40,6 @@ macro(DECLAREPLUMEDMODULE module_name default_status)
     
     if(${module_${module_name}} )
         add_library(${module_name} OBJECT ${DECLAREPLUMEDMODULE_SOURCES})
-        target_include_directories(${module_name} PRIVATE ${PLUMED_SRC})
         list(APPEND modulesForKernel ${module_name})
         set(modulesForKernel ${modulesForKernel} PARENT_SCOPE)
         #add default headers

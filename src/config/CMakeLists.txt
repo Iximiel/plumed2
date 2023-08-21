@@ -390,8 +390,12 @@ target_link_libraries(Config PUBLIC config)
 target_include_directories(Config PRIVATE 
     ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_include_directories(Config PUBLIC
+#the build_interface makes sure that everithing that depends on config can include to anythinf in builded plumed
+#the install_interfaces does the same but with the installed plumed
+target_include_directories(config INTERFACE
     $<INSTALL_INTERFACE:${DIRS_INCLUDE_INSTALL}>
+    $<BUILD_INTERFACE:${PLUMED_SOURCE_SRC}>
+    $<BUILD_INTERFACE:${PLUMED_BINARY_SRC}>
     )
 
 configure_file(Makefile.conf.xxd.compiler.sh.in

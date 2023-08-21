@@ -21,3 +21,10 @@ NEEDS
 DEPENDS
 	asmjit
 )
+
+if(module_${module_name} )
+	#needs some headers from asmjit, but it is not linked to config
+	target_include_directories(${module_name}
+		PRIVATE $<BUILD_INTERFACE:${PLUMED_SOURCE_SRC}>
+						$<BUILD_INTERFACE:${PLUMED_BINARY_SRC}>)
+endif()

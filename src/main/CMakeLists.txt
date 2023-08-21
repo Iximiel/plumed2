@@ -13,7 +13,6 @@ target_link_libraries(plumed_bin PUBLIC
 set_target_properties(plumed_bin
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}
     )
-target_include_directories(plumed_bin PRIVATE ${PLUMED_SRC})
 
 #statically linked plumed
 #$(PLUMED_MAIN_STATIC): $(OBJ_MAIN) $(OBJ_KERNEL) $(OBJ_WRAPPER)
@@ -28,7 +27,6 @@ target_link_libraries(plumed_bin_static PUBLIC
 set_target_properties(plumed_bin_static
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-static
     )
-target_include_directories(plumed_bin_static PRIVATE ${PLUMED_SRC})
 
 #runtime linked plumed
 #$(PLUMED_MAIN_RUNTIME): $(OBJ_MAIN) $(OBJ_DYNAMIC_WRAPPER)
@@ -41,7 +39,6 @@ target_link_libraries(plumed_bin_runtime
 set_target_properties(plumed_bin_runtime
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-runtime
     )
-target_include_directories(plumed_bin_runtime PRIVATE ${PLUMED_SRC})
 
 install (TARGETS plumed_bin
 EXPORT Plumed2EXEC
