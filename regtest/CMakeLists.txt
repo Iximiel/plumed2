@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20.2)
-
+#This cmake project can be prepared on its own for testing another plumed 
+#cmake installation, remember to add the directory with the Plumed2Config.cmake 
+#to the CMAKE_PREFIX_PATH
 project(Plumed2Tests LANGUAGES CXX)
 
 enable_testing()
