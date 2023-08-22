@@ -1,0 +1,2 @@
+#! /usr/bin/env bash
+grep -v "USE PLUMED_MODULE" test1.f90 | sed "s/TEST1/TEST2/" > test2.f90

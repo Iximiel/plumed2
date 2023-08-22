@@ -98,7 +98,7 @@ __PLUMED_HAS_RTLD_DEFAULT
 __PLUMED_HAS_SUBPROCESS
 __PLUMED_HAS_ZLIB)
 macro(CHECKHASDEFINES module)
-    message("CHECKHASDEFINES ${module}")
+    #message("CHECKHASDEFINES ${module}")
     if(TARGET ${module})
         get_target_property(module_has ${module} COMPILE_DEFINITIONS)
         foreach(def ${module_has})
@@ -188,6 +188,51 @@ mpiexec @MPIEXEC_EXECUTABLE_name@
 
 # Makefile.conf file
 # syntax: makefile_conf followed by a single space followed by a line from makefile_conf
+]]
+)
+
+set(listHASFeatures)
+
+foreach(t ${PLUMED_HAS_wip})
+    string(REGEX REPLACE "__PLUMED_HAS_"  "" t ${t})
+    string(TOLOWER ${t} t)
+    LIST(APPEND listHASFeatures "{\"${t}\",presence::on}")
+endforeach(t ${PLUMED_HAS_wip})
+
+foreach(t ${PLUMED_HAS_not})
+    string(REGEX REPLACE "__PLUMED_HAS_"  "" t ${t})
+    string(TOLOWER ${t} t)
+    LIST(APPEND listHASFeatures "{\"${t}\", presence::off}")
+endforeach(t ${PLUMED_HAS_wip})
+list(SORT listHASFeatures)
+list(JOIN listHASFeatures ",\n" listHASFeatures)
+
+file(CONFIGURE OUTPUT ../config/Config_Features.inc
+     CONTENT [[
+@listHASFeatures@
+]]
+)
+
+set(listHASModules)
+#reconstrunct the module for the Config_lib.inc
+foreach(dir ${module_dirs})
+    if(${module_default_${dir}} STREQUAL "always")
+        set (default "always")
+        set (status "always")
+    else()
+        set (status "${module_${dir}}")
+        set (default "${module_default_${dir}}")
+    endif()
+    set (temp "{\"${dir}\", {presence::${status}, presence::${default}}}")
+    string(TOLOWER ${temp} temp)
+    list(APPEND listHASModules ${temp})
+endforeach(dir ${module_dirs})
+#message("${listHASModules}")
+list(JOIN listHASModules ",\n" listHASModules)
+
+file(CONFIGURE OUTPUT ../config/Config_Modules.inc
+     CONTENT [[
+@listHASModules@
 ]]
 )
 

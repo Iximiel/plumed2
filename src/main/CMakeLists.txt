@@ -14,6 +14,9 @@ set_target_properties(plumed_bin
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}
     )
 
+#this alias is needed for build configuration tests
+add_executable(Plumed2::plumed_bin ALIAS plumed_bin)
+
 #statically linked plumed
 #$(PLUMED_MAIN_STATIC): $(OBJ_MAIN) $(OBJ_KERNEL) $(OBJ_WRAPPER)
 add_executable(plumed_bin_static main.cpp) #$(OBJ_MAIN)
@@ -27,7 +30,6 @@ target_link_libraries(plumed_bin_static PUBLIC
 set_target_properties(plumed_bin_static
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-static
     )
-
 #runtime linked plumed
 #$(PLUMED_MAIN_RUNTIME): $(OBJ_MAIN) $(OBJ_DYNAMIC_WRAPPER)
 add_executable(plumed_bin_runtime main.cpp)

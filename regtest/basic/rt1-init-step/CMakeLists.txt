@@ -1,0 +1,12 @@
+PLUMED_TEST(NAME rt1-init-step TYPE driver
+ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%8.4f --initial-step 10"
+)
+#the following variable is the original config file
+set(originalConfig [[
+# this is a stupid test to verify that virial is computed properly
+# notice that in the second conformation (fcc) one atom is slightly shifted
+# to avoid problems with the numerical derivatives (it is exactly at the border between
+# two images)
+type=driver
+arg="--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%8.4f --initial-step 10"
+]] )

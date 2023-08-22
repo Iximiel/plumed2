@@ -1,0 +1,9 @@
+#! /usr/bin/env bash
+awk 'BEGIN{
+  for(i=1;i<=150;i++) {
+print "2"
+print "100 100 100"
+print "X 0 0 0"
+print "X 0 0",i*0.002
+  }
+}' > traj.xyz
