@@ -7,7 +7,10 @@ project(Plumed2Tests LANGUAGES CXX)
 enable_testing()
 
 if(NOT TARGET Plumed2::plumed_bin)
-    find_package(Plumed2 REQUIRED)
+  find_package(Plumed2 REQUIRED)
+  #This sets up the environmental variable CMAKE_PREFIX_PATH in run_ctest 
+  #when testing in the build environment
+  set(STANDALONE_TESTS ON)
 endif()
 
 set(run_ctest
@@ -77,6 +80,9 @@ function(PLUMED_TEST)
     set (mopt "-n")
   endif()
 
+  if(NOT STANDALONE_TESTS)
+    set(PLUMED_TEST_NOT_STANDALONE "-c ${CMAKE_BINARY_DIR}/src/cmake")
+  endif()
   add_test(NAME ${testname} COMMAND ${run_ctest}
     $<TARGET_FILE:Plumed2::plumed_bin>
     -t "${type}"
@@ -87,6 +93,7 @@ function(PLUMED_TEST)
     ${eopt} ${PLUMED_TEST_EXTRAFILES}
     ${nopt} ${PLUMED_TEST_NEEDS}
     ${mopt} ${PLUMED_TEST_MODULES}
+    ${PLUMED_TEST_NOT_STANDALONE}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 
   )

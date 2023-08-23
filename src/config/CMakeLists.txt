@@ -386,17 +386,32 @@ target_compile_definitions(config
       _REENTRANT=1
 )
 
-target_link_libraries(Config PUBLIC config)
-target_include_directories(Config PRIVATE 
-    ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-
 #the build_interface makes sure that everithing that depends on config can include to anythinf in builded plumed
 #the install_interfaces does the same but with the installed plumed
 target_include_directories(config INTERFACE
-    $<INSTALL_INTERFACE:${DIRS_INCLUDE_INSTALL}>
-    $<BUILD_INTERFACE:${PLUMED_SOURCE_SRC}>
-    $<BUILD_INTERFACE:${PLUMED_BINARY_SRC}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>#THESE ARE THE INCLUDE PATH for the make tests and standard code
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/includesource>#THESE ARE THE INCLUDE PATH for the make tests and standard code (this make possible the use of `#include "plumed/subdir/header.h"`)
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/includebinary>#THESE ARE THE INCLUDE PATH for the make tests and standard code (this make possible the use of `#include "plumed/subdir/header.h"`)
+    
+    $<INSTALL_INTERFACE:${DIRS_INCLUDE_INSTALL}>#THESE ARE THE INCLUDE PATH for PLUGINS
+    $<BUILD_INTERFACE:${PLUMED_SOURCE_SRC}>#THESE ARE THE INCLUDE PATH for PLUGINS
+    $<BUILD_INTERFACE:${PLUMED_BINARY_SRC}>#THESE ARE THE INCLUDE PATH for PLUGINS
     )
+
+#This makes the `#include "plumed/subdir/header.h"` avaiable in a not instaled plumed 
+file(MAKE_DIRECTORY
+    ${CMAKE_BINARY_DIR}/includesource
+    ${CMAKE_BINARY_DIR}/includebinary)
+
+file(CREATE_LINK ${PLUMED_SOURCE_SRC} ${CMAKE_BINARY_DIR}/includesource/plumed
+    SYMBOLIC)
+file(CREATE_LINK ${PLUMED_BINARY_SRC} ${CMAKE_BINARY_DIR}/includebinary/plumed
+    SYMBOLIC)
+################################################################################
+
+target_link_libraries(Config PUBLIC config)
+target_include_directories(Config PRIVATE 
+    ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(Makefile.conf.xxd.compiler.sh.in
                  Makefile.conf.xxd.compiler.sh @ONLY)

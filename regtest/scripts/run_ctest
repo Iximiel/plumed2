@@ -263,7 +263,7 @@ run_driver() {
 run_make() {
   otherLang=""
   files=$(ls ./*.cpp)
-  # THIS IS  A TODO!!
+  # THIS IS A TODO?
   # if make print-fortran | grep "FC=$" 1>/dev/null; then
   #     echo "NOT_APPLICABLE (FC NOT FOUND)"
   #     return 2
@@ -286,17 +286,25 @@ run_make() {
 cmake_minimum_required(VERSION 3.20)
 project(exe-test CXX)
 $otherLang
+message("CMAKE_PREFIX_PATH \${CMAKE_PREFIX_PATH}")
+message("Plumed2_DIR \${Plumed2_DIR}")
 find_package(Plumed2 REQUIRED)
 add_executable(exe ${files})
+target_link_libraries(exe PUBLIC Plumed2::sharedplumedKernel)
 install (TARGETS exe
     RUNTIME DESTINATION ${PWD}
 )
 EOF
   mkdir build
   {
-    cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release
-    cmake --build ./build
-    cmake --install ./build
+    if [[ -n ${cmake_env} ]]; then
+    echo "->${cmake_env}"
+    Plumed2_DIR=${cmake_env}
+    export Plumed2_DIR=${Plumed2_DIR}
+  fi
+    cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release -DPlumed2_DIR="${Plumed2_DIR}" && \
+    cmake --build ./build && \
+    cmake --install ./build && \
     $mpi $valgrind ./exe $arg
   } >out 2>err
 }
@@ -361,6 +369,7 @@ set -o pipefail
   plumed_modules=""
   plumed_needs=""
   extra_files=""
+  cmake_env=""
 
   export valgrind=env
 
@@ -371,13 +380,14 @@ set -o pipefail
     echo "* $i"
   done
   ###############
-  while getopts "a:d:e:m:n:p:s:t:v" option; do
+  while getopts "a:c:d:e:m:n:p:s:t:v" option; do
     ##########This will be deleted for debugging purpose##########
     echo "option $option : $OPTARG"
     ###############
     case "$option" in
     #the directory with the source of the ttest
     a) args=${OPTARG} ;;
+    c) cmake_env=${OPTARG} ;;
     d) dir=${OPTARG} ;;
     e) extra_files=${OPTARG} ;;
     m) plumed_modules=${OPTARG} ;;
@@ -394,7 +404,7 @@ set -o pipefail
       ;;
     esac
   done
-
+    
   echo "++ dir:  $dir"
   #if these works, there should not be reason to use config for the settings anymore
   #but only for the functions plumed_regtest_after and plumed_regtest_before
@@ -403,6 +413,8 @@ set -o pipefail
   echo "++ Processors: $mpiprocs"
   echo "++ Extra files: $extra_files"
   echo "++ Plumed needs: $plumed_needs"
+  
+  
   #this runs the different set ups function, the test and the checks and communicate where something is going wrong
   for runner in setupAndCheckMPI checkDependencies setup "run_${type}" check; do
     $runner

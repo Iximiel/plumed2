@@ -59,8 +59,8 @@ option(CMAKE_EXPORT_COMPILE_COMMANDS "Enable/Disable output of compile commands 
 add_subdirectory(src)
 add_subdirectory(scripts)
 add_subdirectory(fortran)
-#enable_testing()
-#add_subdirectory(regtest)
+enable_testing()
+add_subdirectory(regtest)
 #add_subdirectory(vim)
 
 install(DIRECTORY patches
