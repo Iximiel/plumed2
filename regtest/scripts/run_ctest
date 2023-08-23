@@ -1,13 +1,13 @@
 #! /usr/bin/env bash
 
-fixzeroes () {
-file=$1
+fixzeroes() {
+  file=$1
 
-grep -q "\x00" "$file"  && exit 0
+  grep -q "\x00" "$file" && exit 0
 
-sed "s/-\(0\.0*0 \)/ \1/g; 
-     s/-\(0\.0*0$\)/ \1/g" "$file" > "$file.$$.tmp"
-mv "$file.$$.tmp" "$file"
+  sed "s/-\(0\.0*0 \)/ \1/g; 
+     s/-\(0\.0*0$\)/ \1/g" "$file" >"$file.$$.tmp"
+  mv "$file.$$.tmp" "$file"
 
 }
 
@@ -24,11 +24,11 @@ setupAndCheckMPI() {
 
     if ! $plumed_nompi config -q has mpi; then
       echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
-      return 127
+      return 125
     fi
     if [[ "$valgrind" != "env" ]]; then
       echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
-      return 127
+      return 125
     fi
   else
 
@@ -51,7 +51,7 @@ checkDependencies() {
       else
         echo "NOT_APPLICABLE ($need NOT ENABLED)"
       fi
-      return 127
+      return 125
     fi
   done
 
@@ -67,7 +67,7 @@ checkDependencies() {
       else
         echo "NOT_APPLICABLE ($module MODULE NOT INSTALLED)"
       fi
-      return 127
+      return 125
     fi
   done
 }
@@ -118,7 +118,7 @@ setup() {
       else
         echo "NOT_APPLIABLE (plumed_custom_skip)"
       fi
-      return 127
+      return 125
     fi
   fi
 
@@ -246,9 +246,9 @@ EOF
 
 }
 
-run() {
+run_driver() {
   runcommand="$mpi $plumed"
-  echo "running \"$runcommand ${args} > out 2> err\""
+  echo "running \"$runcommand driver ${args} > out 2> err\""
   #here I need splitting
   $runcommand ${args} >out 2>err
   returnvalue=$?
@@ -258,6 +258,47 @@ run() {
     echo "########################"
   fi
   return $returnvalue
+}
+
+run_make() {
+  otherLang=""
+  files=$(ls ./*.cpp)
+  # THIS IS  A TODO!!
+  # if make print-fortran | grep "FC=$" 1>/dev/null; then
+  #     echo "NOT_APPLICABLE (FC NOT FOUND)"
+  #     return 2
+  # fi
+  if test "$plumed_language" = fortran || test "$plumed_language" = fortran08; then
+    otherLang="enable_language (Fortran)"
+    # if test "$plumed_language" = fortran08; then
+    #   otherLang="enable_language (Fortran)\nset (CMAKE_Fortran_STANDARD 2008)"
+    # fi
+    files=$(ls ./*.f90)
+  elif test "$plumed_language" = c; then
+    #C
+    otherLang="enable_language (C)"
+    files=$(ls ./*.c)
+  elif test "$plumed_language" = c11; then
+    #C11
+    otherLang="set (CMAKE_CXX_STANDARD 11)"
+  fi
+  cat <<EOF > CMakeLists.txt
+cmake_minimum_required(VERSION 3.20)
+project(exe-test CXX)
+$otherLang
+find_package(Plumed2 REQUIRED)
+add_executable(exe ${files})
+install (TARGETS exe
+    RUNTIME DESTINATION ${PWD}
+)
+EOF
+  mkdir build
+  {
+    cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release
+    cmake --build ./build
+    cmake --install ./build
+    $mpi $valgrind ./exe $arg
+  } >out 2>err
 }
 
 check() {
@@ -301,7 +342,7 @@ check() {
 }
 
 #this settings make the pipe exit with failure code of any command
-#so the program exits with the exit state of the scripta and not the 
+#so the program exits with the exit state of the scripta and not the
 #one of tee
 set -o pipefail
 {
@@ -320,7 +361,7 @@ set -o pipefail
   plumed_modules=""
   plumed_needs=""
   extra_files=""
-  
+
   export valgrind=env
 
   ##########This will be deleted for debugging purpose##########
@@ -330,7 +371,7 @@ set -o pipefail
     echo "* $i"
   done
   ###############
-  while getopts "a:d:e:m:n:p:s:v" option; do
+  while getopts "a:d:e:m:n:p:s:t:v" option; do
     ##########This will be deleted for debugging purpose##########
     echo "option $option : $OPTARG"
     ###############
@@ -344,6 +385,7 @@ set -o pipefail
     p) mpiprocs=${OPTARG} ;;
     #the plumed root directory
     s) sourcedir=${OPTARG} ;;
+    t) type=${OPTARG} ;;
     #activates valgrind
     v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
     *)
@@ -361,10 +403,11 @@ set -o pipefail
   echo "++ Processors: $mpiprocs"
   echo "++ Extra files: $extra_files"
   echo "++ Plumed needs: $plumed_needs"
-  #this runs the different set ups function, the test and the checks and communicate where something is going wrong 
-  for runner in setupAndCheckMPI checkDependencies setup run check; do
+  #this runs the different set ups function, the test and the checks and communicate where something is going wrong
+  for runner in setupAndCheckMPI checkDependencies setup "run_${type}" check; do
     $runner
     rt=$?
+    echo $rt
     if [[ $rt != 0 ]]; then
       echo "CAUSE: $runner exited with $rt"
       exit $rt

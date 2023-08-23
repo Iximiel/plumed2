@@ -21,7 +21,7 @@ set(PLUMED_TEST_KNOWN_TYPES
   #simplemd
   driver
   #sum_hills
-  #make
+  make
   #plumed
   #python
 )
@@ -47,9 +47,12 @@ function(PLUMED_TEST)
 
   list(FIND PLUMED_TEST_KNOWN_TYPES ${type} TYPE_KNOWN)
   if(TYPE_KNOWN EQUAL -1)
-    message(WARNING #FATAL_ERROR
-    "Test ${testname}::Test TYPE \"${type}\" is not in the"
-    "supported list \"${PLUMED_TEST_KNOWN_TYPES}\"")
+    # message(WARNING #FATAL_ERROR
+    # "Test ${testname}::Test TYPE \"${type}\" is not in the "
+    # "supported list \"${PLUMED_TEST_KNOWN_TYPES}\"")
+    return()
+  endif()
+  if (NOT ${type} STREQUAL "make")
     return()
   endif()
 
@@ -76,7 +79,8 @@ function(PLUMED_TEST)
 
   add_test(NAME ${testname} COMMAND ${run_ctest}
     $<TARGET_FILE:Plumed2::plumed_bin>
-    -a "${type} ${args}"
+    -t "${type}"
+    -a "${args}"
     -d ${CMAKE_CURRENT_SOURCE_DIR}
     -s ${CMAKE_SOURCE_DIR}
     ${popt} ${PLUMED_TEST_MPIPROCS}
@@ -92,7 +96,7 @@ function(PLUMED_TEST)
 
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"
-    SKIP_RETURN_CODE 127
+    SKIP_RETURN_CODE 125
     LABELS "${PLUMED_TEST_LABELS}")
 endfunction(PLUMED_TEST)
 
