@@ -43,14 +43,14 @@ set_target_properties(plumed_bin_runtime
     )
 
 install (TARGETS plumed_bin
-EXPORT Plumed2EXEC
-RUNTIME
-DESTINATION ${DIRS_BIN_INSTALL})
+    EXPORT Plumed2EXEC
+    RUNTIME
+    DESTINATION ${DIRS_BIN_INSTALL})
 
 install (TARGETS plumed_bin_runtime
-EXPORT Plumed2EXEC
-RUNTIME
-DESTINATION ${DIRS_EXTRA_INSTALL})
+    EXPORT Plumed2EXEC
+    RUNTIME
+    DESTINATION ${DIRS_EXTRA_INSTALL})
 
 #the executable alias are needed for testing in build-configuration
 add_executable(Plumed2::plumed_bin ALIAS plumed_bin)

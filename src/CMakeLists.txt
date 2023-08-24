@@ -323,14 +323,10 @@ target_link_libraries(sharedplumedMain PUBLIC
 )
 ##########################end of libraries declaration##########################
 #installing the libraries
-install (TARGETS archiveplumedWrapper PlumedDynamicWrapper PlumedStaticWrapper
-    EXPORT Plumed2WRAPPERS
-    ARCHIVE DESTINATION ${DIRS_LIB_INSTALL}
-    LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
-)
 
-install (TARGETS sharedplumedKernel archiveplumedKernelWithMain sharedplumedMain
-    EXPORT Plumed2KERNELS
+install (TARGETS
+    sharedplumedKernel archiveplumedKernelWithMain archiveplumedWrapper sharedplumedMain
+    EXPORT Plumed2LIBS
     ARCHIVE DESTINATION ${DIRS_LIB_INSTALL}
     LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
 )

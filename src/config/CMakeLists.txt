@@ -389,11 +389,12 @@ target_compile_definitions(config
 #the build_interface makes sure that everithing that depends on config can include to anythinf in builded plumed
 #the install_interfaces does the same but with the installed plumed
 target_include_directories(config INTERFACE
+    # these are relative to ${CMAKE_INSTALL_PREFIX}, in this way config is relocatable after install
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>#THESE ARE THE INCLUDE PATH for the make tests and standard code
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/plumed>#THESE ARE THE INCLUDE PATH for PLUGINS
+
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/includesource>#THESE ARE THE INCLUDE PATH for the make tests and standard code (this make possible the use of `#include "plumed/subdir/header.h"`)
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/includebinary>#THESE ARE THE INCLUDE PATH for the make tests and standard code (this make possible the use of `#include "plumed/subdir/header.h"`)
-    
-    $<INSTALL_INTERFACE:${DIRS_INCLUDE_INSTALL}>#THESE ARE THE INCLUDE PATH for PLUGINS
     $<BUILD_INTERFACE:${PLUMED_SOURCE_SRC}>#THESE ARE THE INCLUDE PATH for PLUGINS
     $<BUILD_INTERFACE:${PLUMED_BINARY_SRC}>#THESE ARE THE INCLUDE PATH for PLUGINS
     )

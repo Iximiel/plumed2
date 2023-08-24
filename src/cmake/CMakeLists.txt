@@ -81,7 +81,7 @@ file(COPY PlumedUserMacros.cmake
   DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-foreach(exportetTargets Plumed2MODULES Plumed2WRAPPERS Plumed2KERNELS Plumed2EXEC)
+foreach(exportetTargets Plumed2MODULES Plumed2WRAPPERS Plumed2LIBS Plumed2EXEC)
   install(EXPORT ${exportetTargets}
     NAMESPACE Plumed2::
     DESTINATION ${DIRS_CMAKE_INSTALL}
