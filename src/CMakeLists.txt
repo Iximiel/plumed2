@@ -254,43 +254,82 @@ endif(${modulesDependenciesProblems})
 ################################################################################
 
 set(KernelTargets "")
+#In the original makefile:
+#->#OBJ_DYNAMIC_WRAPPER := ../wrapper/Plumed.o (here is target PlumedDynamicWrapper)
+#->#OBJ_WRAPPER := ../wrapper/PlumedStatic.o (here is target PlumedStaticWrapper)
 
 foreach(activeModule ${modulesForKernel})
     list(APPEND KernelTargets $<TARGET_OBJECTS:${activeModule}>)
 endforeach(activeModule ${modulesForKernel})
 
-#these targets build the two libPlumedKernel.so
-#building the shared libraries with the collected modules
+###############################libplumedKernel.so###############################
+#sharedplumedKernel collects all the module objects in a single shared object
+#->#PLUMED_KERNEL := $(PLUMED_LIBDIR)lib$(PLUMED_NAME)Kernel.$(SOEXT)
+#the old makefile recipe is:
+#->#$(PLUMED_KERNEL):$(OBJ_KERNEL)
+#->#	$(LDSHARED) -o $@ $^ $(SONAME_OPTION),"$(SONAME_INSTALL_PATH)$(notdir $@)" $(DYNAMIC_LIBS)
+#Cmake will automatically make the so relocatable on install
 add_library(sharedplumedKernel SHARED)
-set_target_properties(sharedplumedKernel
-    PROPERTIES 
-        LIBRARY_OUTPUT_NAME ${program_name}Kernel
-    )
+set_target_properties(sharedplumedKernel PROPERTIES
+    LIBRARY_OUTPUT_NAME ${program_name}Kernel)
 target_link_libraries(sharedplumedKernel PUBLIC
      ${modulesForKernel} # OBJ_KERNEL without config
      Config #within OBJ_KERNEL
     )
 
-add_library(archiveplumedKernel STATIC)
-set_target_properties(archiveplumedKernel
-    PROPERTIES 
-        #LIBRARY_OUTPUT_NAME ${program_name}
-        ARCHIVE_OUTPUT_NAME ${program_name}
-        
+###############################libplumedWrapper.a###############################
+#archiveplumedWrapper contains the dynamic wrapper
+#->#PLUMED_WRAPPER_LIB := $(PLUMED_LIBDIR)lib$(PLUMED_NAME)Wrapper.a
+#the old makefile recipe is:
+#->#$(PLUMED_WRAPPER_LIB): $(OBJ_DYNAMIC_WRAPPER)
+#->#	$(AR_CR) $@ $^
+add_library(archiveplumedWrapper STATIC)
+set_target_properties(archiveplumedWrapper PROPERTIES 
+    ARCHIVE_OUTPUT_NAME ${program_name}Wrapper)
+target_link_libraries(archiveplumedWrapper PUBLIC
+    PlumedDynamicWrapper
     )
-target_link_libraries(archiveplumedKernel PUBLIC
+
+###################################libplumed.a##################################
+#archiveplumedKernelWithMain contains the kernel objects ready to be statically linked
+#it also contains the main function
+#->#$(LD_RO) install/kernel.o $(OBJ_KERNEL)
+#->#    $(LD_RO) install/kernel.o $(OBJ_KERNEL)
+#the old makefile recipe is:
+#->#install/lib$(program_name).a: install/kernel.o $(OBJ_WRAPPER)
+#->#    $(AR_CR) $@ $^
+add_library(archiveplumedKernelWithMain STATIC)
+set_target_properties(archiveplumedKernelWithMain PROPERTIES
+        ARCHIVE_OUTPUT_NAME ${program_name})
+target_link_libraries(archiveplumedKernelWithMain PUBLIC
         ${modulesForKernel} # OBJ_KERNEL without config
         Config #within OBJ_KERNEL
+        PlumedStaticWrapper
     )
-#add_library(libplumedStatic OBJECT ${KernelTargets})
-#target_link_libraries(libplumedStatic INTERFACE ${modulesForKernel})
-install (TARGETS PlumedDynamicWrapper PlumedStaticWrapper
+
+##################################libplumed.so##################################
+#sharedplumedMain contains the main function and need to be linked to the shared
+#kernel
+#->#PLUMED_SHARED_OBJ := $(PLUMED_LIBDIR)lib$(PLUMED_NAME).$(SOEXT)
+#the old makefile recipe is:
+#->#$(PLUMED_SHARED_OBJ): $(OBJ_WRAPPER) $(PLUMED_KERNEL)
+#->#	$(LDSHARED) -o $@ $^ $(SONAME_OPTION),"$(SONAME_INSTALL_PATH)$(notdir $@)"
+add_library(sharedplumedMain SHARED)
+set_target_properties(sharedplumedMain PROPERTIES
+        LIBRARY_OUTPUT_NAME ${program_name})
+target_link_libraries(sharedplumedMain PUBLIC
+    PlumedStaticWrapper #object containging the main
+    sharedplumedKernel #the shared library with the kernel and the modules
+)
+##########################end of libraries declaration##########################
+#installing the libraries
+install (TARGETS archiveplumedWrapper PlumedDynamicWrapper PlumedStaticWrapper
     EXPORT Plumed2WRAPPERS
     ARCHIVE DESTINATION ${DIRS_LIB_INSTALL}
     LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
 )
 
-install (TARGETS archiveplumedKernel sharedplumedKernel
+install (TARGETS sharedplumedKernel archiveplumedKernelWithMain sharedplumedMain
     EXPORT Plumed2KERNELS
     ARCHIVE DESTINATION ${DIRS_LIB_INSTALL}
     LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
@@ -380,7 +419,7 @@ if(SHOW_LINKING)
     endforeach(linkelper )
 
     target_link_libraries(LinkShared sharedplumedKernel PlumedStaticWrapper)
-    target_link_libraries(LinkStatic archiveplumedKernel PlumedStaticWrapper)
+    target_link_libraries(LinkStatic archiveplumedKernelWithMain PlumedStaticWrapper)
     target_link_libraries(LinkRuntime PlumedDynamicWrapper)
 endif(SHOW_LINKING)
 # include(CMakePrintHelpers)

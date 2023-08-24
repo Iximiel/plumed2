@@ -2,10 +2,15 @@
 set(module_name main)
 set(module_${module_name} ON CACHE INTERNAL "always active core module ${module_name}")
 
+#In the original makefile:
+#->#OBJ_DYNAMIC_WRAPPER := ../wrapper/Plumed.o (here is target PlumedDynamicWrapper)
+#->#OBJ_WRAPPER := ../wrapper/PlumedStatic.o (here is target PlumedStaticWrapper)
+
 #dynamically linked plumed
-#$(PLUMED_MAIN_SHARED): $(OBJ_MAIN) $(OBJ_WRAPPER) $(PLUMED_KERNEL)
+#original make recipe:
+#->#$(PLUMED_MAIN_STATIC): $(OBJ_MAIN) $(OBJ_KERNEL) $(OBJ_WRAPPER)
+#->#	$(LD) $(LDFLAGS) $^ -o $@ $(LIBS) $(DYNAMIC_LIBS)
 add_executable(plumed_bin main.cpp)#OBJ_MAIN
-add_executable(Plumed2::plumed_bin ALIAS plumed_bin)
 target_link_libraries(plumed_bin PUBLIC
     sharedplumedKernel #PLUMED_KERNEL
     PlumedStaticWrapper #OBJ_WRAPPER
@@ -14,29 +19,24 @@ set_target_properties(plumed_bin
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}
     )
 
-#this alias is needed for build configuration tests
-add_executable(Plumed2::plumed_bin ALIAS plumed_bin)
-
 #statically linked plumed
-#$(PLUMED_MAIN_STATIC): $(OBJ_MAIN) $(OBJ_KERNEL) $(OBJ_WRAPPER)
+#original make recipe (links the objects, same as the target archiveplumedKernelWithMain):
+#->#$(PLUMED_MAIN_STATIC): $(OBJ_MAIN) $(OBJ_KERNEL) $(OBJ_WRAPPER)
+#->#	$(LD) $(LDFLAGS) $^ -o $@ $(LIBS) $(DYNAMIC_LIBS)
 add_executable(plumed_bin_static main.cpp) #$(OBJ_MAIN)
-add_executable(Plumed2::plumed_bin_static ALIAS plumed_bin_static)
 target_link_libraries(plumed_bin_static PUBLIC
-    PlumedStaticWrapper #$(OBJ_WRAPPER)
-    archiveplumedKernel
-    #${modulesForKernel} #$(OBJ_KERNEL) 
-    #Config #extra options (are within OBJ_KERNEL in original Makefile)
+    archiveplumedKernelWithMain
 )
 set_target_properties(plumed_bin_static
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-static
     )
 #runtime linked plumed
-#$(PLUMED_MAIN_RUNTIME): $(OBJ_MAIN) $(OBJ_DYNAMIC_WRAPPER)
+#->#$(PLUMED_MAIN_RUNTIME): $(OBJ_MAIN) $(OBJ_DYNAMIC_WRAPPER)
+#->#	$(LD) $(LDFLAGS) $^ -o $@ $(LIBS)
 add_executable(plumed_bin_runtime main.cpp)
-add_executable(Plumed2::plumed_bin_runtime ALIAS plumed_bin_runtime)
 target_link_libraries(plumed_bin_runtime
     PUBLIC
-    PlumedDynamicWrapper #OBJ_DYNAMIC_WRAPPER
+    archiveplumedWrapper #OBJ_DYNAMIC_WRAPPER
     )
 set_target_properties(plumed_bin_runtime
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-runtime
@@ -51,6 +51,11 @@ install (TARGETS plumed_bin_runtime
 EXPORT Plumed2EXEC
 RUNTIME
 DESTINATION ${DIRS_EXTRA_INSTALL})
+
+#the executable alias are needed for testing in build-configuration
+add_executable(Plumed2::plumed_bin ALIAS plumed_bin)
+add_executable(Plumed2::plumed_bin_static ALIAS plumed_bin_static)
+add_executable(Plumed2::plumed_bin_runtime ALIAS plumed_bin_runtime)
 
 #consider adding install manifest:
 #install(CODE "string(REPLACE \";\" \"\\n\" MY_CMAKE_INSTALL_MANIFEST_CONTENT \"\$\{CMAKE_INSTALL_MANIFEST_FILES\}\")\n\
