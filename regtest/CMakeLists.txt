@@ -81,7 +81,8 @@ function(PLUMED_TEST)
   endif()
 
   if(NOT STANDALONE_TESTS)
-    set(PLUMED_TEST_NOT_STANDALONE "-c ${CMAKE_BINARY_DIR}/src/cmake")
+    set(PLUMED_TEST_NOT_STANDALONE "-c${CMAKE_BINARY_DIR}/src/cmake")
+    set(PLUMED_TEST_NOT_STANDALONELIB "-l${CMAKE_BINARY_DIR}/src")
   endif()
   add_test(NAME ${testname} COMMAND ${run_ctest}
     $<TARGET_FILE:Plumed2::plumed_bin>
@@ -94,6 +95,7 @@ function(PLUMED_TEST)
     ${nopt} ${PLUMED_TEST_NEEDS}
     ${mopt} ${PLUMED_TEST_MODULES}
     ${PLUMED_TEST_NOT_STANDALONE}
+    ${PLUMED_TEST_NOT_STANDALONELIB}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 
   )

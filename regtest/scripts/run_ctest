@@ -286,23 +286,18 @@ run_make() {
 cmake_minimum_required(VERSION 3.20)
 project(exe-test CXX)
 $otherLang
-message("CMAKE_PREFIX_PATH \${CMAKE_PREFIX_PATH}")
-message("Plumed2_DIR \${Plumed2_DIR}")
 find_package(Plumed2 REQUIRED)
 add_executable(exe ${files})
-target_link_libraries(exe PUBLIC Plumed2::sharedplumedKernel)
+target_link_libraries(exe PUBLIC Plumed2::sharedplumedKernel  Plumed2::PlumedStaticWrapper)
 install (TARGETS exe
     RUNTIME DESTINATION ${PWD}
 )
 EOF
   mkdir build
   {
-    if [[ -n ${cmake_env} ]]; then
-    echo "->${cmake_env}"
-    Plumed2_DIR=${cmake_env}
-    export Plumed2_DIR=${Plumed2_DIR}
-  fi
-    cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release -DPlumed2_DIR="${Plumed2_DIR}" && \
+    echo "LD_LIBRARY_PATH->${LD_LIBRARY_PATH}"
+    echo "Plumed2_DIR->${Plumed2_DIR}"
+    cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release && \
     cmake --build ./build && \
     cmake --install ./build && \
     $mpi $valgrind ./exe $arg
@@ -369,7 +364,6 @@ set -o pipefail
   plumed_modules=""
   plumed_needs=""
   extra_files=""
-  cmake_env=""
 
   export valgrind=env
 
@@ -380,16 +374,18 @@ set -o pipefail
     echo "* $i"
   done
   ###############
-  while getopts "a:c:d:e:m:n:p:s:t:v" option; do
+  while getopts "a:c:d:e:l:m:n:p:s:t:v" option; do
     ##########This will be deleted for debugging purpose##########
     echo "option $option : $OPTARG"
     ###############
     case "$option" in
     #the directory with the source of the ttest
     a) args=${OPTARG} ;;
-    c) cmake_env=${OPTARG} ;;
+    c) export Plumed2_DIR=${OPTARG};;
     d) dir=${OPTARG} ;;
     e) extra_files=${OPTARG} ;;
+    #${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH} expands to :${LD_LIBRARY_PATH} if LD_LIBRARY_PATH contains something
+    l) export LD_LIBRARY_PATH=${OPTARG}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}};;
     m) plumed_modules=${OPTARG} ;;
     n) plumed_needs=${OPTARG} ;;
     p) mpiprocs=${OPTARG} ;;
