@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
 fixzeroes() {
-  file=$1
+  local file=$1
 
   grep -q "\x00" "$file" && exit 0
 
@@ -89,11 +89,18 @@ setup() {
   cp -f ${dir}/* . 2>/dev/null
 
   for file in $extra_files; do
-    cp -f ${dir}/$file .
+    #one of the following will fail is fhe file is not present
+    if [[ -f ${dir}/$file ]]; then
+    #relative path
+      cp -fv "${dir}/$file" .
+    else
+    #absolute path
+      cp -fv "$file" .
+    fi  
   done
 
   echo "++ Test type: $type"
-  echo "++ Arguments: $arg"
+  echo "++ Arguments: $args"
   echo "++ Processors: $mpiprocs"
 
   # this is the executable used for running the tests:
@@ -123,12 +130,14 @@ setup() {
   fi
 
   if $plumed_nompi --is-installed; then
-    export PLUMED_KERNEL="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}Kernel.$($plumed_nompi info --soext)"
-    export PLUMED_LIB="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}.$($plumed_nompi info --soext)"
+    PLUMED_KERNEL="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}Kernel.$($plumed_nompi info --soext)"
+    PLUMED_LIB="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}.$($plumed_nompi info --soext)"
   else
-    export PLUMED_KERNEL="$root/src/lib/libplumedKernel.$($plumed_nompi info --soext)"
-    export PLUMED_LIB="$root/src/lib/libplumed.$($plumed_nompi info --soext)"
+    PLUMED_KERNEL="$root/src/lib/libplumedKernel.$($plumed_nompi info --soext)"
+    PLUMED_LIB="$root/src/lib/libplumed.$($plumed_nompi info --soext)"
   fi
+  export PLUMED_KERNEL
+  export PLUMED_LIB
   if [[ -x plumed_regtest_before ]]; then
     ./plumed_regtest_before
   fi
@@ -149,10 +158,10 @@ other() {
     $mpi $valgrind $plumed simplemd <in >out 2>err
     ;;
   driver)
-    $mpi $valgrind $plumed driver $arg >out 2>err
+    $mpi $valgrind $plumed driver $args >out 2>err
     ;;
   sum_hills)
-    $mpi $valgrind $plumed sum_hills $arg >out 2>err
+    $mpi $valgrind $plumed sum_hills $args >out 2>err
     ;;
   make)
     $plumed_nompi --is-installed || ln -s "$root/src" plumed
@@ -224,10 +233,10 @@ EOF
     else
       make exe 1>out 2>err
     fi
-    $mpi $valgrind ./exe $arg >>out 2>>err
+    $mpi $valgrind ./exe $args >>out 2>>err
     ;;
   plumed)
-    $mpi $valgrind $plumed $arg >out 2>err
+    $mpi $valgrind $plumed $args >out 2>err
     ;;
   python)
     # make sure the right python module is in the path based on plumed root
@@ -246,9 +255,9 @@ EOF
 
 }
 
-run_driver() {
+run_plumed() {
   runcommand="$mpi $plumed"
-  echo "running \"$runcommand driver ${args} > out 2> err\""
+  echo "running \"$runcommand ${args} > out 2> err\""
   #here I need splitting
   $runcommand ${args} >out 2>err
   returnvalue=$?
@@ -258,6 +267,21 @@ run_driver() {
     echo "########################"
   fi
   return $returnvalue
+}
+
+run_driver() {
+  args="driver ${args}"
+  run_plumed
+}
+
+run_simplemd() {
+  args="simplemd ${args}"
+  run_plumed
+}
+
+run_sum_hills() {
+  args="sum_hills ${args}"
+  run_plumed
 }
 
 run_make() {
@@ -278,9 +302,8 @@ $(echo -e "$otherLang")
 find_package(Plumed2 REQUIRED)
 add_executable(exe ${files})
 target_link_libraries(exe PUBLIC
-  #Plumed2::sharedplumedKernel 
-  #Plumed2::PlumedStaticWrapper
   Plumed2::sharedplumedMain
+  #automatically links to the shared kernel Plumed2::sharedplumedKernel 
 )
 install (TARGETS exe
     RUNTIME DESTINATION ${PWD}
@@ -308,9 +331,11 @@ check() {
       new="${file%.reference}"
       echo "checking $new"
       if test -f "$new"; then
+        
         fixzeroes "$file"
         cp "$new" "$new.zfix"
         fixzeroes "$new.zfix"
+        
         DIFFOPT=""
         # this is to enforce ASCII check
         # I add this option since sometime on travis some of the diff files are not shown
@@ -319,6 +344,7 @@ check() {
         # ASCII and diff will be shown in the log
         test "$(head -c 10 "$file")" = "#! FIELDS " && DIFFOPT="-a"
         out="$(diff $DIFFOPT "$file" "$new.zfix")"
+        diff $DIFFOPT "$file" "$new.zfix"
         test -n "$out" && {
           echo FAILURE
           echo "Diff for ${file%.reference}:"
