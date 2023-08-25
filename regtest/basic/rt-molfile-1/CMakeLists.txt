@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-molfile-1 TYPE driver
+PLUMED_TEST(rt-molfile-1 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 1 --timestep 0.005 --pdb diala.pdb --mf_xtc traj.xtc --dump-forces forces --dump-forces-fmt=%10.6f"
 NEEDS molfile_plugins
 EXTRAFILES ../../trajectories/molfile_plugin/traj.xtc ../../trajectories/molfile_plugin/test0.pdb ../../trajectories/molfile_plugin/test1.pdb ../../trajectories/molfile_plugin/diala.pdb 

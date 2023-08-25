@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-fix-226 TYPE driver
+PLUMED_TEST(rt-fix-226 TYPE driver
 ARGS "--plumed plumed.dat --ixyz traj.xyz --length-units=A"
 )
 #the following variable is the original config file

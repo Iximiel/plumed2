@@ -1,5 +1,7 @@
-PLUMED_TEST(NAME rt-lepton TYPE driver
+PLUMED_TEST(rt-lepton TYPE driver
 ARGS "--plumed plumed.dat --ixyz traj.xyz --dump-forces forces --dump-forces-fmt=%10.6f"
+EXPORTVARIABLES
+PLUMED_USE_ASMJIT "no"
 )
 #the following variable is the original config file
 set(originalConfig [[

@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-ermsd2 TYPE driver
+PLUMED_TEST(rt-ermsd2 TYPE driver
 ARGS "--plumed plumed.dat --mf_xtc traj.xtc"
 )
 #the following variable is the original config file

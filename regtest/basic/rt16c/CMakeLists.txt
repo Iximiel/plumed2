@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt16c TYPE driver
+PLUMED_TEST(rt16c TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --pdb test.pdb --charge-units=10 --mass-units=2"
 EXTRAFILES ../../trajectories/trajectory.xyz
 )

@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-molfile-3 TYPE driver
+PLUMED_TEST(rt-molfile-3 TYPE driver
 ARGS "--plumed plumed.dat --mf_xtc test.xtc"
 NEEDS molfile_plugins
 )

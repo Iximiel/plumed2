@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-mpi6c TYPE driver
+PLUMED_TEST(rt-mpi6c TYPE driver
 ARGS "--plumed=plumed.dat --timestep=0.05 --ixyz trajectory.xyz --multi 3"
 MPIPROCS 3
 )

@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-xdrfile-1 TYPE driver
+PLUMED_TEST(rt-xdrfile-1 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 0 --timestep 0.005 --itrr traj.trr"
 )
 #the following variable is the original config file

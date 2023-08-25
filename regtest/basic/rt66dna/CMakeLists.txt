@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt66dna TYPE driver
+PLUMED_TEST(rt66dna TYPE driver
 ARGS "--igro 1bna.gro"
 NEEDS cregex
 )

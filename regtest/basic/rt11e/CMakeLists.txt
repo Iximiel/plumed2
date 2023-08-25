@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt11e TYPE driver
+PLUMED_TEST(rt11e TYPE driver
 ARGS "--plumed plumed.dat --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%10.6f --multi 2"
 MPIPROCS 4
 )

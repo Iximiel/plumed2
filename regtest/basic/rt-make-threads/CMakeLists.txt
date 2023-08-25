@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-make-threads TYPE make
+PLUMED_TEST(rt-make-threads TYPE make
 NEEDS molfile_plugins
 )
 #the following variable is the original config file

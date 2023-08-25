@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-make-files TYPE make
+PLUMED_TEST(rt-make-files TYPE make
 )
 #the following variable is the original config file
 set(originalConfig [[

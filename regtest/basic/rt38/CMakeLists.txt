@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt38 TYPE driver
+PLUMED_TEST(rt38 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz diala_traj_nm.xyz --dump-forces forces --dump-forces-fmt=%10.6f"
 EXTRAFILES ../../trajectories/diala_traj_nm.xyz ../../trajectories/path_msd/frame_1.dat 
 )

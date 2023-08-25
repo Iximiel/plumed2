@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-xdrfile-2 TYPE driver
+PLUMED_TEST(rt-xdrfile-2 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 1 --timestep 0.005 --itrr traj.trr --multi 2"
 MPIPROCS 2
 )

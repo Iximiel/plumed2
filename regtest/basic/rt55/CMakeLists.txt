@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt55 TYPE driver
+PLUMED_TEST(rt55 TYPE driver
 ARGS "--plumed plumed.dat --ixyz trajectory.xyz"
 )
 #the following variable is the original config file

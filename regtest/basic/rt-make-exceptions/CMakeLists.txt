@@ -1,5 +1,7 @@
-PLUMED_TEST(NAME rt-make-exceptions TYPE make
+PLUMED_TEST(rt-make-exceptions TYPE make
 NEEDS dlopen cregex
+EXPORTVARIABLES
+PLUMED_STACK_TRACE "no"
 )
 #the following variable is the original config file
 set(originalConfig [[

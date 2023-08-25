@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-mpi9 TYPE driver
+PLUMED_TEST(rt-mpi9 TYPE driver
 ARGS "--plumed=plumed.dat --timestep=0.05 --ixyz trajectory.xyz --multi 3"
 MPIPROCS 3
 )

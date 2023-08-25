@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-fix-371a TYPE plumed
+PLUMED_TEST(rt-fix-371a TYPE plumed
 ARGS "pdbrenumber --ipdb in.pdb --opdb out.pdb"
 )
 #the following variable is the original config file

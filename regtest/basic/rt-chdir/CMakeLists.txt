@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-chdir TYPE make
+PLUMED_TEST(rt-chdir TYPE make
 )
 #the following variable is the original config file
 set(originalConfig [[

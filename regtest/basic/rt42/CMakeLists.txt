@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt42 TYPE driver
+PLUMED_TEST(rt42 TYPE driver
 ARGS "--plumed plumed.dat --ixyz trajectory.xyz --dump-forces ff --dump-forces-fmt=%10.5f --dump-full-virial"
 )
 #the following variable is the original config file

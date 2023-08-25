@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-dimer-1 TYPE driver
+PLUMED_TEST(rt-dimer-1 TYPE driver
 ARGS "--plumed plumed.dat --mf_pdb aladip_wsol.pdb"
 EXTRAFILES ../../trajectories/dimer/aladip_wsol.pdb
 )

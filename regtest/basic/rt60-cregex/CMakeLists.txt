@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt60-cregex TYPE driver
+PLUMED_TEST(rt60-cregex TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 1 --ixyz diala_traj_nm.xyz  "
 NEEDS cregex
 EXTRAFILES ../../trajectories/diala_traj_nm.xyz

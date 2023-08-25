@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-close-structure TYPE driver
+PLUMED_TEST(rt-close-structure TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 50 --timestep 0.005 --ixyz diala_traj_nm.xyz --dump-forces forces --dump-forces-fmt=%10.6f"
 EXTRAFILES ../../trajectories/diala_traj_nm.xyz  ../../trajectories/path_msd/allv.pdb 
 )

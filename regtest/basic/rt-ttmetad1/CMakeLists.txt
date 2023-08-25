@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-ttmetad1 TYPE driver
+PLUMED_TEST(rt-ttmetad1 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 500 --timestep 0.002 --igro traj.gro"
 )
 #the following variable is the original config file

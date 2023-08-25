@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-pesmd TYPE plumed
+PLUMED_TEST(rt-pesmd TYPE plumed
 ARGS "pesmd input.dat"
 )
 #the following variable is the original config file

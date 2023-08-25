@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-pbmetadpf1-mpi TYPE driver
+PLUMED_TEST(rt-pbmetadpf1-mpi TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 1 --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%10.6f"
 MPIPROCS 2
 EXTRAFILES ../../trajectories/trajectory.xyz

@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-drift-2 TYPE driver
+PLUMED_TEST(rt-drift-2 TYPE driver
 ARGS "--plumed plumed.dat --timestep=0.005  --initial-step=1 --ixyz trajectory.xyz --dump-forces ff --pdb test.pdb --debug-dd yes"
 MPIPROCS 4
 )

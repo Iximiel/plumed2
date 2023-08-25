@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-generalpath TYPE driver
+PLUMED_TEST(rt-generalpath TYPE driver
 ARGS "--plumed path_test.dat --noatoms --timestep 2"
 )
 #the following variable is the original config file

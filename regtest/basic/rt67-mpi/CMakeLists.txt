@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt67-mpi TYPE driver
+PLUMED_TEST(rt67-mpi TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 500 --timestep 0.002 --igro traj.gro"
 MPIPROCS 4
 )

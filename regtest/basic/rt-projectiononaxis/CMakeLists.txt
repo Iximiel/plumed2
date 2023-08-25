@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-projectiononaxis TYPE driver
+PLUMED_TEST(rt-projectiononaxis TYPE driver
 ARGS "--plumed projection_test.dat --mf_xtc trial_path.xtc --pdb mc_file.pdb"
 )
 #the following variable is the original config file

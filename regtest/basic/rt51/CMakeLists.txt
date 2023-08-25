@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt51 TYPE sum_hills
+PLUMED_TEST(rt51 TYPE sum_hills
 ARGS " --kt 0.6 --sigma 0.2,0.2 --bin 30,30 --histo HILLS_t1 --fmt %8.3f --outhisto correction.dat"
 EXTRAFILES ../../trajectories/HILLS_t1 
 )

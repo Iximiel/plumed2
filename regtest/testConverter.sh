@@ -17,7 +17,7 @@ exports=$(grep "^export" config 2>/dev/null)
 #plumed_regtest_before->Done
 #plumed_regtest_after->Done
 #plumed_custom_skip->Done
-#export variables
+#export variables->Done
 for i in plumed_regtest_before plumed_regtest_after plumed_custom_skip; do
   if declare -f $i >/dev/null; then
     #displaying the function

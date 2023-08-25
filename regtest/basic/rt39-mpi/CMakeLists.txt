@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt39-mpi TYPE driver
+PLUMED_TEST(rt39-mpi TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 50 --timestep 0.005 --ixyz diala_traj_nm.xyz --dump-forces forces --dump-forces-fmt=%10.6f"
 MPIPROCS 2
 EXTRAFILES ../../trajectories/diala_traj_nm.xyz  ../../trajectories/path_msd/all.pdb 

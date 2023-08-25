@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt78-mpi TYPE driver
+PLUMED_TEST(rt78-mpi TYPE driver
 ARGS "--plumed plumed.dat --timestep 0.002 --mf_xtc trajectory.xtc --dump-forces forces --dump-forces-fmt=%.1f"
 MPIPROCS 2
 )

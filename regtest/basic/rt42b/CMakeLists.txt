@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt42b TYPE driver
+PLUMED_TEST(rt42b TYPE driver
 ARGS "--plumed plumed.dat --igro trajectory.gro"
 )
 #the following variable is the original config file

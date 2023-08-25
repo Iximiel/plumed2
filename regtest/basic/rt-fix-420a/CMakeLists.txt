@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-fix-420a TYPE sum_hills
+PLUMED_TEST(rt-fix-420a TYPE sum_hills
 ARGS "--hills HILLS --fmt %10.6f --min 0 --max 10 --spacing 0.1"
 )
 #the following variable is the original config file

@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt19-mpi TYPE driver
+PLUMED_TEST(rt19-mpi TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%8.4f --multi 2"
 MPIPROCS 2
 NEEDS zlib

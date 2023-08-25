@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt32 TYPE driver
+PLUMED_TEST(rt32 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz ala12_trajectory.xyz --dump-forces forces --dump-forces-fmt=%10.6f"
 )
 #the following variable is the original config file

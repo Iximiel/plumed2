@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt66b TYPE driver
+PLUMED_TEST(rt66b TYPE driver
 ARGS "--plumed plumed.dat --ixyz traj.xyz"
 )
 #the following variable is the original config file

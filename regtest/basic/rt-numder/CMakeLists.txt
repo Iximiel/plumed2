@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-numder TYPE driver
+PLUMED_TEST(rt-numder TYPE driver
 ARGS "--plumed plumed.dat --igro frame.gro --dump-forces-fmt %8.4f --debug-forces forces.dat"
 )
 #the following variable is the original config file

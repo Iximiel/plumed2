@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt48 TYPE sum_hills
+PLUMED_TEST(rt48 TYPE sum_hills
 ARGS " --min -pi,pi --max -pi,pi --bin 49,49 --hills HILLS_t1a,HILLS_t1b  --fmt %8.3f "
 EXTRAFILES ../../trajectories/HILLS_t1a ../../trajectories/HILLS_t1b
 )

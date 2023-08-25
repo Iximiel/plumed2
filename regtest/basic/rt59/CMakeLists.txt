@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt59 TYPE driver
+PLUMED_TEST(rt59 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 1 --timestep 0.005 --igro traj_10dec.gro "
 EXTRAFILES ../../trajectories/grofiles/traj_10dec.gro ../../trajectories/grofiles/sugar.dat 
 )

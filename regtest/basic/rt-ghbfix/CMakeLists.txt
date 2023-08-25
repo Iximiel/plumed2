@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-ghbfix TYPE driver
+PLUMED_TEST(rt-ghbfix TYPE driver
 ARGS "--plumed plumed.dat --ixyz traj.xyz"
 )
 #the following variable is the original config file

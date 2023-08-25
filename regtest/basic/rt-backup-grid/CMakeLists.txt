@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-backup-grid TYPE driver
+PLUMED_TEST(rt-backup-grid TYPE driver
 ARGS "--plumed=plumed.dat --timestep=0.05 --ixyz trajectory.xyz"
 MPIPROCS 2
 )

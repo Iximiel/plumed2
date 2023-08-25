@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt50 TYPE sum_hills
+PLUMED_TEST(rt50 TYPE sum_hills
 ARGS " --idw t1 --kt 0.6 --stride 300 --hills HILLS_t1 --fmt %8.3f "
 EXTRAFILES ../../trajectories/HILLS_t1 
 )

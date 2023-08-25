@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-mpi7b TYPE driver
+PLUMED_TEST(rt-mpi7b TYPE driver
 ARGS "--plumed=plumed.dat --timestep=0.05 --ixyz trajectory.xyz --multi 3"
 MPIPROCS 3
 NEEDS zlib

@@ -20,10 +20,10 @@ set(run_ctest ${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_ctest)
 set (failRegex "FAILURE;ERROR")
 
 set(PLUMED_TEST_KNOWN_TYPES
-  #simplemd
-  #driver
-  #sum_hills
-  #make
+  simplemd
+  driver
+  sum_hills
+  make
   plumed
   #python
 )
@@ -135,7 +135,6 @@ function(PLUMED_TEST test_name)
       string(FIND ${var} " " therearespaces)
       STRING(APPEND t "${sep}${var}" )
       if(sep STREQUAL "=")
-        message(${t})
         set (sep "-e")
         list(APPEND l ${t})
         unset(t)

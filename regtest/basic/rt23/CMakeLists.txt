@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt23 TYPE driver
+PLUMED_TEST(rt23 TYPE driver
 ARGS "--plumed plumed.dat --ixyz trajectory.xyz --dump-forces forces.xyz --dump-forces-fmt=%10.6f"
 )
 #the following variable is the original config file

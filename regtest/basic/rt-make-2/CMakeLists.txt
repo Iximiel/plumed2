@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-make-2 TYPE make
+PLUMED_TEST(rt-make-2 TYPE make
 MPIPROCS 3
 )
 #the following variable is the original config file

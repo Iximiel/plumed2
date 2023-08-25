@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt42c TYPE driver
+PLUMED_TEST(rt42c TYPE driver
 ARGS "--plumed plumed.dat --ixyz trajectory.xyz"
 )
 #the following variable is the original config file

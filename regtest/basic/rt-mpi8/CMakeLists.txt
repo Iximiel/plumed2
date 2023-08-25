@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-mpi8 TYPE driver
+PLUMED_TEST(rt-mpi8 TYPE driver
 ARGS "--plumed=plumed.dat --timestep=0.05 --ixyz trajectory.xyz --dump-forces ff --multi 3
       --debug-dd yes --debug-grex 2 --debug-grex-log log.grex"
 MPIPROCS 6

@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-plumed TYPE driver
+PLUMED_TEST(rt-plumed TYPE driver
 ARGS "--plumed plumed.dat --ixyz ala12_trajectory.xyz --dump-forces ff --dump-full-virial --mc mc"
 NEEDS dlopen
 )

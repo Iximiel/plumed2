@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt63 TYPE driver
+PLUMED_TEST(rt63 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --igro helix.input.gro --dump-forces ff --dump-full-virial"
 )
 #the following variable is the original config file

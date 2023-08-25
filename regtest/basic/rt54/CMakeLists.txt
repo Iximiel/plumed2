@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt54 TYPE driver
+PLUMED_TEST(rt54 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --igro helix.input.gro"
 )
 #the following variable is the original config file

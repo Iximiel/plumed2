@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-mpi0 TYPE driver
+PLUMED_TEST(rt-mpi0 TYPE driver
 ARGS "--plumed=plumed.dat --timestep=0.05 --ixyz trajectory.xyz --dump-forces ff"
 MPIPROCS 4
 EXTRAFILES ../../trajectories/trajectory.xyz

@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-molinfo TYPE driver
+PLUMED_TEST(rt-molinfo TYPE driver
 ARGS "--igro test.gro --plumed plumed.dat"
 )
 #the following variable is the original config file

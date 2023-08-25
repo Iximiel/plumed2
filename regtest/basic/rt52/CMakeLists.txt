@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt52 TYPE sum_hills
+PLUMED_TEST(rt52 TYPE sum_hills
 ARGS " --negbias --bin 30,30 --hills HILLS_t2 --fmt %8.3f "
 EXTRAFILES ../../trajectories/HILLS_t2 
 )

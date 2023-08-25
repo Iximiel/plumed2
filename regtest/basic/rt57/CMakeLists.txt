@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt57 TYPE driver
+PLUMED_TEST(rt57 TYPE driver
 ARGS "--plumed plumed.dat --trajectory-stride 1 --timestep 0.005 --igro broken.gro"
 )
 #the following variable is the original config file

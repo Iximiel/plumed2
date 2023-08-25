@@ -1,4 +1,4 @@
-PLUMED_TEST(NAME rt-multi-1 TYPE driver
+PLUMED_TEST(rt-multi-1 TYPE driver
 ARGS "--plumed plumed.dat --ixyz traj.xyz --multi 3 --debug-forces ff"
 MPIPROCS 6
 )
