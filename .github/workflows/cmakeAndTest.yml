@@ -38,8 +38,8 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
 
-    - name: Install
-      run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+    #- name: Install
+    #  run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
     
     - name: set up environment for tests
       run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
@@ -47,4 +47,4 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       
-      run: ctest
+      run: ctest -j4
