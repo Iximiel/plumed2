@@ -262,33 +262,26 @@ run_driver() {
 
 run_make() {
   otherLang=""
-  files=$(ls ./*.cpp)
-  # THIS IS A TODO?
-  # if make print-fortran | grep "FC=$" 1>/dev/null; then
-  #     echo "NOT_APPLICABLE (FC NOT FOUND)"
-  #     return 2
-  # fi
-  if test "$plumed_language" = fortran || test "$plumed_language" = fortran08; then
-    otherLang="enable_language (Fortran)"
-    # if test "$plumed_language" = fortran08; then
-    #   otherLang="enable_language (Fortran)\nset (CMAKE_Fortran_STANDARD 2008)"
-    # fi
-    files=$(ls ./*.f90)
-  elif test "$plumed_language" = c; then
-    #C
-    otherLang="enable_language (C)"
-    files=$(ls ./*.c)
-  elif test "$plumed_language" = c11; then
-    #C11
-    otherLang="set (CMAKE_CXX_STANDARD 11)"
+  filesC=$(ls ./*.c 2>/dev/null)
+  filesf90=$(ls ./*.f90 2>/dev/null)
+  files=$(ls ./*.cpp ./*.f90 ./*.c 2>/dev/null)
+  if [[ -n ${filesf90} ]]; then 
+    otherLang="${otherLang}enable_language (Fortran)\n"
   fi
-  cat <<EOF > CMakeLists.txt
+  if [[ -n ${filesC} ]] ; then 
+    otherLang="${otherLang}enable_language (C)\n"
+  fi
+  cat <<EOF >CMakeLists.txt
 cmake_minimum_required(VERSION 3.20)
 project(exe-test CXX)
-$otherLang
+$(echo -e "$otherLang")
 find_package(Plumed2 REQUIRED)
 add_executable(exe ${files})
-target_link_libraries(exe PUBLIC Plumed2::sharedplumedKernel  Plumed2::PlumedStaticWrapper)
+target_link_libraries(exe PUBLIC
+  #Plumed2::sharedplumedKernel 
+  #Plumed2::PlumedStaticWrapper
+  Plumed2::sharedplumedMain
+)
 install (TARGETS exe
     RUNTIME DESTINATION ${PWD}
 )
@@ -297,10 +290,10 @@ EOF
   {
     echo "LD_LIBRARY_PATH->${LD_LIBRARY_PATH}"
     echo "Plumed2_DIR->${Plumed2_DIR}"
-    cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release && \
-    cmake --build ./build && \
-    cmake --install ./build && \
-    $mpi $valgrind ./exe $arg
+    cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release &&
+      cmake --build ./build &&
+      cmake --install ./build &&
+      $mpi $valgrind ./exe $arg
   } >out 2>err
 }
 
@@ -381,11 +374,11 @@ set -o pipefail
     case "$option" in
     #the directory with the source of the ttest
     a) args=${OPTARG} ;;
-    c) export Plumed2_DIR=${OPTARG};;
+    c) export Plumed2_DIR=${OPTARG} ;;
     d) dir=${OPTARG} ;;
     e) extra_files=${OPTARG} ;;
     #${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH} expands to :${LD_LIBRARY_PATH} if LD_LIBRARY_PATH contains something
-    l) export LD_LIBRARY_PATH=${OPTARG}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}};;
+    l) export LD_LIBRARY_PATH=${OPTARG}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}} ;;
     m) plumed_modules=${OPTARG} ;;
     n) plumed_needs=${OPTARG} ;;
     p) mpiprocs=${OPTARG} ;;
@@ -400,7 +393,7 @@ set -o pipefail
       ;;
     esac
   done
-    
+
   echo "++ dir:  $dir"
   #if these works, there should not be reason to use config for the settings anymore
   #but only for the functions plumed_regtest_after and plumed_regtest_before
@@ -409,8 +402,7 @@ set -o pipefail
   echo "++ Processors: $mpiprocs"
   echo "++ Extra files: $extra_files"
   echo "++ Plumed needs: $plumed_needs"
-  
-  
+
   #this runs the different set ups function, the test and the checks and communicate where something is going wrong
   for runner in setupAndCheckMPI checkDependencies setup "run_${type}" check; do
     $runner
