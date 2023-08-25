@@ -13,34 +13,79 @@ if(NOT TARGET Plumed2::plumed_bin)
   set(STANDALONE_TESTS ON)
 endif()
 
-set(run_ctest
-  ${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_ctest
-)
+set(PLUMED_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(run_ctest ${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_ctest)
 
 #set (failRegex "FAILURE;ERROR;WARNING")
 set (failRegex "FAILURE;ERROR")
 
 set(PLUMED_TEST_KNOWN_TYPES
   #simplemd
-  driver
+  #driver
   #sum_hills
-  make
-  #plumed
+  #make
+  plumed
   #python
 )
 
-function(PLUMED_TEST)
-#I will then separate the different test types in driver, compile ecc...
+function(PLUMED_TEST test_name)
+  #use: PLUMED_TEST(<test_name> TYPE <test_type>
+  #[ARGS <string>]
+  #[MPIPROCS <number>]
+  #[EXTRAFILES path1 path2 ...]
+  #[EXPORTVARIABLES variable1 value1 variable2 value2 ...]
+  #[NEEDS component1 component2 ...]
+  #[MODULES module1 module2 ...]
+  #[LABELS label1 label2 ...]
+  #)
+
+  #PLUMED_TEST will set up a call for run_ctest with the settings given by the user
+  #test_type should be one of 
+  #  - "plumed" will invoke plumed
+  #    - "simplemd" will invoke plumed with simplemd
+  #    - "driver" will invoke plumed with driver
+  #    - "sum_hills" will invoke plumed with sum_hills
+  #  - "make" will build a custom executable with the files in the test directory
+  #  - "python" 
+  # the "make" test will compile with cmake using a list that contain the following instructions:
+  #```
+  # find_package(Plumed2 REQUIRED)
+  # add_executable(exe ${files})
+  # target_link_libraries(exe PUBLIC
+  #   Plumed2::sharedplumedMain
+  # )
+  #```
+  #
+  #the arguments to pass to plumed (used with "driver", "plumed", "simplemd", 
+  # "sum_hills"), must be specified in a single string, such as 
+  #`ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%8.4f"`.
+  #
+  #If MPIPROCS>1 the test will be skipped if mpi is not avaiable.
+  #
+  #With EXTRAFILES the user can specify a list of paths to files to be copied in the test directory
+  #
+  #
+  #With NEEDS the user can specify a list needed components, if the specified 
+  #componets are not found by `plumed config has componentname` the test will be skipped.
+  #
+  #With MODULES the user can specify a list needed modules, if the specified 
+  #componets are not found by `plumed config module modulename` the test will be skipped.
+  #
+  #With LABELS the user can specify a collection of keyword that can be use to 
+  #limit the number of test to be runned with ctest. The type and the home 
+  #directory of the test are automatically set up as labels
+  #
+  #By specifying one of "simplemd", "driver", "sum_hills" as type, the keyword 
+  # will be automatically prepended to the specified arguments
+
   set(options "")
-  set(oneValueArgs "NAME;ARGS;TYPE;MPIPROCS")
-  set(multiValueArgs "EXTRAFILES;NEEDS;LABELS;MODULES")
-  cmake_parse_arguments(PARSE_ARGV 0 PLUMED_TEST "${options}" "${oneValueArgs}"
+  set(oneValueArgs "TYPE;ARGS;MPIPROCS")
+  set(multiValueArgs "EXTRAFILES;EXPORTVARIABLES;NEEDS;LABELS;MODULES")
+  cmake_parse_arguments(PARSE_ARGV 1 PLUMED_TEST "${options}" "${oneValueArgs}"
     "${multiValueArgs}" )
-#   cmake_parse_arguments(PLUMED_TEST "${options}" "${oneValueArgs}"
-# "${multiValueArgs}" "${ARGN}" )
   
   set(args ${PLUMED_TEST_ARGS})
-  set(testname ${TEST_DIR}-${PLUMED_TEST_NAME})
+  set(testname ${TEST_DIR}-${test_name})
   set(type ${PLUMED_TEST_TYPE})
   #message("Test ${testname}::extra:${PLUMED_TEST_EXTRAFILES}")
   
@@ -55,10 +100,7 @@ function(PLUMED_TEST)
     # "supported list \"${PLUMED_TEST_KNOWN_TYPES}\"")
     return()
   endif()
-  if (NOT ${type} STREQUAL "make")
-    return()
-  endif()
-
+#TODO: export PLUMED_STACK_TRACE=no the export!!!!
   if(PLUMED_TEST_MPIPROCS)
     set(PLUMED_TEST_MPIPROCS "${PLUMED_TEST_MPIPROCS}")
     set(popt "-p")
@@ -66,7 +108,7 @@ function(PLUMED_TEST)
   if(PLUMED_TEST_EXTRAFILES)
     list(JOIN PLUMED_TEST_EXTRAFILES " " t)
     set (PLUMED_TEST_EXTRAFILES  ${t})
-    set (eopt "-e")
+    set (eopt "-f")
   endif()
   if(PLUMED_TEST_NEEDS)
     list(JOIN PLUMED_TEST_NEEDS " " t)
@@ -77,13 +119,35 @@ function(PLUMED_TEST)
   if(PLUMED_TEST_MODULES)
     list(JOIN PLUMED_TEST_MODULES " " t)
     set (PLUMED_TEST_MODULES  ${t})
-    set (mopt "-n")
+    set (mopt "-m")
   endif()
 
   if(NOT STANDALONE_TESTS)
     set(PLUMED_TEST_NOT_STANDALONE "-c${CMAKE_BINARY_DIR}/src/cmake")
     set(PLUMED_TEST_NOT_STANDALONELIB "-l${CMAKE_BINARY_DIR}/src")
   endif()
+
+  if(PLUMED_TEST_EXPORTVARIABLES)
+    set (t "")
+    set (l)
+    set (sep "-e")
+    foreach(var IN LISTS PLUMED_TEST_EXPORTVARIABLES)
+      string(FIND ${var} " " therearespaces)
+      STRING(APPEND t "${sep}${var}" )
+      if(sep STREQUAL "=")
+        message(${t})
+        set (sep "-e")
+        list(APPEND l ${t})
+        unset(t)
+      else()
+        set (sep "=")
+      endif()
+    endforeach()
+    set (PLUMED_TEST_EXPORTVARIABLES  ${l})
+    unset(l)
+    unset(sep)
+  endif()
+
   add_test(NAME ${testname} COMMAND ${run_ctest}
     $<TARGET_FILE:Plumed2::plumed_bin>
     -t "${type}"
@@ -94,6 +158,7 @@ function(PLUMED_TEST)
     ${eopt} ${PLUMED_TEST_EXTRAFILES}
     ${nopt} ${PLUMED_TEST_NEEDS}
     ${mopt} ${PLUMED_TEST_MODULES}
+    ${PLUMED_TEST_EXPORTVARIABLES}
     ${PLUMED_TEST_NOT_STANDALONE}
     ${PLUMED_TEST_NOT_STANDALONELIB}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
@@ -101,7 +166,7 @@ function(PLUMED_TEST)
   )
   message("Test ${testname}::adding test")
   
-  LIST(APPEND PLUMED_TEST_LABELS ${TEST_DIR})
+  LIST(APPEND PLUMED_TEST_LABELS ${TEST_DIR} ${type})
 
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"
@@ -111,3 +176,5 @@ endfunction(PLUMED_TEST)
 
 
 add_subdirectory(basic)
+add_subdirectory(testIntegrity)
+

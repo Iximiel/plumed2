@@ -1,11 +1,12 @@
 #!/bin/bash
 source config
 
+exports=$(grep "^export" config 2>/dev/null)
 #type->TYPE
 ##simplemd
 ##driver->Done
 ##sum_hills
-##make
+##make->Done
 ##plumed
 ##python
 
@@ -13,8 +14,10 @@ source config
 #PLUMED_ALLOW_SKIP_ON_TRAVIS
 #plumed_language
 #PLUMED_NUM_THREADS
-#plumed_regtest_before
-#plumed_regtest_after
+#plumed_regtest_before->Done
+#plumed_regtest_after->Done
+#plumed_custom_skip->Done
+#export variables
 for i in plumed_regtest_before plumed_regtest_after plumed_custom_skip; do
   if declare -f $i >/dev/null; then
     #displaying the function
@@ -28,7 +31,7 @@ done
 name=${PWD##*/}
 echo ""
 {
-  echo "PLUMED_TEST(NAME ${name} TYPE ${type}"
+  echo "PLUMED_TEST(${name} TYPE ${type}"
   if [[ $arg ]]; then
     echo "ARGS \"${arg}\""
   fi
@@ -40,6 +43,14 @@ echo ""
   fi
   if [[ $plumed_needs ]]; then
     echo "NEEDS $plumed_needs"
+  fi
+  if [[ $exports ]]; then
+    echo "EXPORTVARIABLES"
+    readarray -t exportsArr <<< "$exports"
+    for exp in "${exportsArr[@]}" ; do 
+      exp=${exp#export }
+      echo "${exp%=*} \"${exp#*=}\""
+    done
   fi
   if [[ $extra_files ]]; then
     echo "EXTRAFILES $extra_files"

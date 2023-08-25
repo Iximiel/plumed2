@@ -393,7 +393,7 @@ set -o pipefail
     echo "* $i"
   done
   ###############
-  while getopts "a:c:d:e:l:m:n:p:s:t:v" option; do
+  while getopts "a:c:d:e:f:l:m:n:p:s:t:v" option; do
     ##########This will be deleted for debugging purpose##########
     echo "option $option : $OPTARG"
     ###############
@@ -402,7 +402,12 @@ set -o pipefail
     a) args=${OPTARG} ;;
     c) export Plumed2_DIR=${OPTARG} ;;
     d) dir=${OPTARG} ;;
-    e) extra_files=${OPTARG} ;;
+    e) 
+        name=${OPTARG%=*}
+        value=${OPTARG#*=}
+        export "${name}"="$value"
+     ;;
+    f) extra_files=${OPTARG} ;;
     #${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH} expands to :${LD_LIBRARY_PATH} if LD_LIBRARY_PATH contains something
     l) export LD_LIBRARY_PATH=${OPTARG}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}} ;;
     m) plumed_modules=${OPTARG} ;;
