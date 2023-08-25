@@ -1,0 +1,10 @@
+PLUMED_TEST(checkEXPORTVARIABLES TYPE plumed
+ARGS help
+#using help to have a dummy output
+EXPORTVARIABLES 
+INTEGERVAR1 10
+INTEGERVAR2 137
+FLOATVAR 3.14
+STRINGVAR thisIsAstring
+VARWITHSPACES "There are some spaces"
+)

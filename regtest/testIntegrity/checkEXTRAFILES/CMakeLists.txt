@@ -1,0 +1,9 @@
+PLUMED_TEST(checkEXTRAFILES TYPE plumed
+ARGS help
+#using help to have a dummy output
+EXTRAFILES 
+${PLUMED_TEST_DIR}/trajectories/molfile_plugin/traj.dcd 
+${PLUMED_TEST_DIR}/trajectories/molfile_plugin/test0.pdb 
+../../trajectories/molfile_plugin/test1.pdb
+../../trajectories/molfile_plugin/diala.pdb
+)

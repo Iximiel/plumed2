@@ -1,0 +1,7 @@
+#!/bin/bash
+{
+  ls traj.dcd 
+  ls test0.pdb 
+  ls test1.pdb
+  ls diala.pdb
+} > filePresents
