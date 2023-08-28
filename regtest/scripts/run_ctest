@@ -299,6 +299,11 @@ EOF
       cmake --install ./build &&
       $mpi $valgrind ./exe $arg
   } >out 2>err
+  if [[ -s err ]]; then
+    echo "####stderr contains:####"
+    cat err
+    echo "########################"
+  fi
 }
 
 check() {

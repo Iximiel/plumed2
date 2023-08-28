@@ -11,6 +11,8 @@ if(NOT TARGET Plumed2::plumed_bin)
   #This sets up the environmental variable CMAKE_PREFIX_PATH in run_ctest 
   #when testing in the build environment
   set(STANDALONE_TESTS ON)
+  else()
+  set (Plumed2_DIR "${CMAKE_BINARY_DIR}/src/cmake")
 endif()
 
 set(PLUMED_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -144,12 +146,12 @@ function(PLUMED_TEST test_name)
 
   if(NOT STANDALONE_TESTS)
     list(APPEND PLUMED_TEST_EXPORTVARIABLES
-      "-ePlumed2_DIR=${CMAKE_BINARY_DIR}/src/cmake"
       "-ePLUMED_ROOT=${CMAKE_BINARY_DIR}")
     set(PLUMED_TEST_NOT_STANDALONELIB "-l${CMAKE_BINARY_DIR}/src")
   endif()
   
   list(APPEND PLUMED_TEST_EXPORTVARIABLES 
+    "-ePlumed2_DIR=${Plumed2_DIR}"
     "-ePLUMED_KERNEL=$<TARGET_LINKER_FILE:Plumed2::sharedplumedKernel>"
     "-ePLUMED_LIB=$<TARGET_LINKER_FILE:Plumed2::sharedplumedMain>"
     )
@@ -167,7 +169,6 @@ function(PLUMED_TEST test_name)
     ${PLUMED_TEST_NOT_STANDALONE}
     ${PLUMED_TEST_NOT_STANDALONELIB}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-
   )
   message("Adding test \"${testname}\"")
   
