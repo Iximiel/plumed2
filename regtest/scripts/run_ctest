@@ -99,13 +99,6 @@ setup() {
     fi  
   done
 
-  echo "++ Test type: $type"
-  echo "++ Arguments: $args"
-  echo "++ Processors: $mpiprocs"
-
-  # this is the executable used for running the tests:
-  echo plumed:$plumed
-
   root=$($plumed_nompi info --root)
 
   if test -z "$root"; then
@@ -141,11 +134,6 @@ setup() {
   if [[ -x plumed_regtest_before ]]; then
     ./plumed_regtest_before
   fi
-
-  echo "*** mpi=${mpi}"
-  echo "*** plumed=${plumed}"
-  echo "*** root=${plumed}"
-  echo "*** "
 }
 
 other() {
@@ -386,21 +374,10 @@ set -o pipefail
 
   export valgrind=env
 
-  ##########This will be deleted for debugging purpose##########
-  echo pwd: $PWD
-  echo exe:$plumed
-  for i in "$@"; do
-    echo "* $i"
-  done
-  ###############
-  while getopts "a:c:d:e:f:l:m:n:p:s:t:v" option; do
-    ##########This will be deleted for debugging purpose##########
-    echo "option $option : $OPTARG"
-    ###############
+  while getopts "a:d:e:f:l:m:n:p:s:t:v" option; do
     case "$option" in
     #the directory with the source of the ttest
     a) args=${OPTARG} ;;
-    c) export Plumed2_DIR=${OPTARG} ;;
     d) dir=${OPTARG} ;;
     e) 
         name=${OPTARG%=*}
@@ -425,14 +402,16 @@ set -o pipefail
     esac
   done
 
-  echo "++ dir:  $dir"
-  #if these works, there should not be reason to use config for the settings anymore
-  #but only for the functions plumed_regtest_after and plumed_regtest_before
-  echo "++ Test type: $type"
-  echo "++ Arguments: \"$args\""
-  echo "++ Processors: $mpiprocs"
-  echo "++ Extra files: $extra_files"
-  echo "++ Plumed needs: $plumed_needs"
+#if these works, there should not be reason to use config for the settings anymore
+#but only for the functions plumed_regtest_after and plumed_regtest_before
+cat <<EOF
+  ++ dir:  $dir
+  ++ Test type: $type
+  ++ Arguments: $args
+  ++ Processors: $mpiprocs
+  ++ Extra files: $extra_files
+  ++ Plumed needs: $plumed_needs
+EOF
 
   #this runs the different set ups function, the test and the checks and communicate where something is going wrong
   for runner in setupAndCheckMPI checkDependencies setup "run_${type}" check; do

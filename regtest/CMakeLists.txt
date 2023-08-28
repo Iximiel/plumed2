@@ -122,11 +122,6 @@ function(PLUMED_TEST test_name)
     set (mopt "-m")
   endif()
 
-  if(NOT STANDALONE_TESTS)
-    set(PLUMED_TEST_NOT_STANDALONE "-c${CMAKE_BINARY_DIR}/src/cmake")
-    set(PLUMED_TEST_NOT_STANDALONELIB "-l${CMAKE_BINARY_DIR}/src")
-  endif()
-
   if(PLUMED_TEST_EXPORTVARIABLES)
     set (t "")
     set (l)
@@ -145,6 +140,12 @@ function(PLUMED_TEST test_name)
     set (PLUMED_TEST_EXPORTVARIABLES  ${l})
     unset(l)
     unset(sep)
+  endif()
+
+  if(NOT STANDALONE_TESTS)
+    list(APPEND PLUMED_TEST_EXPORTVARIABLES "-ePlumed2_DIR=${CMAKE_BINARY_DIR}/src/cmake")
+    list(APPEND PLUMED_TEST_EXPORTVARIABLES "-ePLUMED_ROOT=${CMAKE_BINARY_DIR}")
+    set(PLUMED_TEST_NOT_STANDALONELIB "-l${CMAKE_BINARY_DIR}/src")
   endif()
 
   add_test(NAME ${testname} COMMAND ${run_ctest}
@@ -173,7 +174,9 @@ function(PLUMED_TEST test_name)
     LABELS "${PLUMED_TEST_LABELS}")
 endfunction(PLUMED_TEST)
 
-
-add_subdirectory(basic)
+#This directory ensures that the test procedure works as intended
 add_subdirectory(testIntegrity)
+#standard tests
+add_subdirectory(basic)
+
 
