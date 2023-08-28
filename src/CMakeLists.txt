@@ -276,6 +276,8 @@ target_link_libraries(sharedplumedKernel PUBLIC
      ${modulesForKernel} # OBJ_KERNEL without config
      Config #within OBJ_KERNEL
     )
+#needed for tests:
+add_library(Plumed2::sharedplumedKernel ALIAS sharedplumedKernel)
 
 ###############################libplumedWrapper.a###############################
 #archiveplumedWrapper contains the dynamic wrapper
@@ -321,6 +323,9 @@ target_link_libraries(sharedplumedMain PUBLIC
     PlumedStaticWrapper #object containging the main
     sharedplumedKernel #the shared library with the kernel and the modules
 )
+#needed for tests:
+add_library(Plumed2::sharedplumedMain ALIAS sharedplumedMain)
+
 ##########################end of libraries declaration##########################
 #installing the libraries
 

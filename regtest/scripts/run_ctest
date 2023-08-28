@@ -91,12 +91,12 @@ setup() {
   for file in $extra_files; do
     #one of the following will fail is fhe file is not present
     if [[ -f ${dir}/$file ]]; then
-    #relative path
+      #relative path
       cp -fv "${dir}/$file" .
     else
-    #absolute path
+      #absolute path
       cp -fv "$file" .
-    fi  
+    fi
   done
 
   root=$($plumed_nompi info --root)
@@ -122,15 +122,10 @@ setup() {
     fi
   fi
 
-  if $plumed_nompi --is-installed; then
-    PLUMED_KERNEL="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}Kernel.$($plumed_nompi info --soext)"
-    PLUMED_LIB="$root/../lib${PLUMED_PROGRAM_NAME:-plumed}.$($plumed_nompi info --soext)"
-  else
-    PLUMED_KERNEL="$root/src/lib/libplumedKernel.$($plumed_nompi info --soext)"
-    PLUMED_LIB="$root/src/lib/libplumed.$($plumed_nompi info --soext)"
-  fi
-  export PLUMED_KERNEL
-  export PLUMED_LIB
+  #export PLUMED_KERNEL
+  #export PLUMED_LIB
+  #these exports should been made by the -e inputs
+
   if [[ -x plumed_regtest_before ]]; then
     ./plumed_regtest_before
   fi
@@ -277,10 +272,10 @@ run_make() {
   filesC=$(ls ./*.c 2>/dev/null)
   filesf90=$(ls ./*.f90 2>/dev/null)
   files=$(ls ./*.cpp ./*.f90 ./*.c 2>/dev/null)
-  if [[ -n ${filesf90} ]]; then 
+  if [[ -n ${filesf90} ]]; then
     otherLang="${otherLang}enable_language (Fortran)\n"
   fi
-  if [[ -n ${filesC} ]] ; then 
+  if [[ -n ${filesC} ]]; then
     otherLang="${otherLang}enable_language (C)\n"
   fi
   cat <<EOF >CMakeLists.txt
@@ -317,11 +312,11 @@ check() {
       new="${file%.reference}"
       echo "checking $new"
       if test -f "$new"; then
-        
+
         fixzeroes "$file"
         cp "$new" "$new.zfix"
         fixzeroes "$new.zfix"
-        
+
         DIFFOPT=""
         # this is to enforce ASCII check
         # I add this option since sometime on travis some of the diff files are not shown
@@ -350,7 +345,7 @@ check() {
 }
 
 #this settings make the pipe exit with failure code of any command
-#so the program exits with the exit state of the script and not the
+#so the program exits with the exit state of the scripta and not the
 #one of tee
 set -o pipefail
 {
@@ -377,11 +372,11 @@ set -o pipefail
     #the directory with the source of the ttest
     a) args=${OPTARG} ;;
     d) dir=${OPTARG} ;;
-    e) 
-        name=${OPTARG%=*}
-        value=${OPTARG#*=}
-        export "${name}"="$value"
-     ;;
+    e)
+      name=${OPTARG%=*}
+      value=${OPTARG#*=}
+      export "${name}"="$value"
+      ;;
     f) extra_files=${OPTARG} ;;
     #${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH} expands to :${LD_LIBRARY_PATH} if LD_LIBRARY_PATH contains something
     l) export LD_LIBRARY_PATH=${OPTARG}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}} ;;
@@ -398,7 +393,7 @@ set -o pipefail
     esac
   done
 
-cat <<EOF
+  cat <<EOF
   ++ dir:  $dir
   ++ Test type: $type
   ++ Arguments: "$args"

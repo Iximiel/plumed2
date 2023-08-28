@@ -143,17 +143,22 @@ function(PLUMED_TEST test_name)
   endif()
 
   if(NOT STANDALONE_TESTS)
-    list(APPEND PLUMED_TEST_EXPORTVARIABLES "-ePlumed2_DIR=${CMAKE_BINARY_DIR}/src/cmake")
-    list(APPEND PLUMED_TEST_EXPORTVARIABLES "-ePLUMED_ROOT=${CMAKE_BINARY_DIR}")
+    list(APPEND PLUMED_TEST_EXPORTVARIABLES
+      "-ePlumed2_DIR=${CMAKE_BINARY_DIR}/src/cmake"
+      "-ePLUMED_ROOT=${CMAKE_BINARY_DIR}")
     set(PLUMED_TEST_NOT_STANDALONELIB "-l${CMAKE_BINARY_DIR}/src")
   endif()
+  
+  list(APPEND PLUMED_TEST_EXPORTVARIABLES 
+    "-ePLUMED_KERNEL=$<TARGET_LINKER_FILE:Plumed2::sharedplumedKernel>"
+    "-ePLUMED_LIB=$<TARGET_LINKER_FILE:Plumed2::sharedplumedMain>"
+    )
 
   add_test(NAME ${testname} COMMAND ${run_ctest}
     $<TARGET_FILE:Plumed2::plumed_bin>
     -t "${type}"
     -a "${args}"
     -d ${CMAKE_CURRENT_SOURCE_DIR}
-    -s ${CMAKE_SOURCE_DIR}
     ${popt} ${PLUMED_TEST_MPIPROCS}
     ${eopt} ${PLUMED_TEST_EXTRAFILES}
     ${nopt} ${PLUMED_TEST_NEEDS}
