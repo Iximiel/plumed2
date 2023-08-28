@@ -4,4 +4,8 @@
   ls test0.pdb 
   ls test1.pdb
   ls diala.pdb
+  ls relativeGlob_a
+  ls relativeGlob_II
+  ls absoluteGlob_1
+  ls absoluteGlob_two
 } > filePresents

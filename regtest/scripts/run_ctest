@@ -88,9 +88,17 @@ setup() {
 
   cp -f ${dir}/* . 2>/dev/null
 
-  for file in $extra_files; do
-    #one of the following will fail is fhe file is not present
-    if [[ -f ${dir}/$file ]]; then
+  IFS=" " read -r -a arr <<<"$extra_files"
+
+  for file in "${arr[@]}"; do
+    if [[ "$file" =~ \* ]]; then
+      #this for unglobs both the relative and the absolute file
+      for f in ${dir}/${file} ${file}; do
+        if [[ -f ${f} ]]; then
+          cp -fv "${f}" .
+        fi
+      done
+    elif [[ -f ${dir}/$file ]]; then
       #relative path
       cp -fv "${dir}/$file" .
     else
@@ -242,7 +250,7 @@ run_plumed() {
   runcommand="${mpi:+${mpi} }${plumed} ${args}"
   echo "running \"$runcommand > out 2> err\""
   #here I need splitting
-  $runcommand > out 2>err
+  $runcommand >out 2>err
   returnvalue=$?
   if [[ -s err ]]; then
     echo "####stderr contains:####"
@@ -260,7 +268,7 @@ run_driver() {
 run_simplemd() {
   runcommand="${mpi:+${mpi} }${plumed} simplemd"
   echo "running \"$runcommand  < in > out 2> err\""
-  $runcommand < in > out 2>err
+  $runcommand <in >out 2>err
   returnvalue=$?
   if [[ -s err ]]; then
     echo "####stderr contains:####"

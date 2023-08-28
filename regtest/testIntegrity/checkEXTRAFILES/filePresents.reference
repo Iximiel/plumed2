@@ -2,3 +2,7 @@ traj.dcd
 test0.pdb
 test1.pdb
 diala.pdb
+relativeGlob_a
+relativeGlob_II
+absoluteGlob_1
+absoluteGlob_two
