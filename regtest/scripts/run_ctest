@@ -299,8 +299,6 @@ install (TARGETS exe
 EOF
   mkdir build
   {
-    echo "LD_LIBRARY_PATH->${LD_LIBRARY_PATH}"
-    echo "Plumed2_DIR->${Plumed2_DIR}"
     cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release &&
       cmake --build ./build &&
       cmake --install ./build &&
@@ -352,7 +350,7 @@ check() {
 }
 
 #this settings make the pipe exit with failure code of any command
-#so the program exits with the exit state of the scripta and not the
+#so the program exits with the exit state of the script and not the
 #one of tee
 set -o pipefail
 {
@@ -374,7 +372,7 @@ set -o pipefail
 
   export valgrind=env
 
-  while getopts "a:d:e:f:l:m:n:p:s:t:v" option; do
+  while getopts "a:d:e:f:l:m:n:p:t:v" option; do
     case "$option" in
     #the directory with the source of the ttest
     a) args=${OPTARG} ;;
@@ -390,8 +388,6 @@ set -o pipefail
     m) plumed_modules=${OPTARG} ;;
     n) plumed_needs=${OPTARG} ;;
     p) mpiprocs=${OPTARG} ;;
-    #the plumed root directory
-    s) sourcedir=${OPTARG} ;;
     t) type=${OPTARG} ;;
     #activates valgrind
     v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
