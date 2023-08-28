@@ -164,7 +164,7 @@ function(PLUMED_TEST test_name)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 
   )
-  message("Test ${testname}::adding test")
+  message("Adding test \"${testname}\"")
   
   LIST(APPEND PLUMED_TEST_LABELS ${TEST_DIR} ${type})
 
@@ -176,7 +176,13 @@ endfunction(PLUMED_TEST)
 
 #This directory ensures that the test procedure works as intended
 add_subdirectory(testIntegrity)
-#standard tests
+#basic test tests
 add_subdirectory(basic)
 
+foreach(dir adjmat analysis annfunc core crystallization dimred drr 
+        eds fisst funnel isdb logmfd manyrestraints mapping maze membranefusion 
+        multicolvar opes pamm piv python pytorch s2cm sasa secondarystructure 
+        ves)
+        add_subdirectory(${dir})
+endforeach(dir)
 

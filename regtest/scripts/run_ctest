@@ -415,11 +415,10 @@ EOF
   for runner in setupAndCheckMPI checkDependencies setup "run_${type}" check; do
     $runner
     rt=$?
-    echo $rt
     if [[ $rt != 0 ]]; then
       echo "CAUSE: $runner exited with $rt"
       exit $rt
     fi
   done
-  #ctest is producing a report file on its own, but we offer also a more "private" output
+  #ctest is producing a report file on its own, but we offer also a more "private" report
 } | tee report.txt
