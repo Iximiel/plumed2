@@ -402,12 +402,10 @@ set -o pipefail
     esac
   done
 
-#if these works, there should not be reason to use config for the settings anymore
-#but only for the functions plumed_regtest_after and plumed_regtest_before
 cat <<EOF
   ++ dir:  $dir
   ++ Test type: $type
-  ++ Arguments: $args
+  ++ Arguments: "$args"
   ++ Processors: $mpiprocs
   ++ Extra files: $extra_files
   ++ Plumed needs: $plumed_needs
@@ -423,4 +421,5 @@ EOF
       exit $rt
     fi
   done
+  #ctest is producing a report file on its own, but we offer also a more "private" output
 } | tee report.txt
