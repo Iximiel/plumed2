@@ -48,3 +48,9 @@ jobs:
       working-directory: ${{github.workspace}}/build
       
       run: ctest -j4 --output-on-failure
+
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      with:
+          name: testResults
+          path: ${{github.workspace}}/build/Testing/Temporary/LastTest.log 
