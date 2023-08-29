@@ -1,0 +1,2 @@
+the mpi variable should not be 9710:true
+the mpi variable should contain the correct number of cores:true

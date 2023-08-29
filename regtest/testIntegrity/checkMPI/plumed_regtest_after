@@ -1,0 +1,15 @@
+#!/bin/bash
+#I expect the following variables to be exported in run_ctest
+mpiassigned=false
+ncoresPassed=false
+if [[ $mpi != 9710 ]]; then
+  mpiassigned=true  
+fi
+if [[ $mpi = *9710* ]]; then
+  ncoresPassed=true  
+fi
+cat << EOF > referenceFile
+the mpi variable should not be 9710:${mpiassigned}
+the mpi variable should contain the correct number of cores:${ncoresPassed}
+EOF
+
