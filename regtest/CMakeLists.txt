@@ -88,7 +88,7 @@ function(PLUMED_TEST test_name)
     "${multiValueArgs}" )
   
   if(PLUMED_TEST_ARGS)
-    set(PLUMED_TEST_ARGS "-a\"${PLUMED_TEST_ARGS}\"")
+    set(PLUMED_TEST_ARGS "-a${PLUMED_TEST_ARGS}")
   endif(PLUMED_TEST_ARGS)
   set(testname ${TEST_DIR}-${test_name})
   set(type ${PLUMED_TEST_TYPE})
