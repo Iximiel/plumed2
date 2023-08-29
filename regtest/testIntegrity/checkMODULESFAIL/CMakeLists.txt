@@ -1,6 +1,4 @@
-PLUMED_TEST(checkMODULES_SHOULD_FAIL TYPE plumed
-#using help to have a dummy output
-ARGS help
+PLUMED_TEST(checkMODULES_SHOULD_FAIL TYPE nothing
 #these are a recipe of always on modules, so it can not fail
 MODULES
     notEXISTENTmodule

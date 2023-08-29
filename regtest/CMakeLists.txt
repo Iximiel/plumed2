@@ -27,6 +27,7 @@ set(PLUMED_TEST_KNOWN_TYPES
   sum_hills
   make
   plumed
+  nothing#special comand to not make plumed run (and use only plumed_regtest_before/after and plumed_custom_skip)
   #python
 )
 
@@ -86,7 +87,9 @@ function(PLUMED_TEST test_name)
   cmake_parse_arguments(PARSE_ARGV 1 PLUMED_TEST "${options}" "${oneValueArgs}"
     "${multiValueArgs}" )
   
-  set(args ${PLUMED_TEST_ARGS})
+  if(PLUMED_TEST_ARGS)
+    set(PLUMED_TEST_ARGS "-a\"${PLUMED_TEST_ARGS}\"")
+  endif(PLUMED_TEST_ARGS)
   set(testname ${TEST_DIR}-${test_name})
   set(type ${PLUMED_TEST_TYPE})
   #message("Test ${testname}::extra:${PLUMED_TEST_EXTRAFILES}")
@@ -104,14 +107,16 @@ function(PLUMED_TEST test_name)
   endif()
 #TODO: export PLUMED_STACK_TRACE=no the export!!!!
   if(PLUMED_TEST_MPIPROCS)
-    set(PLUMED_TEST_MPIPROCS "${PLUMED_TEST_MPIPROCS}")
-    set(popt "-p")
+    set(PLUMED_TEST_MPIPROCS "-p${PLUMED_TEST_MPIPROCS}")
   endif()
   if(PLUMED_TEST_EXTRAFILES)
-    list(JOIN PLUMED_TEST_EXTRAFILES " " t)
+    set (t)
+    foreach(extra IN LISTS PLUMED_TEST_EXTRAFILES)
+        list(APPEND t "-f${extra}" )  
+    endforeach(extra)
     set (PLUMED_TEST_EXTRAFILES  ${t})
-    set (eopt "-f")
   endif()
+  
   if(PLUMED_TEST_NEEDS)
     list(JOIN PLUMED_TEST_NEEDS " " t)
     set (PLUMED_TEST_NEEDS  ${t})
@@ -157,17 +162,17 @@ function(PLUMED_TEST test_name)
     )
 
   add_test(NAME ${testname} COMMAND ${run_ctest}
-    $<TARGET_FILE:Plumed2::plumed_bin>
     -t "${type}"
-    -a "${args}"
+    ${PLUMED_TEST_ARGS}
     -d ${CMAKE_CURRENT_SOURCE_DIR}
-    ${popt} ${PLUMED_TEST_MPIPROCS}
-    ${eopt} ${PLUMED_TEST_EXTRAFILES}
+    ${PLUMED_TEST_MPIPROCS}
+    ${PLUMED_TEST_EXTRAFILES}
     ${nopt} ${PLUMED_TEST_NEEDS}
     ${mopt} ${PLUMED_TEST_MODULES}
     ${PLUMED_TEST_EXPORTVARIABLES}
     ${PLUMED_TEST_NOT_STANDALONE}
     ${PLUMED_TEST_NOT_STANDALONELIB}
+    $<TARGET_FILE:Plumed2::plumed_bin>
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
   message("Adding test \"${testname}\"")

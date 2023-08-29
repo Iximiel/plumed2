@@ -1,6 +1,4 @@
-PLUMED_TEST(checkNEEDS_SHOULD_FAIL TYPE plumed
-#using help to have a dummy output
-ARGS help
+PLUMED_TEST(checkNEEDS_SHOULD_FAIL TYPE nothing
 NEEDS notExpectedcomponent
 )
 #Removing the skip on non found component
