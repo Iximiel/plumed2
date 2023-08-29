@@ -121,38 +121,47 @@ foreach(dir ${execDirs})
     add_subdirectory(${dir})
 endforeach(dir ${execDirs})
 
+if(DEFINED CACHE{module_core})
+    #module_core will not be present on the first run:
+    #allmodules_activate will act on the cache correctly during the module declaration
+    if(allmodules_activate)
+        message("All module will be forced ON")
+        foreach(dir ${module_dirs})
+            if(${module_default_${dir}} STREQUAL "always")
+                continue()
+                else()
+                set(module_${dir} ON CACHE BOOL "activate module ${dir}" FORCE)
+            endif()
+        endforeach(dir ${module_dirs})
+    endif()
+
+    if(allmodules_default)
+        message("All module will be forced to their default status")
+        foreach(dir ${module_dirs})
+            if(${module_default_${dir}} STREQUAL "always")
+                continue()
+                else()
+                set(module_${dir} ${module_default_${dir}} CACHE BOOL "activate module ${dir}" FORCE)
+            endif()
+        endforeach(dir ${module_dirs})
+    endif()
+    else()
+    if(allmodules_activate)
+        message("All module will be activated")
+    endif()
+endif(DEFINED CACHE{module_core})
+
 foreach(dir ${module_dirs})
     add_subdirectory(${dir})
 endforeach(dir ${module_dirs})
 
-if(allmodules_activate)
-    message("All module will be forced ON")
-    foreach(dir ${module_dirs})
-        if(${module_default_${dir}} STREQUAL "always")
-            continue()
-            else()
-            set(module_${dir} ON CACHE BOOL "activate module ${dir}" FORCE)
-        endif()
-    endforeach(dir ${module_dirs})
-    #I set up the "autoshutdown" for this option,
-    #so it is not triggered at each subsequent cmake run
-    set(allmodules_activate OFF CACHE BOOL "Activates all modules" FORCE)
-endif()
-
-if(allmodules_default)
-    message("All module will be forced to their default status")
-    foreach(dir ${module_dirs})
-        if(${module_default_${dir}} STREQUAL "always")
-            continue()
-            else()
-            set(module_${dir} ${module_default_${dir}} CACHE BOOL "activate module ${dir}" FORCE)
-        endif()
-    endforeach(dir ${module_dirs})
-    #I set up the "autoshutdown" for this option,
-    #so it is not triggered at each subsequent cmake run
-    set(allmodules_default OFF CACHE BOOL "Revert all module to their default state" FORCE)
-endif()
-
+#I set up the "auto switch off" for these options,
+#so their won't be executed at each subsequent cmake run
+#but they still appear in the cmake cache editor for the user
+#(for example: the user may force default, and then activate only one module.
+#In this way that module won't be switched off on the next cmake run)
+set(allmodules_activate OFF CACHE BOOL "Activates all modules" FORCE)
+set(allmodules_default OFF CACHE BOOL "Revert all module to their default state" FORCE)
 #adding -lstdc++ -lc++ is done automatically by cmake
 
 #options ## options are already done

@@ -172,9 +172,9 @@ function(PLUMED_TEST test_name)
     ${PLUMED_TEST_TYPE}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
-  message("Adding test \"${testname}\"")
+  #message("Adding test \"${testname}\"")
   
-  LIST(APPEND PLUMED_TEST_LABELS ${TEST_DIR} ${PLUMED_TEST_TYPE})
+  LIST(APPEND PLUMED_TEST_LABELS dir-${TEST_DIR} type-${PLUMED_TEST_TYPE})
 
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"

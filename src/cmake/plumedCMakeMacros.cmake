@@ -13,7 +13,14 @@ macro(DECLAREPLUMEDMODULE module_name default_status)
     if(${default_status} STREQUAL "always")
         set(module_${module_name} ON CACHE INTERNAL "always active module ${module_name}")
         else()
-        option(module_${module_name} "activate module ${module_name}" ${default_status})
+            if(allmodules_activate)
+                #this is needed because on the first cmake run 'allmodules_activate' does not work
+                set (current_status ON)
+            else()
+                set (current_status ${default_status})
+            endif()
+            #the option can change only with a "set(CACHE FORCE)" or an user action, so this will be ignored on subsequent runs
+            option(module_${module_name} "activate module ${module_name}" ${current_status})
     endif(${default_status} STREQUAL "always")
     set(module_default_${module_name} ${default_status} CACHE INTERNAL "default status of the module ${module_name}")
     
