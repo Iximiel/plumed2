@@ -26,10 +26,6 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithD
 #IDE that have an interface with it, but we are not still confident that it is ready
 #for installation purposes
 #set(CMAKE_SKIP_INSTALL_RULES YES)
-option(risk_accepted "CMake is experimental use at your own risk" ON)
-if(NOT risk_accepted)
-   message(FATAL_ERROR "You must accept the risk to use the experimental cmake compilation: -Drisk_accepted=ON")
-endif(NOT risk_accepted)
 include(GNUInstallDirs)
 #this forces CMAKE_INSTALL_LIBDIR to be lib and not lib64
 set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
@@ -59,11 +55,12 @@ option(CMAKE_EXPORT_COMPILE_COMMANDS "Enable/Disable output of compile commands 
 add_subdirectory(src)
 add_subdirectory(scripts)
 add_subdirectory(fortran)
-enable_testing()
-add_subdirectory(regtest)
-#add_subdirectory(vim)
+add_subdirectory(vim)
 
 install(DIRECTORY patches
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name})
 #This copy makes plumed work in the builddir
 file(COPY patches DESTINATION ${CMAKE_BINARY_DIR})
+
+enable_testing()
+add_subdirectory(regtest)

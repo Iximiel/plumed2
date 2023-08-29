@@ -31,7 +31,7 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       #set up without warnings
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-            -Drisk_accepted=ON -Dallmodules_activate=ON -Denable_warnings_basic=OFF \
+            -Dallmodules_activate=ON -Denable_warnings_basic=OFF \
             -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
 
     - name: Build

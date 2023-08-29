@@ -1,10 +1,10 @@
 #! /usr/bin/env bash
 
-source ../sourceme.sh
+plumed=$1
 
 mkdir -p syntax help
 
-cat > syntax/plumedf.vim << \EOF
+cat >syntax/plumedf.vim <<\EOF
 
 if exists("b:current_syntax")
   finish
@@ -99,22 +99,18 @@ call PlumedColumn(0)
 
 EOF
 
-
-
 actions=$(
-../src/lib/plumed --no-mpi manual --action 2>&1 | awk '{
+  $plumed --no-mpi manual --action 2>&1 | awk '{
   if(NR==1) next;
   if(NF!=1) exit;
   print $1
 }'
 )
 
-
 actions="$(
-for a in $actions
-do
-
-../src/lib/plumed --no-mpi manual --action $a --vim 2>/dev/null | awk -v a=$a 'BEGIN{
+  for a in $actions; do
+    $plumed --no-mpi manual --action "$a" --vim 2>/dev/null \
+    | awk -v a="$a" 'BEGIN{
   help="help/" a ".txt"
   print "****************************************" > help
   print "Short helpfile for action " a > help
@@ -124,12 +120,11 @@ do
   else print > help
 }'
 
-done
+  done
 )"
 
 {
-
-cat << \EOF
+  cat <<\EOF
 " Vim syntax file
 " Language: PLUMED
 
@@ -161,42 +156,41 @@ let b:plumedActions=[]
 let b:plumedDictionary={}
 
 EOF
-for a in $actions ; do
-action_name="${a%%,*}" 
-action_name_=$(echo $action_name | sed s/-/_/g)
+  for a in $actions; do
+    action_name="${a%%,*}"
+    action_name_=$(echo $action_name | sed s/-/_/g)
 
-dictionary='{"word":"LABEL=","menu":"(label)"}'
+    dictionary='{"word":"LABEL=","menu":"(label)"}'
 
-for l in $(echo "$a" | sed 's/,/ /g')
-do
-  string=
-  case "$l" in
-  (*:LABEL)
-# this is treated differently
-  ;;
-  (flag:*)
-    dictionary="$dictionary"'
+    for l in $(echo "$a" | sed 's/,/ /g'); do
+      string=
+      case "$l" in
+      *:LABEL)
+        # this is treated differently
+        ;;
+      flag:*)
+        dictionary="$dictionary"'
 {"word":"'${l#flag:}'","menu":"(flag)"}'
-  ;;
-  (numbered:*)
-    dictionary="$dictionary"'
+        ;;
+      numbered:*)
+        dictionary="$dictionary"'
 {"word":"'${l#*:}'","menu":"(numbered)"}'
-  ;;
-  (*:*)
-    dictionary="$dictionary"'
+        ;;
+      *:*)
+        dictionary="$dictionary"'
 {"word":"'${l#*:}'=","menu":"(option)"}'
-  ;;
-  esac
-done
+        ;;
+      esac
+    done
 
-dictionary="$(
-  echo "$dictionary" | sort | tr '\n' ',' | sed 's/,$//'
-)"
-echo "let b:plumedDictionary[\"$action_name\"]=[$dictionary]"
+    dictionary="$(
+      echo "$dictionary" | sort | tr '\n' ',' | sed 's/,$//'
+    )"
+    echo "let b:plumedDictionary[\"$action_name\"]=[$dictionary]"
 
-done
+  done
 
-cat << \EOF
+  cat <<\EOF
 function! PlumedDefineSyntax()
 
   for key in sort(keys(b:plumedDictionary))
@@ -461,8 +455,7 @@ endfun
 
 EOF
 
-} > syntax/plumed.vim
-
+} >syntax/plumed.vim
 
 # colors:
 # Constant
@@ -475,6 +468,3 @@ EOF
 # Ignore
 # Error
 # Todo
-
-
-
