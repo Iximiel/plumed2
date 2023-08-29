@@ -91,17 +91,16 @@ function(PLUMED_TEST test_name)
     set(PLUMED_TEST_ARGS "-a${PLUMED_TEST_ARGS}")
   endif(PLUMED_TEST_ARGS)
   set(testname ${TEST_DIR}-${test_name})
-  set(type ${PLUMED_TEST_TYPE})
   #message("Test ${testname}::extra:${PLUMED_TEST_EXTRAFILES}")
   
   if(NOT PLUMED_TEST_TYPE)
     message(FATAL_ERROR "Test ${testname}::Test need TYPE to be indicated")
   endif()
 
-  list(FIND PLUMED_TEST_KNOWN_TYPES ${type} TYPE_KNOWN)
+  list(FIND PLUMED_TEST_KNOWN_TYPES ${PLUMED_TEST_TYPE} TYPE_KNOWN)
   if(TYPE_KNOWN EQUAL -1)
     # message(WARNING #FATAL_ERROR
-    # "Test ${testname}::Test TYPE \"${type}\" is not in the "
+    # "Test ${testname}::Test TYPE \"${PLUMED_TEST_TYPE}\" is not in the "
     # "supported list \"${PLUMED_TEST_KNOWN_TYPES}\"")
     return()
   endif()
@@ -119,14 +118,12 @@ function(PLUMED_TEST test_name)
   
   if(PLUMED_TEST_NEEDS)
     list(JOIN PLUMED_TEST_NEEDS " " t)
-    set (PLUMED_TEST_NEEDS  ${t})
-    set (nopt "-n")
+    set (PLUMED_TEST_NEEDS  -n${t})
   endif()
 
   if(PLUMED_TEST_MODULES)
     list(JOIN PLUMED_TEST_MODULES " " t)
-    set (PLUMED_TEST_MODULES  ${t})
-    set (mopt "-m")
+    set (PLUMED_TEST_MODULES  -m${t})
   endif()
 
   if(PLUMED_TEST_EXPORTVARIABLES)
@@ -162,9 +159,8 @@ function(PLUMED_TEST test_name)
     )
 
   add_test(NAME ${testname} COMMAND ${run_ctest}
-    -t "${type}"
     ${PLUMED_TEST_ARGS}
-    -d ${CMAKE_CURRENT_SOURCE_DIR}
+    -d${CMAKE_CURRENT_SOURCE_DIR}
     ${PLUMED_TEST_MPIPROCS}
     ${PLUMED_TEST_EXTRAFILES}
     ${nopt} ${PLUMED_TEST_NEEDS}
@@ -173,11 +169,12 @@ function(PLUMED_TEST test_name)
     ${PLUMED_TEST_NOT_STANDALONE}
     ${PLUMED_TEST_NOT_STANDALONELIB}
     $<TARGET_FILE:Plumed2::plumed_bin>
+    ${PLUMED_TEST_TYPE}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
   message("Adding test \"${testname}\"")
   
-  LIST(APPEND PLUMED_TEST_LABELS ${TEST_DIR} ${type})
+  LIST(APPEND PLUMED_TEST_LABELS ${TEST_DIR} ${PLUMED_TEST_TYPE})
 
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"

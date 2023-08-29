@@ -276,7 +276,7 @@ set -o pipefail
   extra_files=()
   valgrind="env"
   
-  while getopts "a:d:e:f:l:m:n:p:t:v" option; do
+  while getopts "a:d:e:f:l:m:n:p:v" option; do
     #echo "$option -> ${OPTARG}"
     case "$option" in
     #the
@@ -294,7 +294,6 @@ set -o pipefail
     m) plumed_modules=${OPTARG} ;;
     n) plumed_needs=${OPTARG} ;;
     p) mpiprocs=${OPTARG} ;;
-    t) type=${OPTARG} ;;
     #activates valgrind
     v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
     *)
@@ -307,6 +306,7 @@ set -o pipefail
   shift $((OPTIND - 1))
   # this is the executable used for running the tests:
   plumed=$1
+  type=$2
   # this is the executable used for getting the configuration:
   plumed_nompi="$plumed --no-mpi"
   cat <<EOF
