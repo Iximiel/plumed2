@@ -223,17 +223,17 @@ __global__ void reductionDerivatives(T *g_idata, T *g_odata,unsigned* nnlist, co
   //an input that is multiple of the threads, padded with zeros
   while (nn + numThreads < len) {
     
-    //if(atomId == nnlist[nn*2]){
+    if(atomId == nnlist[nn*2]){
       sdata[place] -= g_idata[nn+i]*g_idata[nn+dfunc];
-    //} else if(atomId==nnlist[nn*2+1]){
+    } else if(atomId==nnlist[nn*2+1]){
       sdata[place] += g_idata[nn+i]*g_idata[nn+dfunc];
-    //}
+    }
     
-    //if(atomId == nnlist[(nn+numThreads)*2]){
+    if(atomId == nnlist[(nn+numThreads)*2]){
       sdata[place] -= g_idata[nn+i+numThreads]*g_idata[nn+dfunc+numThreads];
-    //} else if (atomId == nnlist[(nn+numThreads)*2+1]){
+    } else if (atomId == nnlist[(nn+numThreads)*2+1]){
       sdata[place]  += g_idata[nn+i+numThreads]*g_idata[nn+dfunc+numThreads];
-    //}
+    }
     //   g_idata[i]*g_idata[dfunc]
     // + g_idata[i+numThreads]*g_idata[dfunc+numThreads];
     //i+=gridSize;
