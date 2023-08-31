@@ -30,6 +30,8 @@ namespace CUDAHELPERS {
 
 template <unsigned numThreads, typename T>
 __device__ void warpReduce(volatile T* sdata, const unsigned int place){
+  //Instructions are SIMD synchronous within a warp
+  //so no need for __syncthreads(), in the last iterations
     if(numThreads >= 64){//compile time
       sdata[place] += sdata[place + 32];
     }
@@ -65,8 +67,6 @@ __device__ void reductor(volatile T* sdata,T *g_odata,const unsigned int where){
     if (threadIdx. x < 64) { 
       sdata[tid] += sdata[tid + 64]; } __syncthreads();
     }
-  //Instructions are SIMD synchronous within a warp
-  //so no need for __syncthreads(), in the last iterations
   if (tid < mymin(32u,numThreads/2)) {
     warpReduce<numThreads>(sdata, tid);
   }
@@ -107,10 +107,9 @@ __global__ void reductionND(const T *g_idata, T *g_odata, const unsigned int len
 
 template <unsigned numThreads, typename T>
 __global__ void reduction1D(T *g_idata, T *g_odata, const unsigned int len) {
-  //extern __shared__ T sdata[numThreads];
   auto sdata = shared_memory_proxy<T>();
   const unsigned int place = threadIdx.x;
-  // each thread loads one element from global to shared mem
+  // each thread sums some elements from global to shared memory
   unsigned int i = (2*numThreads)*blockIdx.x + place;
   const unsigned int gridSize = (2*numThreads)*gridDim.x;
   sdata[place] = T(0);
@@ -198,7 +197,6 @@ __global__ void reductionDerivatives(T *g_idata, T *g_odata,unsigned* nnlist, co
   while (nn + numThreads < len) {
     
     if(atomId == nnlist[nn*2]){
-      //sdata[place] -= g_idata[i]*g_idata[dfunc];
       sdata[place] -= g_idata[nn+i]*g_idata[nn+dfunc];
     } else if(atomId==nnlist[nn*2+1]){
       sdata[place] += g_idata[nn+i]*g_idata[nn+dfunc];
@@ -622,6 +620,10 @@ memoryHolder<double>& virialIn,
     reduceDerOut->resize(dim* ngroupsS);
     reduceVirialOut->resize(9* ngroupsS);
     reduceSOut->resize(ngroupsS);
+    //the calculation is divided in three blocks, because using the streams the
+    //memory copy should be async and so the next caclulatio should be be in 
+    //concurrency with the  data transfer
+    
     if (first){
       dim3 ngroupsDerivatives(ngroupsS,nat,3);
       callReductionDerivatives (reduceDerIn->getPointer(),
