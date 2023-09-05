@@ -81,6 +81,6 @@ jobs:
             ${{github.workspace}}/build/Testing/Temporary/LastTest.log 
             ${{github.workspace}}/build/vim 
             ${{github.workspace}}/build/scripts
-            !CMakeFiles/*
-            !cmake_install.cmake
-            Makefile
+            !*/CMakeFiles/*
+            !*/cmake_install.cmake
+            !*/Makefile
