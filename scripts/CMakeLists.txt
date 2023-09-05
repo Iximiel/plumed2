@@ -1,5 +1,5 @@
 set(SCRIPTS
-config.sh
+#config.sh
 mklib.sh 
 newcv.sh
 partial_tempering.sh
@@ -7,6 +7,7 @@ patch.sh
 selector.sh
 vim2html.sh
 )
+
 Message(AUTHOR_WARNING "the scripts are configured only with the \"Install\" configuration")
 foreach(script ${SCRIPTS})
     install(FILES ${script}

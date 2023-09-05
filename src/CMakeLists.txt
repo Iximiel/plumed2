@@ -27,7 +27,7 @@ option(allmodules_default "Revert all module to their default state" OFF)
 set(modulesForKernel "")
 
 ################################################################################
-#Setting up global options
+###########################Setting up global options############################
 ################################################################################
 #these are needed to help in reconstruct the pkgconfigs and the *.inc like in
 #the original Makefile
@@ -89,14 +89,14 @@ endif(enable_warnings_errors)
 
 
 ################################################################################
-#Macro definitions
+###############################Macro definitions################################
 ################################################################################
 # support directory with .cmake files with useful macros
 list(APPEND CMAKE_MODULE_PATH "${PLUMED_SOURCE_SRC}/cmake")
 include(plumedCMakeMacros)
 
 ################################################################################
-#Setting up Modules
+###############################Setting up Modules###############################
 ################################################################################
 
 #getting the list of direcotries in src/
@@ -259,7 +259,7 @@ if (${modulesDependenciesProblems})
     message(FATAL_ERROR "Problems in module dependencies")
 endif(${modulesDependenciesProblems})
 ################################################################################
-#Setting up the main libraries
+#########################Setting up the main libraries##########################
 ################################################################################
 
 set(KernelTargets "")

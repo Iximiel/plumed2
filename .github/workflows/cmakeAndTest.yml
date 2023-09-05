@@ -75,4 +75,7 @@ jobs:
       if: ${{ failure() && steps.tests.conclusion == 'failure' }}
       with:
           name: testResults
-          path: ${{github.workspace}}/build/Testing/Temporary/LastTest.log 
+          path: |
+            ${{github.workspace}}/build/Testing/Temporary/LastTest.log \
+            ${{github.workspace}}/build/vim
+            ${{github.workspace}}/build/scripts
