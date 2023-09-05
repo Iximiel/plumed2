@@ -172,7 +172,9 @@ function(PLUMED_TEST test_name)
     ${PLUMED_TEST_TYPE}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
-  #message("Adding test \"${testname}\"")
+  if(VERBOSE)
+    message("Adding test \"${testname}\"")
+  endif(VERBOSE)
   
   LIST(APPEND PLUMED_TEST_LABELS dir-${TEST_DIR} type-${PLUMED_TEST_TYPE})
 

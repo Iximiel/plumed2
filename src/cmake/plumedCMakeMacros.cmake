@@ -41,7 +41,7 @@ macro(DECLAREPLUMEDMODULE module_name default_status)
         if(DECLAREPLUMEDMODULE_EXTRA_HEADERS)
             message("EXTRA_HEADERS ${DECLAREPLUMEDMODULE_EXTRA_HEADERS}")
         endif()
-    endif()
+    endif(VERBOSE)
 
     set(moduleNeeds_${module_name} ${DECLAREPLUMEDMODULE_NEEDS} PARENT_SCOPE)
     
