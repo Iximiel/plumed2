@@ -450,3 +450,8 @@ message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
 message("CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
 #LIST(REMOVE_DUPLICATES PLUMED_LD_FLAGS)
 #message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
+
+
+foreach(dir ${module_dirs})
+    message("${dir} default:${module_default_${dir}} activated: ${module_${dir}}")
+endforeach(dir ${module_dirs})
