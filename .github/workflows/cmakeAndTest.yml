@@ -66,6 +66,13 @@ jobs:
     - name: set up environment for tests
       run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           
+    - name: Checking the tests
+      working-directory: ${{github.workspace}}/build
+      #does only the tests marked with the label "testIntegrity".
+      #These checks ensure that the test suite works as intended,
+      #if these do not pass there is something very wrong!
+      run: ctest --output-on-failure -L testIntegrity 
+
     - name: Test
       id: tests
       working-directory: ${{github.workspace}}/build
