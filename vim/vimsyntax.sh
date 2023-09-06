@@ -106,6 +106,8 @@ actions=$(
   print $1
 }'
 )
+$plumed --no-mpi manual --action
+echo "\$? $?"
 # $plumed --no-mpi manual --action >/dev/null 2>/dev/null
 # plumedWorks=$?
 # if [[ $plumedWorks != 0 ]] ;then
