@@ -101,18 +101,19 @@ EOF
 
 #NR>1 skips the first row
 #NF!=1 exits atthe new line before "LIST OF DOCUMENTED COMMAND LINE TOOLS:"
-actionsList=$(
-  $plumed --no-mpi manual --action 2>&1 | awk 'NR>1{
-  if(NF!=1) exit;
-  print $1
-}'
-)
-$plumed --no-mpi manual --action
+# actionsList=$(
+#   $plumed --no-mpi manual --action 2>&1 | awk 'NR>1{
+#   if(NF!=1) exit;
+#   print $1
+# }'
+# )
+
+$plumed --no-mpi manual --action 2> actionsList
+cat actionsList
 echo with awk
-$plumed --no-mpi manual --action 2>&1 | awk 'NR>1{
-  if(NF!=1) exit;
-  print $1
-}'
+actionsList=$( awk 'NR>1{if(NF!=1) exit;print $1}' < actionsList )
+echo "$actionsList"
+rm actionsList
 # $plumed --no-mpi manual --action >/dev/null 2>/dev/null
 # plumedWorks=$?
 # if [[ $plumedWorks != 0 ]] ;then
@@ -133,9 +134,13 @@ actions="$(
   print "****************************************" > help
   print "Short helpfile for action " a > help
   print "****************************************" > help
-}{
-  if(NR==1){ print}
-  else print > help
+}
+{
+  if(NR==1) {
+    print
+  } else {
+    print > help
+  }
 }'
 
   done
