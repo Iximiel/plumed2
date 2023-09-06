@@ -2,15 +2,6 @@
 
 plumed=$1
 
-$plumed --no-mpi manual --action >/dev/null 2>/dev/null
-plumedWorks=$?
-if [[ $plumedWorks != 0 ]] ;then
-  echo "Plumed fails ($plumed)"
-  exit 1
-fi
-
- 
-
 mkdir -p syntax help
 
 cat >syntax/plumedf.vim <<\EOF
@@ -115,6 +106,17 @@ actions=$(
   print $1
 }'
 )
+# $plumed --no-mpi manual --action >/dev/null 2>/dev/null
+# plumedWorks=$?
+# if [[ $plumedWorks != 0 ]] ;then
+#   echo "Plumed fails with $plumedWorks ($plumed)"
+#   exit 1
+# fi
+echo $actions
+if [[ -z $actions ]]; then 
+  echo "Plumed returned no actions!"
+  exit 1
+fi
 
 actions="$(
   for a in $actions; do
@@ -131,11 +133,6 @@ actions="$(
 
   done
 )"
-
-if [[ -z $actions ]]; then 
-  echo "Plumed returned no actions!"
-  exit 1
-fi
 
 {
   cat <<\EOF
