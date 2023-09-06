@@ -51,9 +51,9 @@ jobs:
       run: > 
         cmake -B ${{github.workspace}}/build 
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} 
+        -Dallmodules_activate=ON
         -Denable_warnings_basic=OFF 
         -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
-        #-Dallmodules_activate=ON 
 
     - name: Build
       working-directory: ${{github.workspace}}/build
@@ -66,6 +66,13 @@ jobs:
     - name: set up environment for tests
       run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           
+    - name: Checking the tests
+      working-directory: ${{github.workspace}}/build
+      #does only the tests marked with the label "testIntegrity".
+      #These checks ensure that the test suite works as intended,
+      #if these do not pass there is something very wrong!
+      run: ctest --output-on-failure -L testIntegrity 
+
     - name: Test
       id: tests
       working-directory: ${{github.workspace}}/build

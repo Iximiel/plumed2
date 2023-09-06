@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <string>
 #include <iostream>
+#include <algorithm>//count
 
 namespace PLMD {
 namespace cltools {
@@ -68,6 +69,8 @@ PLUMED_REGISTER_CLTOOL(Manual,"manual")
 void Manual::registerKeywords( Keywords& keys ) {
   CLTool::registerKeywords( keys );
   keys.add("compulsory","--action","print the manual for this particular action");
+  keys.addFlag("--allactions",false,"print a list of all the actions");
+  keys.addFlag("--alltools",false,"print a list of all the actions");
   keys.addFlag("--vim",false,"print the keywords in vim syntax");
   keys.addFlag("--spelling",false,"print a list of the keywords and component names for the spell checker");
 }
@@ -81,15 +84,30 @@ Manual::Manual(const CLToolOptions& co ):
 int Manual::main(FILE* in, FILE*out,Communicator& pc) {
 
   std::string action;
-  if( !parse("--action",action) ) return 1;
-  std::cerr<<"LIST OF DOCUMENTED ACTIONS:\n";
-  std::cerr<<actionRegister()<<"\n";
-  std::cerr<<"LIST OF DOCUMENTED COMMAND LINE TOOLS:\n";
-  std::cerr<<cltoolRegister()<<"\n\n";
-  bool vimout; parseFlag("--vim",vimout);
-  bool spellout; parseFlag("--spelling",spellout);
-  if( vimout && spellout ) error("can only use one of --vim and --spelling at a time");
-  if( !actionRegister().printManual(action,vimout,spellout) && !cltoolRegister().printManual(action,spellout) ) {
+  if( !parse("--action",action) )
+    return 1;
+  std::cerr << "LIST OF DOCUMENTED ACTIONS:\n";
+  std::cerr << actionRegister() << "\n";
+  std::cerr << "LIST OF DOCUMENTED COMMAND LINE TOOLS:\n";
+  std::cerr << cltoolRegister() << "\n\n";
+  bool vimout;
+  parseFlag("--vim",vimout);
+  bool spellout;
+  parseFlag("--spelling",spellout);
+  bool allActions;
+  parseFlag("--allactions",allActions);
+  bool allTools;
+  parseFlag("--alltools",allTools);
+  //exclusiveOptions
+  auto exclOpts=std::array<bool,4>{vimout,spellout,allActions,allTools};
+  if ( std::count(exclOpts.begin(),exclOpts.end(),true) > 1 ) {
+    error("can only use one of --vim, --spelling, --allactions or --alltools at a time");
+  } else if(allActions) {
+      std::cout << actionRegister() << "\n";
+  } else if(allTools) {
+      std::cout << cltoolRegister() << "\n";
+  } else if( ! actionRegister().printManual(action,vimout,spellout) &&
+             ! cltoolRegister().printManual(action,spellout) ) {
     std::fprintf(stderr,"specified action is not registered\n");
     return 1;
   }
