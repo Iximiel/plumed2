@@ -2,7 +2,9 @@
 
 plumed=$1
 
-if ! $plumed --no-mpi manual --action >/dev/null 2>/dev/null ;then
+$plumed --no-mpi manual --action >/dev/null 2>/dev/null
+plumedWorks=$?
+if [[ $plumedWorks != 0 ]] ;then
   echo "Plumed fails ($plumed)"
   exit 1
 fi
