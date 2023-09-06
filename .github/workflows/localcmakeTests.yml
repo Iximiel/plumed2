@@ -4,6 +4,7 @@ on:
  pull_request:
   branches:
   - 'cmake'
+  - 'cmaketestSetUp'
 jobs:
  runBasicTests:
     uses: ./.github/workflows/cmakeAndTest.yml
