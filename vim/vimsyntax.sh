@@ -99,25 +99,8 @@ call PlumedColumn(0)
 
 EOF
 
-#NR>1 skips the first row
-#NF!=1 exits atthe new line before "LIST OF DOCUMENTED COMMAND LINE TOOLS:"
-# actionsList=$(
-#   $plumed --no-mpi manual --action 2>&1 | awk 'NR>1{
-#   if(NF!=1) exit;
-#   print $1
-# }'
-# )
-
-$plumed --no-mpi manual --action --allactions #2> /dev/null
 actionsList=$($plumed --no-mpi manual --action --allactions 2> /dev/null)
-echo "AL:"
-echo "$actionsList"
-# $plumed --no-mpi manual --action >/dev/null 2>/dev/null
-# plumedWorks=$?
-# if [[ $plumedWorks != 0 ]] ;then
-#   echo "Plumed fails with $plumedWorks ($plumed)"
-#   exit 1
-# fi
+
 if [[ -z "$actionsList" ]]; then 
   echo "Plumed returned no actions!"
   exit 1

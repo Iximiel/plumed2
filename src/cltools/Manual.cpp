@@ -86,10 +86,10 @@ int Manual::main(FILE* in, FILE*out,Communicator& pc) {
   std::string action;
   if( !parse("--action",action) )
     return 1;
-  std::cerr<<"LIST OF DOCUMENTED ACTIONS:\n";
-  std::cerr<<actionRegister()<<"\n";
-  std::cerr<<"LIST OF DOCUMENTED COMMAND LINE TOOLS:\n";
-  std::cerr<<cltoolRegister()<<"\n\n";
+  std::cerr << "LIST OF DOCUMENTED ACTIONS:\n";
+  std::cerr << actionRegister() << "\n";
+  std::cerr << "LIST OF DOCUMENTED COMMAND LINE TOOLS:\n";
+  std::cerr << cltoolRegister() << "\n\n";
   bool vimout;
   parseFlag("--vim",vimout);
   bool spellout;
@@ -100,12 +100,12 @@ int Manual::main(FILE* in, FILE*out,Communicator& pc) {
   parseFlag("--alltools",allTools);
   //exclusiveOptions
   auto exclOpts=std::array<bool,4>{vimout,spellout,allActions,allTools};
-  if ( std::count(exclOpts.begin(),exclOpts.end(),true)>1 ) {
+  if ( std::count(exclOpts.begin(),exclOpts.end(),true) > 1 ) {
     error("can only use one of --vim, --spelling, --allactions or --alltools at a time");
-  } else if(allActions){
-      std::cout<<actionRegister()<<"\n";
-  } else if(allTools){
-      std::cout<<cltoolRegister()<<"\n";
+  } else if(allActions) {
+      std::cout << actionRegister() << "\n";
+  } else if(allTools) {
+      std::cout << cltoolRegister() << "\n";
   } else if( ! actionRegister().printManual(action,vimout,spellout) &&
              ! cltoolRegister().printManual(action,spellout) ) {
     std::fprintf(stderr,"specified action is not registered\n");
