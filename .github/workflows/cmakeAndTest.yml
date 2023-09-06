@@ -51,9 +51,9 @@ jobs:
       run: > 
         cmake -B ${{github.workspace}}/build 
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} 
+        -Dallmodules_activate=ON
         -Denable_warnings_basic=OFF 
         -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
-        -Dallmodules_activate=ON 
 
     - name: Build
       working-directory: ${{github.workspace}}/build
