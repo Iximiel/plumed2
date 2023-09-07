@@ -87,21 +87,32 @@ setup() {
   cd tmp || return 1
 
   cp -f ${dir}/* . 2>/dev/null
-
+  for file in "${extra_files[@]}"; do
+    echo $file
+  done
   for file in "${extra_files[@]}"; do
     if [[ "$file" =~ \* ]]; then
       #this for unglobs both the relative and the absolute file
       for f in ${dir}/${file} ${file}; do
         if [[ -f ${f} ]]; then
           cp -fv "${f}" .
+        elif [[ -d ${f} ]]; then
+          cp -fvr "${f}" .
         fi
       done
+    #relative paths
     elif [[ -f ${dir}/$file ]]; then
-      #relative path
       cp -fv "${dir}/$file" .
-    else
-      #absolute path
+    elif [[ -d ${dir}/$file ]]; then
+      cp -fvr "${dir}/$file" .
+    #absolute paths
+    elif [[ -f ${file} ]]; then
       cp -fv "$file" .
+    elif [[ -d ${file} ]]; then
+      cp -fvr "${file}" .
+    else
+      echo "\"${file}\" does not pass -d nor -f: cannot copy"
+      return 1
     fi
   done
 
@@ -275,7 +286,7 @@ set -o pipefail
   plumed_needs=""
   extra_files=()
   valgrind="env"
-  
+
   while getopts "a:d:e:f:l:m:n:p:v" option; do
     #echo "$option -> ${OPTARG}"
     case "$option" in
