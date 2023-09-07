@@ -1,0 +1,7 @@
+CMakeLists.txt
+filePresents.reference
+ordinaryDirWithinTest
+ordinaryDirWithinTest/ordinaryFile1
+ordinaryDirWithinTest/ordinaryFile2
+ordinaryFile1
+plumed_regtest_after
