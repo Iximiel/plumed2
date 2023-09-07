@@ -24,7 +24,6 @@ cat > $TEMP << \EOF
 from __future__ import print_function
 import sys
 import re
-import readline
 
 # When possible, we use python3 specific stuff
 if (sys.version_info > (3, 0)):

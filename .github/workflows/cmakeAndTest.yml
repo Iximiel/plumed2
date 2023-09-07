@@ -30,19 +30,6 @@ jobs:
         sudo apt-get install -y libgsl0-dev
         sudo apt-get install -y ccache
 
-    - name: Install MPI
-      # install MPI at last since it modifies CC and CXX
-      run: |
-        sudo apt-get install -y libopenmpi-dev openmpi-bin
-        echo "CC=mpicc" >> $GITHUB_ENV
-        echo "CXX=mpic++" >> $GITHUB_ENV
-        echo "OMPI_MCA_btl_base_warn_component_unused=0" >> $GITHUB_ENV
-        echo "OMPI_MCA_btl_base_verbose=0" >> $GITHUB_ENV
-        echo "OMPI_MCA_plm=isolated" >> $GITHUB_ENV
-        echo "OMPI_MCA_btl_vader_single_copy_mechanism=none" >> $GITHUB_ENV
-        echo "OMPI_MCA_rmaps_base_oversubscribe=yes" >> $GITHUB_ENV
-      #pip install --user mpi4py
-      #python -c "import mpi4py"
     - name: Install python packages needed for tests
       run: |
         python -m pip install --upgrade pip
@@ -53,10 +40,20 @@ jobs:
         pip install --user pandas
         pip install --user mdtraj
         pip install --user MDAnalysis
-        pip install --user readline
         python -c "import MDAnalysis"
         python -c "import mdtraj"
-      #added readline: sometimes is not automatically installed
+      
+    - name: Install MPI
+      run: |
+        sudo apt-get install -y libopenmpi-dev openmpi-bin
+        echo "OMPI_MCA_btl_base_warn_component_unused=0" >> $GITHUB_ENV
+        echo "OMPI_MCA_btl_base_verbose=0" >> $GITHUB_ENV
+        echo "OMPI_MCA_plm=isolated" >> $GITHUB_ENV
+        echo "OMPI_MCA_btl_vader_single_copy_mechanism=none" >> $GITHUB_ENV
+        echo "OMPI_MCA_rmaps_base_oversubscribe=yes" >> $GITHUB_ENV
+        pip install --user mpi4py
+        python -c "import mpi4py"
+      
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
