@@ -1,7 +1,7 @@
 MOLINFO STRUCTURE=structure.pdb
 WHOLEMOLECULES  ENTITY0=1-22 ADDREFERENCE
 
-protein-h: GROUP NDX_FILE=../index.ndx NDX_GROUP=Protein-H
+protein-h: GROUP NDX_FILE=./index.ndx NDX_GROUP=Protein-H
 
 phi: TORSION ATOMS=5,7,9,15
 psi: TORSION ATOMS=7,9,15,17
