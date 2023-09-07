@@ -43,7 +43,20 @@ jobs:
         echo "OMPI_MCA_rmaps_base_oversubscribe=yes" >> $GITHUB_ENV
       #pip install --user mpi4py
       #python -c "import mpi4py"
-
+    - name: Install python packages needed for tests
+      run: |
+        python -m pip install --upgrade pip
+        pip install --user Cython
+        pip install --user numpy
+        pip install --user pytest
+        pip install --user six
+        pip install --user pandas
+        pip install --user mdtraj
+        pip install --user MDAnalysis
+        pip install --user readline
+        python -c "import MDAnalysis"
+        python -c "import mdtraj"
+      #added readline: sometimes is not automatically installed
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
