@@ -82,8 +82,8 @@ jobs:
     #- name: Install
     #  run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
     
-    - name: set up environment for tests
-      run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+    # - name: set up environment for tests
+    #   run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           
     - name: Checking the tests
       working-directory: ${{github.workspace}}/build
