@@ -14,9 +14,18 @@ include("${CMAKE_CURRENT_LIST_DIR}/Plumed2EXEC.cmake")
 #user macros are included in this .cmake
 include("${CMAKE_CURRENT_LIST_DIR}/PlumedUserMacros.cmake")
 
+#TODO: set up the build dir to work with these
+# set_and_check(Plumed2_INCLUDE_DIR "@PACKAGE_DIRS_INCLUDE_INSTALL@")
 #set_and_check(Plumed2_INCLUDE_DIR "@PACKAGE_DIRS_INCLUDE_INSTALL@")
-#set_and_check(Plumed2_LIB_DIR "@PACKAGE_DIRS_LIB_INSTALL@")
-#set_and_check(Plumed2_BIN_DIR "@PACKAGE_DIRS_BIN_INSTALL@")
+# set_and_check(Plumed2_LIB_DIR "@PACKAGE_DIRS_LIB_INSTALL@")
+# set_and_check(Plumed2_BIN_DIR "@PACKAGE_DIRS_BIN_INSTALL@")
+# set_and_check(Plumed2_EXTRA_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@")
+# set_and_check(Plumed2_FORTRAN_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/fortran")
+# set_and_check(Plumed2_VIM_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/vim")
+# set_and_check(Plumed2_SCRIPTS_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/scripts")
+# set_and_check(Plumed2_PATCHES_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/patches")
+set(Plumed2_FORTRAN "@PACKAGE_DIRS_EXTRA_INSTALL@/fortran/plumed.f90")
+set(Plumed2_FORTRAN08 "@PACKAGE_DIRS_EXTRA_INSTALL@/fortran/plumed_f08.f90")
 
 set(Plumed2_DIR "${CMAKE_CURRENT_LIST_DIR}")
 

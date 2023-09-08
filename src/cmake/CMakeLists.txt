@@ -55,10 +55,12 @@ configure_package_config_file(
     PlumedConfig.cmake.in
     Plumed2Config.cmake
     INSTALL_DESTINATION 
-    ${DIRS_CMAKE_INSTALL}
-    PATH_VARS DIRS_INCLUDE_INSTALL 
-    DIRS_LIB_INSTALL
-    DIRS_BIN_INSTALL
+      ${DIRS_CMAKE_INSTALL}
+    PATH_VARS 
+      DIRS_INCLUDE_INSTALL 
+      DIRS_LIB_INSTALL
+      DIRS_BIN_INSTALL
+      DIRS_EXTRA_INSTALL
 )
 
 ################################################################################
