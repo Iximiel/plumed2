@@ -12,7 +12,7 @@ if(NOT TARGET Plumed2::plumed_bin)
   #when testing in the build environment
   set(STANDALONE_TESTS ON)
   else()
-  set (Plumed2_DIR "${CMAKE_BINARY_DIR}/src/cmake")
+  set (Plumed2_DIR "${CMAKE_BINARY_DIR}/lib/cmake/plumed")
 endif()
 
 set(PLUMED_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -20,6 +20,7 @@ set(run_ctest ${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_ctest)
 
 #set (failRegex "FAILURE;ERROR;WARNING")
 set (failRegex "FAILURE;ERROR")
+set (skipRegex "NOT_APPLICABLE")
 
 set(PLUMED_TEST_KNOWN_TYPES
   simplemd
@@ -39,6 +40,7 @@ function(PLUMED_TEST test_name)
   #[EXPORTVARIABLES variable1 value1 variable2 value2 ...]
   #[NEEDS component1 component2 ...]
   #[MODULES module1 module2 ...]
+  #[COMPILER_LANGUAGE C11 or Fortran08]
   #[LABELS label1 label2 ...]
   #)
 
@@ -67,12 +69,14 @@ function(PLUMED_TEST test_name)
   #
   #With EXTRAFILES the user can specify a list of paths to files to be copied in the test directory
   #
-  #
   #With NEEDS the user can specify a list needed components, if the specified 
   #componets are not found by `plumed config has componentname` the test will be skipped.
   #
   #With MODULES the user can specify a list needed modules, if the specified 
   #componets are not found by `plumed config module modulename` the test will be skipped.
+  #
+  #With COMPILER_LANGUAGE you can specify Fortan08 or C11 and the make test will be skipped if the compiler is not compatible (works ONLY 
+  #for make tests), note the argments are case insensitive
   #
   #With LABELS the user can specify a collection of keyword that can be use to 
   #limit the number of test to be runned with ctest. The type and the home 
@@ -82,7 +86,7 @@ function(PLUMED_TEST test_name)
   # will be automatically prepended to the specified arguments
 
   set(options "")
-  set(oneValueArgs "TYPE;ARGS;MPIPROCS")
+  set(oneValueArgs "TYPE;ARGS;MPIPROCS;COMPILER_LANGUAGE")
   set(multiValueArgs "EXTRAFILES;EXPORTVARIABLES;NEEDS;LABELS;MODULES")
   cmake_parse_arguments(PARSE_ARGV 1 PLUMED_TEST "${options}" "${oneValueArgs}"
     "${multiValueArgs}" )
@@ -108,6 +112,13 @@ function(PLUMED_TEST test_name)
   if(PLUMED_TEST_MPIPROCS)
     set(PLUMED_TEST_MPIPROCS "-p${PLUMED_TEST_MPIPROCS}")
   endif()
+  
+  if(PLUMED_TEST_COMPILER_LANGUAGE)
+    string(TOLOWER ${PLUMED_TEST_COMPILER_LANGUAGE} PLUMED_TEST_COMPILER_LANGUAGE)
+    set(PLUMED_TEST_COMPILER_LANGUAGE "-c${PLUMED_TEST_COMPILER_LANGUAGE}")
+  endif()
+
+
   if(PLUMED_TEST_EXTRAFILES)
     set (t)
     foreach(extra IN LISTS PLUMED_TEST_EXTRAFILES)
@@ -163,6 +174,7 @@ function(PLUMED_TEST test_name)
     -d${CMAKE_CURRENT_SOURCE_DIR}
     ${PLUMED_TEST_MPIPROCS}
     ${PLUMED_TEST_EXTRAFILES}
+    ${PLUMED_TEST_COMPILER_LANGUAGE}
     ${nopt} ${PLUMED_TEST_NEEDS}
     ${mopt} ${PLUMED_TEST_MODULES}
     ${PLUMED_TEST_EXPORTVARIABLES}
@@ -180,6 +192,7 @@ function(PLUMED_TEST test_name)
 
   set_tests_properties(${testname} PROPERTIES
     FAIL_REGULAR_EXPRESSION "${failRegex}"
+    SKIP_REGULAR_EXPRESSION "${skipRegex}"
     SKIP_RETURN_CODE 125
     LABELS "${PLUMED_TEST_LABELS}")
 endfunction(PLUMED_TEST)

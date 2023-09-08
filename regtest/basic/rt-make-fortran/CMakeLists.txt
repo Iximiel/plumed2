@@ -1,4 +1,5 @@
 PLUMED_TEST(rt-make-fortran TYPE make
+COMPILER_LANGUAGE Fortran
 )
 #the following variable is the original config file
 set(originalConfig [[
