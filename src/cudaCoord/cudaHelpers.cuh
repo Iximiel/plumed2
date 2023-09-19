@@ -91,7 +91,7 @@ namespace CUDAHELPERS {
       }
     }
 
-    void/*CUresult*/ copyToCuda(T* cpupointer){
+    void/*CUresult*/ copyToCuda(const T* cpupointer){
       cudaMemcpy(
         pointer_,
         cpupointer,
@@ -99,7 +99,7 @@ namespace CUDAHELPERS {
         cudaMemcpyHostToDevice);
     }
     
-    void/*CUresult*/ copyToCuda(T* cpupointer,cudaStream_t stream){
+    void/*CUresult*/ copyToCuda(const T* cpupointer,cudaStream_t stream){
       cudaMemcpyAsync(
         pointer_,
         cpupointer,

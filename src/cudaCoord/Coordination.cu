@@ -22,6 +22,7 @@
 #include "plumed/colvar/CoordinationBase.h"
 #include "plumed/tools/SwitchingFunction.h"
 #include "plumed/tools/NeighborList.h"
+#include "plumed/tools/LatticeReduction.h"
 #include "plumed/core/ActionRegister.h"
 
 #include <cusparse_v2.h>
@@ -136,6 +137,9 @@ class CudaCoordination : public Colvar {
   CUDAHELPERS::memoryHolder<double> bufferDerivatives;
   CUDAHELPERS::memoryHolder<double> reductionMemoryVirial;
   CUDAHELPERS::memoryHolder<double> reductionMemoryCoord;
+
+  CUDAHELPERS::memoryHolder<double> cudaBox;
+  CUDAHELPERS::memoryHolder<double> cudaInvBox;
   
   cusparseHandle_t sparseMDevHandle;
   cusparseDnVecDescr_t outDevDescr;
@@ -297,6 +301,11 @@ CudaCoordination::CudaCoordination(const ActionOptions&ao):
   bool nopbc=!pbc;
   parseFlag("NOPBC",nopbc);
   pbc=!nopbc;
+
+  if(pbc){
+    cudaBox.resize(9);
+    cudaInvBox.resize(9);
+  }
 
   // pair stuff
   bool dopair=false;
@@ -478,9 +487,63 @@ __device__ double calculateSqr(const double distancesq,
 #define Y(I) 3*I+1
 #define Z(I) 3*I+2
 
+__device__
+double cudaLimitPBC(double x) {
+  //__double2int_rn 
+  //convert a double to a signed int in round-to-nearest-even mode. 
+    return x-__double2int_rn(x);
+}
+
+__device__
+void V3MULT3x3(const double *v,const double *T, double *res) {
+  res[0] = v[0]*T[3*0+0]+v[1]*T[3*1+0]+v[2]*T[3*2+0];
+  res[1] = v[0]*T[3*0+1]+v[1]*T[3*1+1]+v[2]*T[3*2+1];
+  res[2] = v[0]*T[3*0+2]+v[1]*T[3*1+2]+v[2]*T[3*2+2];
+}
+
+__device__
+void cudaPBC(double *d,const double *reduced,const double *invReduced, bool ortho) {
+  if (ortho){
+    d[0]=cudaLimitPBC(d[0]*invReduced[0])*reduced[0]; //0=3*0+0=[0,0]
+    d[1]=cudaLimitPBC(d[1]*invReduced[4])*reduced[4]; //4=3*1+1=[1,1]
+    d[2]=cudaLimitPBC(d[2]*invReduced[8])*reduced[8]; //8=3*2+2=[2,2]
+  } else {
+    double s[3];
+    V3MULT3x3(d,invReduced,s);
+
+    // bring to -0.5,+0.5 region in scaled coordinates:
+    s[0]=cudaLimitPBC(s[0]);
+    s[1]=cudaLimitPBC(s[1]);
+    s[2]=cudaLimitPBC(s[2]);
+    V3MULT3x3(s,reduced,d);
+    // check if shifts have to be attempted:
+    // if((fabs(s[0])+fabs(s[1])+fabs(s[2])>0.5)) {
+    // // list of shifts is specific for that "octant" (depends on signs of s[i]):
+    //   const std::vector<Vector> & myshifts(shifts[(s[0]>0?1:0)][(s[1]>0?1:0)][(s[2]>0?1:0)]);
+    //   Vector best(d);
+    //   double lbest(modulo2(best));
+    //   // loop over possible shifts:
+    //   if(nshifts) *nshifts+=myshifts.size();
+    //   for(unsigned i=0; i<myshifts.size(); i++) {
+    //     Vector trial=d+myshifts[i];
+    //     double ltrial=modulo2(trial);
+    //     if(ltrial<lbest) {
+    //       lbest=ltrial;
+    //       best=trial;
+    //     }
+    //   }
+    //   d=best;
+    // }
+  }
+}
+
 __global__ void getCoord(
                         const unsigned numOfPairs,
                         const rationalSwitchParameters switchingParameters,
+                        const bool pbcs,
+                        const bool ortho,
+                        const double *box,
+                        const double *invBox,
                         const double *coordinates,
                         const unsigned *pairList,
                         double *ncoordOut,
@@ -507,6 +570,12 @@ __global__ void getCoord(
     coordinates[Z(i1)] - coordinates[Z(i0)]
   };
 
+  if (pbcs) {
+    cudaPBC(d,box,invBox, ortho);
+
+  }
+
+
   double dsq=(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
   double dfunc=0.;
   ncoordOut[i]= calculateSqr(dsq,switchingParameters, dfunc);
@@ -515,12 +584,12 @@ __global__ void getCoord(
   ddOut[i + 1 * numOfPairs] = d[1];
   ddOut[i + 2 * numOfPairs] = d[2];
   ddOut[i + 3 * numOfPairs] = dfunc;
-  ddOut_sparse[0 + sparsePlace] = -d[0];// * dfunc;
-  ddOut_sparse[1 + sparsePlace] = -d[1];// * dfunc;
-  ddOut_sparse[2 + sparsePlace] = -d[2];// * dfunc;
-  ddOut_sparse[3 + sparsePlace] = d[0] ;//* dfunc;
-  ddOut_sparse[4 + sparsePlace] = d[1] ;//* dfunc;
-  ddOut_sparse[5 + sparsePlace] = d[2] ;//* dfunc;
+  ddOut_sparse[0 + sparsePlace] = -d[0];
+  ddOut_sparse[1 + sparsePlace] = -d[1];
+  ddOut_sparse[2 + sparsePlace] = -d[2];
+  ddOut_sparse[3 + sparsePlace] = d[0];
+  ddOut_sparse[4 + sparsePlace] = d[1];
+  ddOut_sparse[5 + sparsePlace] = d[2];
   sparseRows[0 + sparsePlace] = 3 * i0 + 0;
   sparseRows[1 + sparsePlace] = 3 * i0 + 1;
   sparseRows[2 + sparsePlace] = 3 * i0 + 2;
@@ -629,11 +698,25 @@ void CudaCoordination::calculate() {
   cudaVirial.resize(nn*9);
   cudaDerivatives_sparserows.resize(nn*6);
   cudaDerivatives_sparsecols.resize(nn);
+  bool orthopbcs=false;
+  if(pbc){
+    orthopbcs=ActionAtomistic::getPbc().isOrthorombic();
+    Tensor reduced=ActionAtomistic::getBox();
+    if (!orthopbcs){
+      LatticeReduction::reduce(reduced);
+    }
+    cudaBox.copyToCuda(&reduced[0][0]);
+    Tensor invBox=inverse(reduced);
+    cudaInvBox.copyToCuda(&invBox[0][0]);
+  }
   /**************************starting the calculations*************************/
   //this initializes the memory to be accumulated
   getCoord<<<ngroups,nthreads,0,streamDerivatives>>> (
     nn,
     switchingParameters,
+    pbc,orthopbcs,
+    cudaBox.pointer(),
+    cudaInvBox.pointer(),
     cudaCoords.pointer(),
     cudaPairList.pointer(),
     cudaCoordination.pointer(),
