@@ -17,8 +17,19 @@ jobs:
         exclude :
           - compiler: intel
           # mpi: mpi
-          # buildType: Debug
+          - compiler: intel
+            buildType: Debug
           - buildType: Debug
+        include:
+        #  - compiler: gcc
+        #    mpi: mpi
+        #    buildType: Release
+        #    documentation: doc
+        # - compiler: gcc
+        #    mpi: mpi
+        #    buildType: Release
+        #    documentation: coverage
+
     #     version: [10, 12, 14]
     #     os: [ubuntu-latest, windows-latest]
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
@@ -165,7 +176,7 @@ jobs:
     - name: Build
       working-directory: ${{github.workspace}}/build
       # Build your program with the given configuration
-      run: cmake --build . --config ${{env.BUILD_TYPE}} --parallel
+      run: cmake --build . --config ${{env.BUILD_TYPE}} --j 4
 
     #- name: Install
     #  run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
