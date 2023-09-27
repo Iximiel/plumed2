@@ -9,15 +9,23 @@ env:
 
 jobs:
   buildAndTest:
-    # strategy:
-    #   matrix:
+    strategy:
+      matrix:
+        compiler: [gcc ] #, intel]
+        mpi: [true]
+        buildType: [Release, Debug]
+        # exclude :
+        #   compiler: intel
+        #   mpi: yes
     #     version: [10, 12, 14]
     #     os: [ubuntu-latest, windows-latest]
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
-
+    env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+        BUILD_TYPE: ${{ matrix.buildType }}
     steps:
     - uses: actions/checkout@v3
 
@@ -29,29 +37,49 @@ jobs:
         sudo apt-get install -y gsl-bin
         sudo apt-get install -y libgsl0-dev
         sudo apt-get install -y ccache
+    - name: Install system boost
+      if: env.BUILD_TYPE != 'Debug'
+      run: |
+        sudo apt-get install -y libboost-serialization-dev
+    - name: Install boost with debug flags
+      if: env.BUILD_TYPE == 'Debug'
+      run: |
+        .ci/install.boost
 
+    - name: Install python packages needed for tests
+      run: |
+        python -m pip install --upgrade pip
+        pip install --user Cython
+        pip install --user numpy
+        pip install --user pytest
+        pip install --user six
+        pip install --user pandas
+        pip install --user mdtraj
+        pip install --user MDAnalysis
+        python -c "import MDAnalysis"
+        python -c "import mdtraj"
+      
     - name: Install MPI
-      # install MPI at last since it modifies CC and CXX
+      if: ${{ matrix.mpi }}
       run: |
         sudo apt-get install -y libopenmpi-dev openmpi-bin
-        echo "CC=mpicc" >> $GITHUB_ENV
-        echo "CXX=mpic++" >> $GITHUB_ENV
         echo "OMPI_MCA_btl_base_warn_component_unused=0" >> $GITHUB_ENV
         echo "OMPI_MCA_btl_base_verbose=0" >> $GITHUB_ENV
         echo "OMPI_MCA_plm=isolated" >> $GITHUB_ENV
         echo "OMPI_MCA_btl_vader_single_copy_mechanism=none" >> $GITHUB_ENV
         echo "OMPI_MCA_rmaps_base_oversubscribe=yes" >> $GITHUB_ENV
-      #pip install --user mpi4py
-      #python -c "import mpi4py"
-
+        pip install --user mpi4py
+        python -c "import mpi4py"
+      
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       #set up without warnings
       run: > 
         cmake -B ${{github.workspace}}/build 
-        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} 
-        -Dallmodules_activate=ON
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        -Dallmodules_activate=ON 
+        -Denable_boost_serialization=ON
         -Denable_warnings_basic=OFF 
         -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
 
@@ -63,8 +91,8 @@ jobs:
     #- name: Install
     #  run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
     
-    - name: set up environment for tests
-      run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+    # - name: set up environment for tests
+    #   run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           
     - name: Checking the tests
       working-directory: ${{github.workspace}}/build
