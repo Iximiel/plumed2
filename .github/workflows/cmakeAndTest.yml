@@ -105,7 +105,7 @@ jobs:
 
     - name: Install INTEL compiler
       # install INTEL at last since it modifies CC and CXX
-      if: ${{ matrix.compiler }} == intel
+      if: matrix.compiler == 'intel'
       run: |
         wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
         sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
@@ -133,7 +133,7 @@ jobs:
         python -c "import mdtraj"
       
     - name: Install MPI
-      if: ${{ matrix.mpi }} == mpi
+      if: matrix.mpi == 'mpi'
       run: |
         sudo apt-get install -y libopenmpi-dev openmpi-bin
         echo "OMPI_MCA_btl_base_warn_component_unused=0" >> $GITHUB_ENV
@@ -161,7 +161,6 @@ jobs:
         -Denable_boost_serialization=ON
         -Denable_warnings_basic=OFF 
         -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
-        ${{}}
 
     - name: Build
       working-directory: ${{github.workspace}}/build
