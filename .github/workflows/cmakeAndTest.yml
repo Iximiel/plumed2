@@ -11,12 +11,14 @@ jobs:
   buildAndTest:
     strategy:
       matrix:
-        compiler: [gcc ] #, intel]
-        mpi: [true]
+        compiler: [gcc, intel]
+        mpi: [mpi, nompi]
         buildType: [Release, Debug]
-        # exclude :
-        #   compiler: intel
-        #   mpi: yes
+        exclude :
+          - compiler: intel
+          # mpi: mpi
+          # buildType: Debug
+          - buildType: Debug
     #     version: [10, 12, 14]
     #     os: [ubuntu-latest, windows-latest]
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
@@ -67,7 +69,56 @@ jobs:
       if: env.BUILD_TYPE == 'Debug'
       run: |
         .ci/install.boost
+    # - name: Install Libtorch
+    #   if: ${{ ! contains( matrix.variant, '-debug-' ) }} # libtorch is not compiled with GLIBCXX_DEBUG
+    #   run: |
+    #     # added by luigibonati
+    #     mkdir -p $HOME/opt/
+    #     cd $HOME/opt/ # GB: install in $HOME/opt/libtorch
+    #     wget --no-check-certificate https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.13.1%2Bcpu.zip ;
+    #     unzip libtorch-cxx11-abi-shared-with-deps-1.13.1+cpu.zip ;
+    #     echo "LIBRARY_PATH=$PWD/libtorch/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+    #     echo "LD_LIBRARY_PATH=$PWD/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+    #     echo "CPATH=$PWD/libtorch/include/torch/csrc/api/include/:$PWD/libtorch/include/:$PWD/libtorch/include/torch:$CPATH" >> $GITHUB_ENV
+    #     echo "INCLUDE=$PWD/libtorch/include/torch/csrc/api/include/:$PWD/libtorch/include/:$PWD/libtorch/include/torch:$INCLUDE" >> $GITHUB_ENV
+    #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-libtorch" >> $GITHUB_ENV
+    # - name: Install Doxygen
+    #   if: contains( matrix.variant, '-doc-' )
+    #   run: |
+    #     sudo apt-get install -y graphviz
+    #     sudo apt-get install -y doxygen-latex
+    #     .ci/install.doxygen Release_1_8_17
+    #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-pdfdoc" >> $GITHUB_ENV
+    #     # make sure all tests are run
+    #     echo "PLUMED_ALL_TESTS=yes" >> $GITHUB_ENV
+    # - name: Install lcov
+    #   if: contains( matrix.variant, '-coverage-' )
+    #   run: |
+    #     .ci/install.lcov v1.16
+    #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --disable-external-lapack --disable-external-blas --enable-gcov CXXFLAGS=-O" >> $GITHUB_ENV
+    #     # make sure all tests are run
+    #     echo "PLUMED_ALL_TESTS=yes" >> $GITHUB_ENV
+    # - name: Setup debug flags
+    #   if: contains( matrix.variant, '-debug-' )
+    #   run: |
+    #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-debug --enable-debug-glibcxx" >> $GITHUB_ENV
 
+    - name: Install INTEL compiler
+      # install INTEL at last since it modifies CC and CXX
+      if: ${{ matrix.compiler }} == intel
+      run: |
+        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        sudo apt-get update
+        sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
+        echo "CXX=icpc" >> $GITHUB_ENV
+        echo "CC=icc" >> $GITHUB_ENV
+        echo "FC=ifort" >> $GITHUB_ENV
+    
     - name: Install python packages needed for tests
       run: |
         python -m pip install --upgrade pip
@@ -82,7 +133,7 @@ jobs:
         python -c "import mdtraj"
       
     - name: Install MPI
-      if: ${{ matrix.mpi }}
+      if: ${{ matrix.mpi }} == mpi
       run: |
         sudo apt-get install -y libopenmpi-dev openmpi-bin
         echo "OMPI_MCA_btl_base_warn_component_unused=0" >> $GITHUB_ENV
@@ -110,6 +161,7 @@ jobs:
         -Denable_boost_serialization=ON
         -Denable_warnings_basic=OFF 
         -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
+        ${{}}
 
     - name: Build
       working-directory: ${{github.workspace}}/build
