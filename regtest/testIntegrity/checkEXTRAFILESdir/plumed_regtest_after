@@ -1,0 +1,9 @@
+#!/bin/bash
+{
+  ls dirAbs -d
+  ls dirRel -d
+  ls dirAbs/fileAbs1
+  ls dirAbs/fileAbs2
+  ls dirRel/fileRel1
+  ls dirRel/fileRel3
+} >filePresents
