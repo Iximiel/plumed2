@@ -20,7 +20,7 @@ jobs:
           - compiler: intel
             buildType: Debug
           - buildType: Debug
-        include:
+        # include:
         #  - compiler: gcc
         #    mpi: mpi
         #    buildType: Release
