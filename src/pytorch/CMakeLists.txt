@@ -18,7 +18,7 @@ if (module_pytorch)
 	if (Torch_FOUND)
 		#The commented code should be the correct one
 		target_link_libraries(pytorch PRIVATE ${TORCH_LIBRARIES})
-		target_compile_definitions(pytorch INTERFACE "__PLUMED_HAS_LIBTORCH=1")
+		target_compile_definitions(config INTERFACE "__PLUMED_HAS_LIBTORCH=1")
 		if (${CMAKE_CXX_STANDARD} LESS 14)
 			set_property(TARGET pytorch PROPERTY CXX_STANDARD 14)
 		endif()
