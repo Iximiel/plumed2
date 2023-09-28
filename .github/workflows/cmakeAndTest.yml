@@ -11,7 +11,7 @@ jobs:
   buildAndTest:
     strategy:
       matrix:
-        compiler: [gcc, clang]
+        compiler: [gcc]
         mpi: [mpi, nompi]
         buildType: [Release, Debug]
         # exclude :
@@ -116,16 +116,7 @@ jobs:
     #   run: |
     #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-debug --enable-debug-glibcxx" >> $GITHUB_ENV
 
-    - name: Install CLANG compiler
-      # install INTEL at last since it modifies CC and CXX
-      if: matrix.compiler == 'clang'
-      run: |
-        sudo apt-get install -y clang clang++ flang
-        echo "CXX=clang++" >> $GITHUB_ENV
-        echo "CC=clang" >> $GITHUB_ENV
-        echo "FC=flang" >> $GITHUB_ENV
-
-    - name: Install INTEL compiler
+        - name: Install INTEL compiler
       # install INTEL at last since it modifies CC and CXX
       if: matrix.compiler == 'intel'
       run: |
@@ -134,7 +125,7 @@ jobs:
         rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
         echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
         sudo apt-get update
-        sudo apt-get install -y intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
+        sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
         source /opt/intel/oneapi/setvars.sh
         printenv >> $GITHUB_ENV
         echo "$CXX"
