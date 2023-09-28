@@ -26,11 +26,11 @@ jobs:
         #  - compiler: gcc
         #    mpi: mpi
         #    buildType: Release
-        #    documentation: doc
+        #    dovìcumentation: documentation
         # - compiler: gcc
         #    mpi: mpi
         #    buildType: Release
-        #    documentation: coverage
+        #    coverage: coverage
 
     #     version: [10, 12, 14]
     #     os: [ubuntu-latest, windows-latest]
@@ -83,7 +83,7 @@ jobs:
       run: |
         .ci/install.boost
     # - name: Install Libtorch
-    #   if: ${{ ! contains( matrix.variant, '-debug-' ) }} # libtorch is not compiled with GLIBCXX_DEBUG
+    #   if: env.BUILD_TYPE != 'Debug' # libtorch is not compiled with GLIBCXX_DEBUG
     #   run: |
     #     # added by luigibonati
     #     mkdir -p $HOME/opt/
@@ -96,7 +96,7 @@ jobs:
     #     echo "INCLUDE=$PWD/libtorch/include/torch/csrc/api/include/:$PWD/libtorch/include/:$PWD/libtorch/include/torch:$INCLUDE" >> $GITHUB_ENV
     #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-libtorch" >> $GITHUB_ENV
     # - name: Install Doxygen
-    #   if: contains( matrix.variant, '-doc-' )
+    #   if: matrix.documentation
     #   run: |
     #     sudo apt-get install -y graphviz
     #     sudo apt-get install -y doxygen-latex
@@ -105,14 +105,14 @@ jobs:
     #     # make sure all tests are run
     #     echo "PLUMED_ALL_TESTS=yes" >> $GITHUB_ENV
     # - name: Install lcov
-    #   if: contains( matrix.variant, '-coverage-' )
+    #   if: matrix.coverage
     #   run: |
     #     .ci/install.lcov v1.16
     #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --disable-external-lapack --disable-external-blas --enable-gcov CXXFLAGS=-O" >> $GITHUB_ENV
     #     # make sure all tests are run
     #     echo "PLUMED_ALL_TESTS=yes" >> $GITHUB_ENV
     # - name: Setup debug flags
-    #   if: contains( matrix.variant, '-debug-' )
+    #   if: env.BUILD_TYPE == 'Debug'
     #   run: |
     #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-debug --enable-debug-glibcxx" >> $GITHUB_ENV
 
