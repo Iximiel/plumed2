@@ -18,11 +18,17 @@ if (module_pytorch)
 	if (Torch_FOUND)
 		target_link_libraries(pytorch PRIVATE ${TORCH_LIBRARIES})
 	else()
+		if(option_relaxed_dependencies)
+			#with relaxed
+			message(WARNING "Torch not found, module_pytorch will be deactivated")
+			set(module_pytorch OFF CACHE BOOL "activate module ${dir}" FORCE)
+		else()
 		#this does not break the cmake configuration, but stops the build
-		message(SEND_ERROR "Torch not found, libtorch cannot be linked.\n"
+			message(SEND_ERROR "Torch not found, libtorch cannot be linked.\n"
 				"Please follow the instruction of the previous warning or "
-				"deactivate the libtorch module"
-		)
-		#set(module_pytorch OFF CACHE BOOL "activate module ${dir}" FORCE)
+				"deactivate module_pytorch"
+			)
+		endif()
+		
 	endif()
 endif()
