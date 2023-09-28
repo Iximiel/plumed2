@@ -146,6 +146,7 @@ foreach(t ${PLUMED_HAS_not})
     string(TOLOWER ${t} t)
     LIST(APPEND PLUMED_HAS "has ${t} off")
 endforeach(t ${PLUMED_HAS_wip})
+
 list(SORT PLUMED_HAS)
 list(JOIN PLUMED_HAS "\n" PLUMED_HAS)
 

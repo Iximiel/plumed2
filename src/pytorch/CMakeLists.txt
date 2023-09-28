@@ -16,8 +16,17 @@ if (module_pytorch)
 	#if I use 'REQUIRED' the cmake process is broken if Torch is not found
 	find_package(Torch)
 	if (Torch_FOUND)
+		#The commented code should be the correct one
 		target_link_libraries(pytorch PRIVATE ${TORCH_LIBRARIES})
-		set(Torch_FOUND Torch_FOUND PARENT_SCOPE)
+		target_compile_definitions(pytorch INTERFACE "__PLUMED_HAS_LIBTORCH=1")
+		if (${CMAKE_CXX_STANDARD} LESS 14)
+			set_property(TARGET pytorch PROPERTY CXX_STANDARD 14)
+		endif()
+		# set(Torch_FOUND Torch_FOUND PARENT_SCOPE)
+		# CONFIGSETTINGS(config Torch_FOUND
+        # 	LINK_LIBRARIES ${TORCH_LIBRARIES}
+        # 	COMPILE_DEFINITIONS __PLUMED_HAS_LIBTORCH
+        # )
 	else()
 		if(option_relaxed_dependencies)
 			#with relaxed

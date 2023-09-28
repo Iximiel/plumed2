@@ -124,6 +124,7 @@ setup() {
     exit 1
   fi
 
+  #TODO: This may need some tweeking (the old version were functions with export inside, now custom_skip is a script)
   if [[ -x plumed_custom_skip ]]; then
     if ./plumed_custom_skip; then
       if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ]; then
