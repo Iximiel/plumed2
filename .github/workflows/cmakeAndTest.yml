@@ -52,14 +52,6 @@ jobs:
         sudo apt-get install -y gsl-bin
         sudo apt-get install -y libgsl0-dev
         sudo apt-get install -y ccache
-    - name: Install system boost
-      if: env.BUILD_TYPE != 'Debug'
-      run: |
-        sudo apt-get install -y libboost-serialization-dev
-    - name: Install boost with debug flags
-      if: env.BUILD_TYPE == 'Debug'
-      run: |
-        .ci/install.boost
 
     - name: Install python packages needed for tests
       run: |
