@@ -81,7 +81,7 @@ jobs:
         mkdir -p $HOME/opt/
         cd $HOME/opt/ # GB: install in $HOME/opt/libtorch
         wget -nv --no-check-certificate https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.13.1%2Bcpu.zip ;
-        unzip libtorch-cxx11-abi-shared-with-deps-1.13.1+cpu.zip ;
+        unzip -q libtorch-cxx11-abi-shared-with-deps-1.13.1+cpu.zip ;
         echo "CMAKE_PREFIX_PATH=$PWD/libtorch/share/cmake/:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
         
     # - name: Install Doxygen

@@ -17,6 +17,7 @@ if (module_pytorch)
 	find_package(Torch)
 	if (Torch_FOUND)
 		target_link_libraries(pytorch PRIVATE ${TORCH_LIBRARIES})
+		set(Torch_FOUND Torch_FOUND PARENT_SCOPE)
 	else()
 		if(option_relaxed_dependencies)
 			#with relaxed

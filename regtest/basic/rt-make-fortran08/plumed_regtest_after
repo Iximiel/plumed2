@@ -1,2 +1,2 @@
 #! /usr/bin/env bash
-nm *.o | grep "plumed_f_[A-Za-z0-9]*_$" > names.dat
+nm ./build/CMakeFiles/exe.dir/*.o | grep "plumed_f_[A-Za-z0-9]*_$" > names.dat
