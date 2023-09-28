@@ -70,12 +70,34 @@ jobs:
       if: env.BUILD_TYPE != 'Debug'
       run: |
         sudo apt-get install -y libboost-serialization-dev
+
     - name: Install boost with debug flags
       if: env.BUILD_TYPE == 'Debug'
       run: |
         .ci/install.boost
+    
+    - name: Install INTEL compiler
+      # install INTEL at last since it modifies CC and CXX
+      if: matrix.compiler == 'intel'
+      run: |
+        wget -nv https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        sudo apt-get update
+        sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
+        echo "$CXX"
+        echo "$CC"
+        echo "$FC"
+        echo "CXX=icpc" >> $GITHUB_ENV
+        echo "CC=icc" >> $GITHUB_ENV
+        echo "FC=ifort" >> $GITHUB_ENV
+        
     - name: Install Libtorch
-      if: env.BUILD_TYPE != 'Debug' # libtorch is not compiled with GLIBCXX_DEBUG
+      # libtorch is not compiled with GLIBCXX_DEBUG snfd give compiler errord with intel
+      if: env.BUILD_TYPE != 'Debug' && matrix.compiler != 'intel'
       run: |
         # added by luigibonati
         mkdir -p $HOME/opt/
@@ -104,25 +126,6 @@ jobs:
     #   if: env.BUILD_TYPE == 'Debug'
     #   run: |
     #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-debug --enable-debug-glibcxx" >> $GITHUB_ENV
-
-    - name: Install INTEL compiler
-      # install INTEL at last since it modifies CC and CXX
-      if: matrix.compiler == 'intel'
-      run: |
-        wget -nv https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo apt-get update
-        sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
-        source /opt/intel/oneapi/setvars.sh
-        printenv >> $GITHUB_ENV
-        echo "$CXX"
-        echo "$CC"
-        echo "$FC"
-        echo "CXX=icpc" >> $GITHUB_ENV
-        echo "CC=icc" >> $GITHUB_ENV
-        echo "FC=ifort" >> $GITHUB_ENV
     
     - name: Install python packages needed for tests
       run: |
