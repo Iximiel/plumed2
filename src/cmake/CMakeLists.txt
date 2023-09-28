@@ -18,7 +18,7 @@ foreach(opt
 endforeach()
 
 #these packages are called with find_package(name) without options
-foreach(dep BLAS LAPACK OpenMP MPI GSL ZLIB Backtrace)
+foreach(dep BLAS LAPACK OpenMP MPI GSL ZLIB Backtrace Torch)
     if(${dep}_FOUND)
         list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep})")
     endif()
