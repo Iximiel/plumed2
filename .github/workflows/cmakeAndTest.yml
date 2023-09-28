@@ -192,8 +192,8 @@ jobs:
       id: tests
       working-directory: ${{github.workspace}}/build
       
-      run: echo "test are disabled!!!-we are testing the builds as now-"
-      #run: ctest -j4 --output-on-failure
+      # skipping fortran tests for now
+      run: ctest -j4 --output-on-failure -E "make-fortran"
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
