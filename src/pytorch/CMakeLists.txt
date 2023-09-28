@@ -12,31 +12,27 @@ DEPENDS
 	function #reference tools core lepton
 )
 
-if (module_pytorch)
+if (module_${module_name})
 	#if I use 'REQUIRED' the cmake process is broken if Torch is not found
 	find_package(Torch)
 	if (Torch_FOUND)
-		#The commented code should be the correct one
-		target_link_libraries(pytorch PRIVATE ${TORCH_LIBRARIES})
+		target_link_libraries(${module_name} PRIVATE ${TORCH_LIBRARIES})
+		#This broadcast the option to everithing
 		target_compile_definitions(config INTERFACE "__PLUMED_HAS_LIBTORCH=1")
 		if (${CMAKE_CXX_STANDARD} LESS 14)
-			set_property(TARGET pytorch PROPERTY CXX_STANDARD 14)
+			set_property(TARGET ${module_name} PROPERTY CXX_STANDARD 14)
 		endif()
-		# set(Torch_FOUND Torch_FOUND PARENT_SCOPE)
-		# CONFIGSETTINGS(config Torch_FOUND
-        # 	LINK_LIBRARIES ${TORCH_LIBRARIES}
-        # 	COMPILE_DEFINITIONS __PLUMED_HAS_LIBTORCH
-        # )
+		
 	else()
 		if(option_relaxed_dependencies)
 			#with relaxed
-			message(WARNING "Torch not found, module_pytorch will be deactivated")
-			set(module_pytorch OFF CACHE BOOL "activate module ${dir}" FORCE)
+			message(WARNING "Torch not found, module_${module_name} will be deactivated")
+			set(module_${module_name} OFF CACHE BOOL "activate module ${dir}" FORCE)
 		else()
 		#this does not break the cmake configuration, but stops the build
 			message(SEND_ERROR "Torch not found, libtorch cannot be linked.\n"
 				"Please follow the instruction of the previous warning or "
-				"deactivate module_pytorch"
+				"deactivate module_${module_name}"
 			)
 		endif()
 		
