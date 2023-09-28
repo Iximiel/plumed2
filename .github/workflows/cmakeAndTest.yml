@@ -80,9 +80,9 @@ jobs:
         # added by luigibonati
         mkdir -p $HOME/opt/
         cd $HOME/opt/ # GB: install in $HOME/opt/libtorch
-        wget --no-check-certificate https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.13.1%2Bcpu.zip ;
+        wget -nv --no-check-certificate https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.13.1%2Bcpu.zip ;
         unzip libtorch-cxx11-abi-shared-with-deps-1.13.1+cpu.zip ;
-        echo "INCLUDE=$PWD/libtorch/share/cmake/:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+        echo "CMAKE_PREFIX_PATH=$PWD/libtorch/share/cmake/:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
         
     # - name: Install Doxygen
     #   if: matrix.documentation
@@ -109,7 +109,7 @@ jobs:
       # install INTEL at last since it modifies CC and CXX
       if: matrix.compiler == 'intel'
       run: |
-        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        wget -nv https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
         sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
         rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
         echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
