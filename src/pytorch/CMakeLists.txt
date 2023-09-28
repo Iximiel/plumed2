@@ -22,7 +22,7 @@ if (module_${module_name})
 		if (${CMAKE_CXX_STANDARD} LESS 14)
 			set_property(TARGET ${module_name} PROPERTY CXX_STANDARD 14)
 		endif()
-		
+		set(Torch_FOUND Torch_FOUND PARENT_SCOPE)
 	else()
 		if(option_relaxed_dependencies)
 			#with relaxed

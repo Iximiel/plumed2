@@ -218,7 +218,7 @@ EOF
   mkdir build
   {
     # This workflow gives errors with the LD_LIBRARY_PATH because install strips
-    # the path to the linked shared objects
+    # the path to the linked shared objects (?maybe?)
     # cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release &&
     #   cmake --build ./build &&
     #   cmake --install ./build &&
