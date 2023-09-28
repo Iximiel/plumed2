@@ -23,6 +23,7 @@ jobs:
           - compiler: intel
             mpi: nompi
             buildType: Release
+        # set up for the future:
         #  - compiler: gcc
         #    mpi: mpi
         #    buildType: Release
@@ -32,14 +33,12 @@ jobs:
         #    buildType: Release
         #    coverage: coverage
 
-    #     version: [10, 12, 14]
-    #     os: [ubuntu-latest, windows-latest]
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
     env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+        # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
         BUILD_TYPE: ${{ matrix.buildType }}
     steps:
     - uses: actions/checkout@v3
@@ -122,7 +121,8 @@ jobs:
     #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --disable-external-lapack --disable-external-blas --enable-gcov CXXFLAGS=-O" >> $GITHUB_ENV
     #     # make sure all tests are run
     #     echo "PLUMED_ALL_TESTS=yes" >> $GITHUB_ENV
-    # - name: Setup debug flags
+
+    # - name: Setup debug flags #TODO: this in cmake
     #   if: env.BUILD_TYPE == 'Debug'
     #   run: |
     #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-debug --enable-debug-glibcxx" >> $GITHUB_ENV
@@ -178,11 +178,6 @@ jobs:
 
     #- name: Install
     #  run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-    
-    # - name: set up environment for tests
-    #   run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-    # - name: set up environment for tests
-    #   run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           
     - name: Checking the tests
       working-directory: ${{github.workspace}}/build
