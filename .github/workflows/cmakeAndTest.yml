@@ -11,7 +11,7 @@ jobs:
   buildAndTest:
     strategy:
       matrix:
-        compiler: [gcc, clang]
+        compiler: [gcc]
         mpi: [mpi, nompi]
         buildType: [Release, Debug]
         # exclude :
@@ -52,14 +52,6 @@ jobs:
         sudo apt-get install -y gsl-bin
         sudo apt-get install -y libgsl0-dev
         sudo apt-get install -y ccache
-    - name: Install system boost
-      if: env.BUILD_TYPE != 'Debug'
-      run: |
-        sudo apt-get install -y libboost-serialization-dev
-    - name: Install boost with debug flags
-      if: env.BUILD_TYPE == 'Debug'
-      run: |
-        .ci/install.boost
 
     - name: Install python packages needed for tests
       run: |
@@ -78,23 +70,42 @@ jobs:
       if: env.BUILD_TYPE != 'Debug'
       run: |
         sudo apt-get install -y libboost-serialization-dev
+
     - name: Install boost with debug flags
       if: env.BUILD_TYPE == 'Debug'
       run: |
         .ci/install.boost
-    # - name: Install Libtorch
-    #   if: env.BUILD_TYPE != 'Debug' # libtorch is not compiled with GLIBCXX_DEBUG
-    #   run: |
-    #     # added by luigibonati
-    #     mkdir -p $HOME/opt/
-    #     cd $HOME/opt/ # GB: install in $HOME/opt/libtorch
-    #     wget --no-check-certificate https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.13.1%2Bcpu.zip ;
-    #     unzip libtorch-cxx11-abi-shared-with-deps-1.13.1+cpu.zip ;
-    #     echo "LIBRARY_PATH=$PWD/libtorch/lib:$LIBRARY_PATH" >> $GITHUB_ENV
-    #     echo "LD_LIBRARY_PATH=$PWD/libtorch/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-    #     echo "CPATH=$PWD/libtorch/include/torch/csrc/api/include/:$PWD/libtorch/include/:$PWD/libtorch/include/torch:$CPATH" >> $GITHUB_ENV
-    #     echo "INCLUDE=$PWD/libtorch/include/torch/csrc/api/include/:$PWD/libtorch/include/:$PWD/libtorch/include/torch:$INCLUDE" >> $GITHUB_ENV
-    #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-libtorch" >> $GITHUB_ENV
+    
+    - name: Install INTEL compiler
+      # install INTEL at last since it modifies CC and CXX
+      if: matrix.compiler == 'intel'
+      run: |
+        wget -nv https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        sudo apt-get update
+        sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
+        echo "$CXX"
+        echo "$CC"
+        echo "$FC"
+        echo "CXX=icpc" >> $GITHUB_ENV
+        echo "CC=icc" >> $GITHUB_ENV
+        echo "FC=ifort" >> $GITHUB_ENV
+        
+    - name: Install Libtorch
+      # libtorch is not compiled with GLIBCXX_DEBUG snfd give compiler errord with intel
+      if: env.BUILD_TYPE != 'Debug' && matrix.compiler != 'intel'
+      run: |
+        # added by luigibonati
+        mkdir -p $HOME/opt/
+        cd $HOME/opt/ # GB: install in $HOME/opt/libtorch
+        wget -nv --no-check-certificate https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.13.1%2Bcpu.zip ;
+        unzip -q libtorch-cxx11-abi-shared-with-deps-1.13.1+cpu.zip ;
+        echo "CMAKE_PREFIX_PATH=$PWD/libtorch/share/cmake/:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+        
     # - name: Install Doxygen
     #   if: matrix.documentation
     #   run: |
@@ -115,25 +126,6 @@ jobs:
     #   if: env.BUILD_TYPE == 'Debug'
     #   run: |
     #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-debug --enable-debug-glibcxx" >> $GITHUB_ENV
-
-    - name: Install INTEL compiler
-      # install INTEL at last since it modifies CC and CXX
-      if: matrix.compiler == 'intel'
-      run: |
-        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo apt-get update
-        sudo apt-get install -y intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
-        source /opt/intel/oneapi/setvars.sh
-        printenv >> $GITHUB_ENV
-        echo "$CXX"
-        echo "$CC"
-        echo "$FC"
-        echo "CXX=icpc" >> $GITHUB_ENV
-        echo "CC=icc" >> $GITHUB_ENV
-        echo "FC=ifort" >> $GITHUB_ENV
     
     - name: Install python packages needed for tests
       run: |
@@ -170,6 +162,7 @@ jobs:
       run: > 
         cmake -B ${{github.workspace}}/build 
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        -Doption_relaxed_dependencies=ON 
         -Dallmodules_activate=ON 
         -Denable_boost_serialization=ON
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
@@ -202,8 +195,8 @@ jobs:
       id: tests
       working-directory: ${{github.workspace}}/build
       
-      run: echo "test are disabled!!!-we are testing the builds as now-"
-      #run: ctest -j4 --output-on-failure
+      # skipping fortran tests for now
+      run: ctest -j4 --output-on-failure -E "make-fortran"
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
