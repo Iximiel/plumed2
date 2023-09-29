@@ -233,11 +233,16 @@ message (FATAL_ERROR "NOT_APPLICABLE (the compiler is not Fortran08 compatible)"
 endif()
 EOF
       )
-      compileLibs="${compileLibs}add_library (PlumedFortran08 \${Plumed2_FORTRAN08})\n"
-      otherLibs="${otherLibs} PlumedFortran08"
+      #alternative sligthly more complex way
+      #compileLibs="${compileLibs}add_library (PlumedFortran08)\n"
+      #otherLibs="${otherLibs} PlumedFortran08"
+      files="${files} \${Plumed2_FORTRAN08}"
     else
+      # TODO maybe test both the compile methods for 08 and non 08 fortran
+      #alternative sligthly more complex way commented
       compileLibs="${compileLibs}add_library (PlumedFortran \${Plumed2_FORTRAN})\n"
       otherLibs="${otherLibs} PlumedFortran"
+      # files="${files} \${Plumed2_FORTRAN}"
     fi
   fi
   if [[ -n ${filesC} ]]; then

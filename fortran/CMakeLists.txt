@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20.2)
-#Thi directory can be compiled as an autonomos project
+#This directory can be compiled as an autonomos project
+
+#install file for install-mode plumed
 install( FILES plumed_f08.f90  plumed.f90
     DESTINATION ${DIRS_EXTRA_INSTALL}/fortran
     PERMISSIONS
@@ -7,6 +9,7 @@ install( FILES plumed_f08.f90  plumed.f90
         OWNER_READ GROUP_READ WORLD_READ
 )
 
+#copy file for build-only plumed
 file(COPY plumed_f08.f90  plumed.f90
 DESTINATION ${CMAKE_BINARY_DIR}/lib/plumed/fortran
 USE_SOURCE_PERMISSIONS
