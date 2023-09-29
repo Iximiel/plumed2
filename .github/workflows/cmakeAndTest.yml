@@ -190,8 +190,7 @@ jobs:
       id: tests
       working-directory: ${{github.workspace}}/build
       
-      # skipping fortran tests for now
-      run: ctest -j4 --output-on-failure -E "make-fortran"
+      run: ctest -j4 --output-on-failure
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
