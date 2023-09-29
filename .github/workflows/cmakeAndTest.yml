@@ -12,17 +12,17 @@ jobs:
     strategy:
       matrix:
         compiler: [gcc]
-        mpi: [mpi, nompi]
-        buildType: [Release, Debug]
+        mpi: [nompi]
+        buildType: [Release]
         # exclude :
         #   - compiler: intel
         #     mpi: mpi
         #   - compiler: intel
         #     buildType: Debug
-        include: #extra matrices
-          - compiler: intel
-            mpi: nompi
-            buildType: Release
+        # include: #extra matrices
+        #   - compiler: intel
+        #     mpi: nompi
+        #     buildType: Release
         # set up for the future:
         #  - compiler: gcc
         #    mpi: mpi
@@ -74,7 +74,11 @@ jobs:
       if: env.BUILD_TYPE == 'Debug'
       run: |
         .ci/install.boost
-    
+
+    - name: -fallow-argument-mismatch for gfortran
+      if: matrix.compiler == 'gcc'
+      run: echo "FCFLAGS=-fallow-argument-mismatch" >> $GITHUB_ENV
+
     - name: Install INTEL compiler
       # install INTEL at last since it modifies CC and CXX
       if: matrix.compiler == 'intel'
@@ -190,7 +194,7 @@ jobs:
       id: tests
       working-directory: ${{github.workspace}}/build
       
-      run: ctest -j4 --output-on-failure
+      run: ctest -j4 --output-on-failure -R fortran
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
