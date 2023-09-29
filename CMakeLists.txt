@@ -58,9 +58,9 @@ add_subdirectory(fortran)
 add_subdirectory(vim)
 
 install(DIRECTORY patches
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name})
+        DESTINATION ${DIRS_EXTRA_INSTALL})
 #This copy makes plumed work in the builddir
-file(COPY patches DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY patches DESTINATION ${DIRS_EXTRA_INSTALL})
 
 enable_testing()
 add_subdirectory(regtest)

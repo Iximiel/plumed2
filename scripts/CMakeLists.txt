@@ -8,7 +8,9 @@ selector.sh
 vim2html.sh
 )
 
-Message(AUTHOR_WARNING "the scripts are configured only with the \"Install\" configuration")
+set(PLUMEDSEXTRA_BINARY_DIR ${CMAKE_BINARY_DIR}/${DIRS_EXTRA_INSTALL})
+set(PLUMEDSCRIPTS_BINARY_DIR ${PLUMEDSEXTRA_BINARY_DIR}/scripts)
+
 foreach(script ${SCRIPTS})
     install(FILES ${script}
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name}/scripts
@@ -19,7 +21,7 @@ foreach(script ${SCRIPTS})
     )
     #This copy makes plumed work in the builddir
     file(COPY ${script}
-        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+        DESTINATION ${PLUMEDSCRIPTS_BINARY_DIR}
         USE_SOURCE_PERMISSIONS
     )
 
@@ -29,7 +31,7 @@ foreach(script ${SCRIPTS})
     # Please keep them consistent
     #here is set up the  "ifeq ($(PLUMED_INSTALL),Install)"
     # If plumed is installed, single paths can be overridden using env vars
-    file(CONFIGURE OUTPUT ${adaptedScript}
+    file(CONFIGURE OUTPUT ${PLUMEDSEXTRA_BINARY_DIR}${adaptedScript}
         CONTENT [[#! /usr/bin/env bash
 echo 'NOTE: shell only version, useful when plumed is cross compiled' >&2
 export PLUMED_IS_INSTALLED=yes
@@ -43,7 +45,7 @@ source "${PLUMED_ROOT}/scripts/@script@"
 @ONLY
      )
     
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${adaptedScript}
+    install(FILES ${PLUMEDSEXTRA_BINARY_DIR}/${adaptedScript}
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/${program_name}
         PERMISSIONS
          OWNER_WRITE

@@ -21,8 +21,8 @@ set_and_check(Plumed2_LIB_DIR "@PACKAGE_DIRS_LIB_INSTALL@")
 set_and_check(Plumed2_EXTRA_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@")
 set_and_check(Plumed2_FORTRAN_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/fortran")
 set_and_check(Plumed2_VIM_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/vim")
-# set_and_check(Plumed2_SCRIPTS_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/scripts")
-# set_and_check(Plumed2_PATCHES_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/patches")
+set_and_check(Plumed2_SCRIPTS_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/scripts")
+set_and_check(Plumed2_PATCHES_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/patches")
 
 #TODO: add to the manual:
 # To compile a fortran executable with plumed you have (at least) two ways write the CMakeLists.txt:
