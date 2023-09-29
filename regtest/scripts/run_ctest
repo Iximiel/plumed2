@@ -197,18 +197,101 @@ run_make() {
   files=$(ls ./*.cpp ./*.f90 ./*.c 2>/dev/null)
   if [[ -n ${filesf90} ]]; then
     otherLang="${otherLang}enable_language (Fortran)\n"
+    if [[ $compiler_language = "fortran08" ]]; then
+      otherLang=$(
+        cat <<EOF
+${otherLang}
+include(CheckSourceCompiles)
+check_source_compiles( Fortran [[
+module test_fortran08_a
+implicit none
+type b
+contains
+  final :: c
+end type b
+contains
+  impure elemental subroutine c(x)
+    type(b), intent(inout) :: x
+  end subroutine c
+  subroutine sub(x)
+    integer :: x(:)
+    write(*,*) is_contiguous(x)
+  end subroutine sub
+end module test_fortran08_a
+
+program test
+  USE test_fortran08_a
+  type(b):: x
+  integer :: y(5)
+  call c(x)
+  call sub(y)
+end program
+]]
+HAVE_FORTRAN08
+)
+if(NOT HAVE_FORTRAN08)
+message (FATAL_ERROR "NOT_APPLICABLE (the compiler is not Fortran08 compatible)")
+endif()
+EOF
+      )
+      #alternative sligthly more complex way
+      #compileLibs="${compileLibs}add_library (PlumedFortran08)\n"
+      #otherLibs="${otherLibs} PlumedFortran08"
+      files="${files} \${Plumed2_FORTRAN08}"
+    else
+      # TODO maybe test both the compile methods for 08 and non 08 fortran
+      #alternative sligthly more complex way commented
+      compileLibs="${compileLibs}add_library (PlumedFortran \${Plumed2_FORTRAN})\n"
+      otherLibs="${otherLibs} PlumedFortran"
+      # files="${files} \${Plumed2_FORTRAN}"
+    fi
   fi
   if [[ -n ${filesC} ]]; then
     otherLang="${otherLang}enable_language (C)\n"
+    if [[ $compiler_language = "c11" ]]; then
+      otherLang=$(
+        cat <<EOF
+${otherLang}
+
+include(CheckSourceCompiles)
+check_source_compiles( C [[
+#ifdef __STDC_VERSION__
+#if __STDC_VERSION__ < 201112L
+error
+#endif
+#else
+error
+#endif
+
+int f(int a){
+  int x;
+  x=_Generic( 'a', char: 1, int: 2, long: 3, default: 0);
+  return a;
+}
+
+int main(void){
+  int x=10;
+  int k=f(x);
+}
+]]
+HAVE_C11
+)
+if(NOT HAVE_C11)
+message (FATAL_ERROR "NOT_APPLICABLE (the compiler is not C11 compatible)")
+endif()
+EOF
+      )
+    fi
   fi
   cat <<EOF >CMakeLists.txt
 cmake_minimum_required(VERSION 3.20)
 project(exe-test CXX)
 $(echo -e "$otherLang")
 find_package(Plumed2 REQUIRED)
+$(echo -e "$compileLibs")
 add_executable(exe ${files})
 target_link_libraries(exe PUBLIC
-  Plumed2::sharedplumedMain
+  Plumed2::sharedplumedMain $otherLibs
   #automatically links to the shared kernel Plumed2::sharedplumedKernel 
 )
 install (TARGETS exe
@@ -293,12 +376,13 @@ set -o pipefail
   extra_files=()
   valgrind="env"
 
-  while getopts "a:d:e:f:l:m:n:p:v" option; do
+  while getopts "a:c:d:e:f:l:m:n:p:v" option; do
     #echo "$option -> ${OPTARG}"
     case "$option" in
     #the
     a) args=${OPTARG} ;;
     #the directory with the source of the test
+    c) compiler_language=${OPTARG} ;;
     d) dir=${OPTARG} ;;
     e)
       name=${OPTARG%=*}
@@ -340,6 +424,7 @@ EOF
   export args
   export plumed_modules
   export plumed_needs
+  export compiler_language
   export extra_files
   export valgind
   export plumed

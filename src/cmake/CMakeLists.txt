@@ -50,35 +50,51 @@ if(BoostCompontents)
 endif()
 
 list(JOIN EXTERNAL_PACKAGES "\n" EXTERNAL_PACKAGES)
-
+#this is the installed version
 configure_package_config_file(
     PlumedConfig.cmake.in
-    Plumed2Config.cmake
+    "Plumed2Config.cmake"
+    INSTALL_DESTINATION
+      ${DIRS_CMAKE_INSTALL}
+    PATH_VARS 
+      DIRS_INCLUDE_INSTALL 
+      DIRS_LIB_INSTALL
+      DIRS_BIN_INSTALL
+      DIRS_EXTRA_INSTALL
+)
+#This is the build version
+configure_package_config_file(
+    PlumedConfig.cmake.in
+    "${CMAKE_BINARY_DIR}/lib/cmake/plumed/Plumed2Config.cmake"
     INSTALL_DESTINATION 
-    ${DIRS_CMAKE_INSTALL}
-    PATH_VARS DIRS_INCLUDE_INSTALL 
-    DIRS_LIB_INSTALL
-    DIRS_BIN_INSTALL
+     ${CMAKE_BINARY_DIR}/lib/cmake/plumed/
+    PATH_VARS 
+      DIRS_INCLUDE_INSTALL 
+      DIRS_LIB_INSTALL
+      DIRS_BIN_INSTALL
+      DIRS_EXTRA_INSTALL
+    INSTALL_PREFIX
+      ${CMAKE_BINARY_DIR}
 )
 
 ################################################################################
 ######################Creating Plumed2ConfigVersion.cmake#######################
 ################################################################################
-write_basic_package_version_file(Plumed2ConfigVersion.cmake
+write_basic_package_version_file("${CMAKE_BINARY_DIR}/lib/cmake/plumed/Plumed2ConfigVersion.cmake"
   VERSION ${PLUMED_VERSION_MAJOR}.${PLUMED_VERSION_MINOR}.${PLUMED_VERSION_PATCH}
   #COMPATIBILITY <AnyNewerVersion|SameMajorVersion|SameMinorVersion|ExactVersion>
   COMPATIBILITY SameMinorVersion
 )
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Plumed2Config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/Plumed2ConfigVersion.cmake
+              ${CMAKE_BINARY_DIR}/lib/cmake/plumed/Plumed2ConfigVersion.cmake
               PlumedUserMacros.cmake #This installs the macros for the user
   DESTINATION ${DIRS_CMAKE_INSTALL}
 )
 
 #this is needed to have PlumedUserMacros.cmake avaiable in the build configuration
 file(COPY PlumedUserMacros.cmake
-  DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+  DESTINATION ${CMAKE_BINARY_DIR}/lib/cmake/plumed/
 )
 
 foreach(exportetTargets Plumed2MODULES Plumed2WRAPPERS Plumed2LIBS Plumed2EXEC)
@@ -88,6 +104,7 @@ foreach(exportetTargets Plumed2MODULES Plumed2WRAPPERS Plumed2LIBS Plumed2EXEC)
   )
   export(EXPORT ${exportetTargets}
     NAMESPACE Plumed2::
-    FILE "${CMAKE_CURRENT_BINARY_DIR}/${exportetTargets}.cmake"
+    FILE "${CMAKE_BINARY_DIR}/lib/cmake/plumed/${exportetTargets}.cmake"
   )
 endforeach(exportetTargets )
+
