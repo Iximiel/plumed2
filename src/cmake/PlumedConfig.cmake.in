@@ -27,7 +27,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/PlumedUserMacros.cmake")
 #TODO: ask for distinguish between the "include/plumed" and the "include" kind of installations
 set_and_check(Plumed2_INCLUDE_DIR "@PACKAGE_DIRS_INCLUDE_INSTALL@")
 set_and_check(Plumed2_LIB_DIR "@PACKAGE_DIRS_LIB_INSTALL@")
-# set_and_check(Plumed2_BIN_DIR "@PACKAGE_DIRS_BIN_INSTALL@")
+set_and_check(Plumed2_BIN_DIR "@PACKAGE_DIRS_BIN_INSTALL@")
 set_and_check(Plumed2_EXTRA_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@")
 set_and_check(Plumed2_FORTRAN_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/fortran")
 set_and_check(Plumed2_VIM_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/vim")

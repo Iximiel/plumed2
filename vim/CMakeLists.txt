@@ -1,5 +1,5 @@
 set(PLUMEDVIM_BINARY_DIR ${CMAKE_BINARY_DIR}/${DIRS_EXTRA_INSTALL}/vim)
-message("PLUMEDVIM_BINARY_DIR  ${PLUMEDVIM_BINARY_DIR}")
+
 add_custom_command(OUTPUT
         ${PLUMEDVIM_BINARY_DIR}/syntax/plumed.vim 
         ${PLUMEDVIM_BINARY_DIR}/syntax/plumedf.vim
