@@ -22,6 +22,7 @@ set (PLUMED_PATCHES ${PLUMED_MAIN_DIR}/patches)
 
 option(allmodules_activate "Activates all modules" OFF)
 option(allmodules_default "Revert all module to their default state" OFF)
+option(option_relaxed_dependencies "Ignore the modules that depend on a not found external library" OFF)
 
 #this is a list of the activated modules that will be included into the kernel
 set(modulesForKernel "")

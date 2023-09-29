@@ -3,8 +3,7 @@ name: cmakeCI
 on:
  pull_request:
   branches:
-  - 'cmake'
-  - 'cmaketestSetUp'
+  - 'cmake**'
 jobs:
  runBasicTests:
     uses: ./.github/workflows/cmakeAndTest.yml

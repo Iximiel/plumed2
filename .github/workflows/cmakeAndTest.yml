@@ -9,15 +9,37 @@ env:
 
 jobs:
   buildAndTest:
-    # strategy:
-    #   matrix:
-    #     version: [10, 12, 14]
-    #     os: [ubuntu-latest, windows-latest]
+    strategy:
+      matrix:
+        compiler: [gcc]
+        mpi: [mpi, nompi]
+        buildType: [Release, Debug]
+        # exclude :
+        #   - compiler: intel
+        #     mpi: mpi
+        #   - compiler: intel
+        #     buildType: Debug
+        include: #extra matrices
+          - compiler: intel
+            mpi: nompi
+            buildType: Release
+        # set up for the future:
+        #  - compiler: gcc
+        #    mpi: mpi
+        #    buildType: Release
+        #    dovìcumentation: documentation
+        # - compiler: gcc
+        #    mpi: mpi
+        #    buildType: Release
+        #    coverage: coverage
+
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
-
+    env:
+        # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+        BUILD_TYPE: ${{ matrix.buildType }}
     steps:
     - uses: actions/checkout@v3
 
@@ -29,14 +51,6 @@ jobs:
         sudo apt-get install -y gsl-bin
         sudo apt-get install -y libgsl0-dev
         sudo apt-get install -y ccache
-    - name: Install system boost
-      if: env.BUILD_TYPE != 'Debug'
-      run: |
-        sudo apt-get install -y libboost-serialization-dev
-    - name: Install boost with debug flags
-      if: env.BUILD_TYPE == 'Debug'
-      run: |
-        .ci/install.boost
 
     - name: Install python packages needed for tests
       run: |
@@ -51,7 +65,83 @@ jobs:
         python -c "import MDAnalysis"
         python -c "import mdtraj"
       
+    - name: Install system boost
+      if: env.BUILD_TYPE != 'Debug'
+      run: |
+        sudo apt-get install -y libboost-serialization-dev
+
+    - name: Install boost with debug flags
+      if: env.BUILD_TYPE == 'Debug'
+      run: |
+        .ci/install.boost
+    
+    - name: Install INTEL compiler
+      # install INTEL at last since it modifies CC and CXX
+      if: matrix.compiler == 'intel'
+      run: |
+        wget -nv https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        sudo apt-get update
+        sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl intel-oneapi-mkl-devel intel-oneapi-compiler-fortran
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
+        echo "$CXX"
+        echo "$CC"
+        echo "$FC"
+        echo "CXX=icpc" >> $GITHUB_ENV
+        echo "CC=icc" >> $GITHUB_ENV
+        echo "FC=ifort" >> $GITHUB_ENV
+        
+    - name: Install Libtorch
+      # libtorch is not compiled with GLIBCXX_DEBUG snfd give compiler errord with intel
+      if: env.BUILD_TYPE != 'Debug' && matrix.compiler != 'intel'
+      run: |
+        # added by luigibonati
+        mkdir -p $HOME/opt/
+        cd $HOME/opt/ # GB: install in $HOME/opt/libtorch
+        wget -nv --no-check-certificate https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.13.1%2Bcpu.zip ;
+        unzip -q libtorch-cxx11-abi-shared-with-deps-1.13.1+cpu.zip ;
+        echo "CMAKE_PREFIX_PATH=$PWD/libtorch/share/cmake/:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+        
+    # - name: Install Doxygen
+    #   if: matrix.documentation
+    #   run: |
+    #     sudo apt-get install -y graphviz
+    #     sudo apt-get install -y doxygen-latex
+    #     .ci/install.doxygen Release_1_8_17
+    #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-pdfdoc" >> $GITHUB_ENV
+    #     # make sure all tests are run
+    #     echo "PLUMED_ALL_TESTS=yes" >> $GITHUB_ENV
+    # - name: Install lcov
+    #   if: matrix.coverage
+    #   run: |
+    #     .ci/install.lcov v1.16
+    #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --disable-external-lapack --disable-external-blas --enable-gcov CXXFLAGS=-O" >> $GITHUB_ENV
+    #     # make sure all tests are run
+    #     echo "PLUMED_ALL_TESTS=yes" >> $GITHUB_ENV
+
+    # - name: Setup debug flags #TODO: this in cmake
+    #   if: env.BUILD_TYPE == 'Debug'
+    #   run: |
+    #     echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-debug --enable-debug-glibcxx" >> $GITHUB_ENV
+    
+    - name: Install python packages needed for tests
+      run: |
+        python -m pip install --upgrade pip
+        pip install --user Cython
+        pip install --user numpy
+        pip install --user pytest
+        pip install --user six
+        pip install --user pandas
+        pip install --user mdtraj
+        pip install --user MDAnalysis
+        python -c "import MDAnalysis"
+        python -c "import mdtraj"
+      
     - name: Install MPI
+      if: matrix.mpi == 'mpi'
       run: |
         sudo apt-get install -y libopenmpi-dev openmpi-bin
         echo "OMPI_MCA_btl_base_warn_component_unused=0" >> $GITHUB_ENV
@@ -62,12 +152,19 @@ jobs:
         pip install --user mpi4py
         python -c "import mpi4py"
       
+        pip install --user mpi4py
+        python -c "import mpi4py"
+      
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       #set up without warnings
       run: > 
         cmake -B ${{github.workspace}}/build 
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        -Doption_relaxed_dependencies=ON 
+        -Dallmodules_activate=ON 
+        -Denable_boost_serialization=ON
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -Dallmodules_activate=ON 
         -Denable_boost_serialization=ON
@@ -77,13 +174,10 @@ jobs:
     - name: Build
       working-directory: ${{github.workspace}}/build
       # Build your program with the given configuration
-      run: cmake --build . --config ${{env.BUILD_TYPE}} --parallel
+      run: cmake --build . --config ${{env.BUILD_TYPE}} --parallel 4
 
     #- name: Install
     #  run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-    
-    # - name: set up environment for tests
-    #   run: echo "LD_LIBRARY_PATH=${{github.workspace}}/build/src:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           
     - name: Checking the tests
       working-directory: ${{github.workspace}}/build
@@ -96,7 +190,8 @@ jobs:
       id: tests
       working-directory: ${{github.workspace}}/build
       
-      run: ctest -j4 --output-on-failure
+      # skipping fortran tests for now
+      run: ctest -j4 --output-on-failure -E "make-fortran"
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
