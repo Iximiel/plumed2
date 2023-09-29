@@ -77,7 +77,7 @@ jobs:
 
     - name: -fallow-argument-mismatch for gfortran
       if: matrix.compiler == 'gcc'
-      run: echo "FCFLAGS=-fallow-argument-mismatch" >> $GITHUB_ENV
+      run: echo "FFLAGS=-fallow-argument-mismatch" >> $GITHUB_ENV
 
     - name: Install INTEL compiler
       # install INTEL at last since it modifies CC and CXX
