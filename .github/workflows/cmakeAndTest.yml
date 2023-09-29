@@ -74,7 +74,11 @@ jobs:
       if: env.BUILD_TYPE == 'Debug'
       run: |
         .ci/install.boost
-    
+
+    - name: '[gcc] -fallow-argument-mismatch for gfortran'
+      if: matrix.compiler == 'gcc'
+      run: echo "FFLAGS=-fallow-argument-mismatch" >> $GITHUB_ENV
+
     - name: Install INTEL compiler
       # install INTEL at last since it modifies CC and CXX
       if: matrix.compiler == 'intel'
@@ -175,9 +179,6 @@ jobs:
       working-directory: ${{github.workspace}}/build
       # Build your program with the given configuration
       run: cmake --build . --config ${{env.BUILD_TYPE}} --parallel 4
-
-    #- name: Install
-    #  run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
           
     - name: Checking the tests
       working-directory: ${{github.workspace}}/build
@@ -190,8 +191,7 @@ jobs:
       id: tests
       working-directory: ${{github.workspace}}/build
       
-      # skipping fortran tests for now
-      run: ctest -j4 --output-on-failure -E "make-fortran"
+      run: ctest -j4 --output-on-failure
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
@@ -205,3 +205,6 @@ jobs:
             !*/CMakeFiles/*
             !*/cmake_install.cmake
             !*/Makefile
+
+    # - name: Test install procedure
+    #   run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}

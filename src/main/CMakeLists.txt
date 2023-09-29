@@ -17,6 +17,7 @@ target_link_libraries(plumed_bin PUBLIC
     )
 set_target_properties(plumed_bin
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${DIRS_BIN_INSTALL}
     )
 
 #statically linked plumed
@@ -29,6 +30,7 @@ target_link_libraries(plumed_bin_static PUBLIC
 )
 set_target_properties(plumed_bin_static
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-static
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${DIRS_BIN_INSTALL}
     )
 #runtime linked plumed
 #->#$(PLUMED_MAIN_RUNTIME): $(OBJ_MAIN) $(OBJ_DYNAMIC_WRAPPER)
@@ -40,6 +42,7 @@ target_link_libraries(plumed_bin_runtime
     )
 set_target_properties(plumed_bin_runtime
     PROPERTIES RUNTIME_OUTPUT_NAME ${program_name}-runtime
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${DIRS_BIN_INSTALL}
     )
 
 install (TARGETS plumed_bin

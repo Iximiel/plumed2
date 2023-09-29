@@ -54,6 +54,7 @@ list(JOIN EXTERNAL_PACKAGES "\n" EXTERNAL_PACKAGES)
 configure_package_config_file(
     PlumedConfig.cmake.in
     "Plumed2Config.cmake"
+    NO_SET_AND_CHECK_MACRO
     INSTALL_DESTINATION
       ${DIRS_CMAKE_INSTALL}
     PATH_VARS 
@@ -62,10 +63,13 @@ configure_package_config_file(
       DIRS_BIN_INSTALL
       DIRS_EXTRA_INSTALL
 )
+set (tmp ${DIRS_INCLUDE_INSTALL})
+set(DIRS_INCLUDE_INSTALL ${CMAKE_BINARY_DIR}/includesource/plumed ${CMAKE_BINARY_DIR}/includebinary/plumed)
 #This is the build version
 configure_package_config_file(
     PlumedConfig.cmake.in
     "${CMAKE_BINARY_DIR}/lib/cmake/plumed/Plumed2Config.cmake"
+    NO_SET_AND_CHECK_MACRO
     INSTALL_DESTINATION 
      ${CMAKE_BINARY_DIR}/lib/cmake/plumed/
     PATH_VARS 
@@ -77,6 +81,8 @@ configure_package_config_file(
       ${CMAKE_BINARY_DIR}
 )
 
+set (DIRS_INCLUDE_INSTALL ${tmp})
+unset (tmp)
 ################################################################################
 ######################Creating Plumed2ConfigVersion.cmake#######################
 ################################################################################
