@@ -65,14 +65,18 @@ git.branch          @GIT_VERSION@
 # --disable-mpi:          Do not search for MPI compiler (replaced when enabling mpi, see below)
 # --disable-python:       Python wrappers will be installed with a separate python port
 configure.args-append \
-                    --disable-doc \
-                    --disable-libsearch \
-                    --disable-static-patch \
-                    --disable-mpi \
-                    --disable-python
+                    -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                    -Doption_relaxed_dependencies=ON \
+                    -Denable_boost_serialization=ON \
+                    -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                    -Dallmodules_activate=ON \
+                    -Denable_mpi=OFF \
+                    -Denable_python=OFF \
+                    -Denable_static_linking=OFF \
+                    -Denable_doc=OFF
 
 # install bash completions
-configure.args-append BASH_COMPLETION_DIR=${prefix}/share/bash-completion/completions
+configure.args-append -DBASH_COMPLETION_DIR=${prefix}/share/bash-completion/completions
 
 # Hardcode path for libplumedKernel.dylib.
 # This allows to patch MD codes using the --runtime option but using as
@@ -88,7 +92,7 @@ mpi.setup
 
 # To enable mpi, replace a configure flag
 if {[mpi_variant_isset]} {
-    configure.args-replace --disable-mpi --enable-mpi
+    configure.args-replace -Denable_mpi=OFF -Denable_mpi=ON
 # command should be included in a pre-configure block to access properly the mpi.exec variable
     pre-configure {
 # MPIEXEC is stored so that it can be used to perform tests
@@ -121,9 +125,9 @@ if {[string match *clang* ${configure.compiler}]} {
 # This variant enables optional modules in PLUMED.
 # Notice that one of the optional modules (drr) requires boost_serialization
 variant allmodules description {Enable all optional modules} {
-    configure.args-append --enable-modules=all
-    configure.args-append --enable-boost-serialization
-    configure.ldflags-append -lboost_serialization-mt
+    configure.args-append -Dallmodules_activate=ON
+    configure.args-append -Denable_boost_serialization=ON
+    #configure.ldflags-append -lboost_serialization-mt
     depends_lib-append port:boost
 }
 
