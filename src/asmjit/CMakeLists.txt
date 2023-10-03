@@ -1,8 +1,9 @@
 #the variable module_name is set up as a sugar to reduce "copy-paste" errors
 set (module_name "asmjit")
 #Note that the macros here require this directory added as a subdir of plumed/src
-set(module_${module_name} ON CACHE INTERNAL "always active module ${module_name}")
-ADDMODULETOKERNEL(${module_name}
+DECLAREPLUMEDMODULE(${module_name}
+"always"
+SOURCES
 arch.cpp
 assembler.cpp
 codebuilder.cpp
@@ -33,10 +34,31 @@ x86operand.cpp
 x86operand_regs.cpp
 x86regalloc.cpp
 zone.cpp
-)
-ADDMODULENEEDS(${module_name}
+EXTRA_HEADERS
+arm.h
+asmjit_apibegin.h
+asmjit_apiend.h
+asmjit_build.h
+asmjit.h
+base.h
+misc_p.h
+moved_string.h
+regalloc_p.h
+simdtypes.h
+x86emitter.h
+x86globals.h
+x86.h
+x86instimpl_p.h
+x86internal_p.h
+x86logging_p.h
+x86misc.h
+x86regalloc_p.h
+NEEDS
+	
+DEPENDS
 	
 )
-ADDMODULEDEPENDENCIES(${module_name}
-	
-)
+
+if(module_${module_name} )
+    target_compile_definitions(${module_name} PUBLIC __PLUMED_HAS_ASMJIT=1)
+endif()

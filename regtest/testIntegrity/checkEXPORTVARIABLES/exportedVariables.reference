@@ -1,0 +1,5 @@
+INTEGERVAR1: "10"
+INTEGERVAR2: "137"
+FLOATVAR: "3.14"
+STRINGVAR: "thisIsAstring"
+VARWITHSPACES: "There are some spaces"

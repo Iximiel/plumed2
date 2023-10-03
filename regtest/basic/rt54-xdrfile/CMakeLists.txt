@@ -1,0 +1,10 @@
+PLUMED_TEST(rt54-xdrfile TYPE driver
+ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixtc traj.xtc"
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=driver
+# notice that this traj.xtc file is not properly read by molfile (mf_xtc)
+# since it contains a generic cell
+arg="--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixtc traj.xtc"
+]] )

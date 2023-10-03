@@ -1,0 +1,442 @@
+#! /usr/bin/env bash
+
+fixzeroes() {
+  local file=$1
+
+  grep -q "\x00" "$file" && exit 0
+
+  sed "s/-\(0\.0*0 \)/ \1/g; 
+     s/-\(0\.0*0$\)/ \1/g" "$file" >"$file.$$.tmp"
+  mv "$file.$$.tmp" "$file"
+
+}
+
+checkMPI() {
+  if ((mpiprocs > 0)); then
+
+    if $plumed_nompi config -q mpiexec; then
+      mpi="$($plumed_nompi config mpiexec)"
+    fi
+    if test -z "$mpi"; then
+      mpi="${PLUMED_MPIRUN:-mpirun}"
+    fi
+    mpi="$mpi -np $mpiprocs"
+
+    if ! $plumed_nompi config -q has mpi; then
+      echo "NOT_APPLICABLE (MPI NOT INSTALLED)"
+      return 125
+    fi
+    if [[ "$valgrind" != "env" ]]; then
+      echo "NOT_APPLICABLE (MPI cannot be used with valgrind)"
+      return 125
+    fi
+  else
+
+    plumed="$plumed --no-mpi"
+
+  fi
+}
+
+checkDependencies() {
+
+  for need in $plumed_needs; do
+    echo "Checking for $need"
+    if ! $plumed_nompi config -q has $need; then
+      if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ]; then
+        if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ]; then
+          echo "NOT_APPLICABLE (\"$need\" NOT ENABLED)"
+        else
+          echo "SKIP_ON_TRAVIS found!"
+        fi
+      else
+        echo "NOT_APPLICABLE (\"$need\" NOT ENABLED)"
+      fi
+      return 125
+    fi
+  done
+
+  for module in $plumed_modules; do
+    echo "Checking for $module"
+    if ! $plumed_nompi config -q module $module; then
+      if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ]; then
+        if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ]; then
+          echo "NOT_APPLICABLE (\"$module\" MODULE NOT INSTALLED)"
+        else
+          echo "SKIP_ON_TRAVIS found!"
+        fi
+      else
+        echo "NOT_APPLICABLE (\"$module\" MODULE NOT INSTALLED)"
+      fi
+      return 125
+    fi
+  done
+}
+
+setup() {
+  #copies files into tmp and check if plumed can be run in this environment
+
+  date
+  echo "Setting up regtest from $(pwd)"
+
+  if [ "$valgrind" = valgrind ]; then
+    echo "using valgrind"
+  fi
+
+  rm -fr tmp
+  mkdir tmp
+  cd tmp || return 1
+
+  cp -fr ${dir}/* . 2>/dev/null
+  for file in "${extra_files[@]}"; do
+    echo $file
+  done
+  for file in "${extra_files[@]}"; do
+    if [[ "$file" =~ \* ]]; then
+      #this for unglobs both the relative and the absolute file
+      for f in ${dir}/${file} ${file}; do
+        if [[ -f ${f} ]]; then
+          cp -fv "${f}" .
+        elif [[ -d ${f} ]]; then
+          cp -fvr "${f}" .
+        fi
+      done
+    #relative paths
+    elif [[ -f ${dir}/$file ]]; then
+      cp -fv "${dir}/$file" .
+    elif [[ -d ${dir}/$file ]]; then
+      cp -fvr "${dir}/$file" .
+    #absolute paths
+    elif [[ -f ${file} ]]; then
+      cp -fv "$file" .
+    elif [[ -d ${file} ]]; then
+      cp -fvr "${file}" .
+    else
+      echo "\"${file}\" does not pass -d nor -f: cannot copy"
+      return 1
+    fi
+  done
+
+  root=$($plumed_nompi info --root)
+
+  if test -z "$root"; then
+    echo "root: $root"
+    echo "FAILURE: plumed executable not available"
+    exit 1
+  fi
+
+  #TODO: This may need some tweeking (the old version were functions with export inside, now custom_skip is a script)
+  if [[ -x plumed_custom_skip ]]; then
+    if ./plumed_custom_skip; then
+      if [ "$TRAVIS" = true ] || [ "$GITHUB_ACTIONS" = true ]; then
+        if [ -z "$PLUMED_ALLOW_SKIP_ON_TRAVIS" ]; then
+          echo "NOT_APPLICABLE (plumed_custom_skip)"
+        else
+          echo "SKIP_ON_TRAVIS found!"
+        fi
+      else
+        echo "NOT_APPLICABLE (plumed_custom_skip)"
+      fi
+      return 125
+    fi
+  fi
+
+  #export PLUMED_KERNEL
+  #export PLUMED_LIB
+  #these exports should been made by the -e inputs
+
+  if [[ -x plumed_regtest_before ]]; then
+    ./plumed_regtest_before
+  fi
+}
+
+run_plumed() {
+  runcommand="${mpi:+${mpi} }${plumed} ${args}"
+  echo "running \"$runcommand > out 2> err\""
+  #here I need splitting
+  $runcommand >out 2>err
+  returnvalue=$?
+  if [[ -s err ]]; then
+    echo "####stderr contains:####"
+    cat err
+    echo "########################"
+  fi
+  return $returnvalue
+}
+
+run_nothing() {
+  return 0
+}
+
+run_driver() {
+  args="driver ${args}"
+  run_plumed
+}
+
+run_simplemd() {
+  runcommand="${mpi:+${mpi} }${plumed} simplemd"
+  echo "running \"$runcommand  < in > out 2> err\""
+  $runcommand <in >out 2>err
+  returnvalue=$?
+  if [[ -s err ]]; then
+    echo "####stderr contains:####"
+    cat err
+    echo "########################"
+  fi
+  return $returnvalue
+}
+
+run_sum_hills() {
+  args="sum_hills ${args}"
+  run_plumed
+}
+
+run_make() {
+  otherLang=""
+  filesC=$(ls ./*.c 2>/dev/null)
+  filesf90=$(ls ./*.f90 2>/dev/null)
+  files=$(ls ./*.cpp ./*.f90 ./*.c 2>/dev/null)
+  if [[ -n ${filesf90} ]]; then
+    otherLang="${otherLang}enable_language (Fortran)\n"
+    if [[ $compiler_language = "fortran08" ]]; then
+      otherLang=$(
+        cat <<EOF
+${otherLang}
+include(CheckSourceCompiles)
+check_source_compiles( Fortran [[
+module test_fortran08_a
+implicit none
+type b
+contains
+  final :: c
+end type b
+contains
+  impure elemental subroutine c(x)
+    type(b), intent(inout) :: x
+  end subroutine c
+  subroutine sub(x)
+    integer :: x(:)
+    write(*,*) is_contiguous(x)
+  end subroutine sub
+end module test_fortran08_a
+
+program test
+  USE test_fortran08_a
+  type(b):: x
+  integer :: y(5)
+  call c(x)
+  call sub(y)
+end program
+]]
+HAVE_FORTRAN08
+)
+if(NOT HAVE_FORTRAN08)
+message (FATAL_ERROR "NOT_APPLICABLE (the compiler is not Fortran08 compatible)")
+endif()
+EOF
+      )
+      #alternative sligthly more complex way
+      #compileLibs="${compileLibs}add_library (PlumedFortran08)\n"
+      #otherLibs="${otherLibs} PlumedFortran08"
+      files="${files} \${Plumed2_FORTRAN08}"
+    else
+      # TODO maybe test both the compile methods for 08 and non 08 fortran
+      #alternative sligthly more complex way commented
+      compileLibs="${compileLibs}add_library (PlumedFortran \${Plumed2_FORTRAN})\n"
+      otherLibs="${otherLibs} PlumedFortran"
+      # files="${files} \${Plumed2_FORTRAN}"
+    fi
+  fi
+  if [[ -n ${filesC} ]]; then
+    otherLang="${otherLang}enable_language (C)\n"
+    if [[ $compiler_language = "c11" ]]; then
+      otherLang=$(
+        cat <<EOF
+${otherLang}
+
+include(CheckSourceCompiles)
+check_source_compiles( C [[
+#ifdef __STDC_VERSION__
+#if __STDC_VERSION__ < 201112L
+error
+#endif
+#else
+error
+#endif
+
+int f(int a){
+  int x;
+  x=_Generic( 'a', char: 1, int: 2, long: 3, default: 0);
+  return a;
+}
+
+int main(void){
+  int x=10;
+  int k=f(x);
+}
+]]
+HAVE_C11
+)
+if(NOT HAVE_C11)
+message (FATAL_ERROR "NOT_APPLICABLE (the compiler is not C11 compatible)")
+endif()
+EOF
+      )
+    fi
+  fi
+  cat <<EOF >CMakeLists.txt
+cmake_minimum_required(VERSION 3.20)
+project(exe-test CXX)
+$(echo -e "$otherLang")
+find_package(Plumed2 REQUIRED)
+$(echo -e "$compileLibs")
+add_executable(exe ${files})
+target_link_libraries(exe PUBLIC
+  Plumed2::sharedplumedMain $otherLibs
+  #automatically links to the shared kernel Plumed2::sharedplumedKernel 
+)
+install (TARGETS exe
+    RUNTIME DESTINATION ${PWD}
+)
+EOF
+  mkdir build
+  {
+    # This workflow gives errors with the LD_LIBRARY_PATH because install strips
+    # the path to the linked shared objects (?maybe?)
+    # cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release &&
+    #   cmake --build ./build &&
+    #   cmake --install ./build &&
+    #   ${mpi} ${valgrind} ./build/exe $arg
+    cmake -B ./build -S . -DCMAKE_BUILD_TYPE:STRING=Release &&
+      cmake --build ./build &&
+      ${mpi} ${valgrind} ./build/exe $arg
+  } >out 2>err
+  if [[ -s err ]]; then
+    echo "####stderr contains:####"
+    cat err
+    echo "########################"
+  fi
+}
+
+check() {
+  if [[ -x plumed_regtest_after ]]; then
+    ./plumed_regtest_after
+  fi
+
+  exitcode=0
+  if ls ./*.reference >/dev/null; then
+    for file in *.reference; do
+      new="${file%.reference}"
+      echo "checking $new"
+      if test -f "$new"; then
+
+        fixzeroes "$file"
+        cp "$new" "$new.zfix"
+        fixzeroes "$new.zfix"
+
+        DIFFOPT=""
+        # this is to enforce ASCII check
+        # I add this option since sometime on travis some of the diff files are not shown
+        # (files are thought to be binary for some reason)
+        # In this way, at least PLUMED native files (with fields) will be assumed to be
+        # ASCII and diff will be shown in the log
+        test "$(head -c 10 "$file")" = "#! FIELDS " && DIFFOPT="-a"
+        out="$(diff $DIFFOPT "$file" "$new.zfix")"
+        diff $DIFFOPT "$file" "$new.zfix"
+        test -n "$out" && {
+          echo FAILURE
+          echo "Diff for ${file%.reference}:"
+          echo "$out"
+        }
+      else
+        echo "FAILURE: FILE $new does not exist"
+        exitcode=1
+      fi
+    done
+  else
+    echo "WARNING: no file has been checked"
+    exitcode=2
+  fi
+
+  return $exitcode
+}
+
+#this settings make the pipe exit with failure code of any command
+#so the program exits with the exit state of the scripta and not the
+#one of tee
+set -o pipefail
+{
+  if test -n "$PLUMED_PREPEND_PATH"; then
+    PATH="$PLUMED_PREPEND_PATH:$PATH"
+  fi
+
+  mpi=""
+  args=""
+  plumed_modules=""
+  plumed_needs=""
+  extra_files=()
+  valgrind="env"
+
+  while getopts "a:c:d:e:f:l:m:n:p:v" option; do
+    #echo "$option -> ${OPTARG}"
+    case "$option" in
+    #the
+    a) args=${OPTARG} ;;
+    #the directory with the source of the test
+    c) compiler_language=${OPTARG} ;;
+    d) dir=${OPTARG} ;;
+    e)
+      name=${OPTARG%=*}
+      value=${OPTARG#*=}
+      export "${name}"="$value"
+      ;;
+    f) extra_files+=("${OPTARG}") ;;
+    #${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}} expands to :${LD_LIBRARY_PATH} if LD_LIBRARY_PATH contains something
+    l) export LD_LIBRARY_PATH=${OPTARG}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}} ;;
+    m) plumed_modules=${OPTARG} ;;
+    n) plumed_needs=${OPTARG} ;;
+    p) mpiprocs=${OPTARG} ;;
+    #activates valgrind
+    v) valgrind="valgrind --leak-check=full --track-origins=yes" ;;
+    *)
+      echo "ERROR: unknown argument \"$option\""
+      exit 1
+      ;;
+    esac
+  done
+  #this removes the options from the arguments
+  shift $((OPTIND - 1))
+  # this is the executable used for running the tests:
+  plumed=$1
+  type=$2
+  # this is the executable used for getting the configuration:
+  plumed_nompi="$plumed --no-mpi"
+  cat <<EOF
+  ++ plumed: $plumed
+  ++ dir:  $dir
+  ++ Test type: $type
+  ++ Arguments: "$args"
+  ++ Processors: $mpiprocs
+  ++ Extra files: ${extra_files[@]}
+  ++ Plumed needs: $plumed_needs
+EOF
+  #export options to be avaiable to subcalled scripts
+  export mpi
+  export args
+  export plumed_modules
+  export plumed_needs
+  export compiler_language
+  export extra_files
+  export valgind
+  export plumed
+  export plumed_nompi
+  #this runs the different set ups function, the test and the checks and communicate where something is going wrong
+  for runner in checkMPI checkDependencies setup "run_${type}" check; do
+    $runner
+    rt=$?
+    if [[ $rt != 0 ]]; then
+      echo "CAUSE: $runner exited with $rt"
+      exit $rt
+    fi
+  done
+  #ctest is producing a report file on its own, but we offer also a more "private" report
+} | tee report.txt

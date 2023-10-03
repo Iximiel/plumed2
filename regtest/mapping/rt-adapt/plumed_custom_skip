@@ -1,0 +1,11 @@
+#! /usr/bin/env bash
+if [ "$(uname)" = Darwin ]; then
+    fullversion=$(sw_vers -productVersion)
+    version1=${fullversion%%.*}
+    version2=${fullversion#*.}
+    version2=${version2%%.*}
+    if (( ( version1==10 && version2>14 ) || version1>10)); then
+        exit 0
+    fi
+fi
+exit 1

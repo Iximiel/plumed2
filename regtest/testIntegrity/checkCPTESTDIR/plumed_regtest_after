@@ -1,0 +1,10 @@
+#!/bin/bash
+{
+ ls -d CMakeLists.txt
+ ls -d filePresents.reference
+ ls -d ordinaryDirWithinTest
+ ls -d ordinaryDirWithinTest/ordinaryFile1
+ ls -d ordinaryDirWithinTest/ordinaryFile2
+ ls -d ordinaryFile1
+ ls -d plumed_regtest_after
+} > filePresents

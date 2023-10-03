@@ -1,8 +1,9 @@
 #the variable module_name is set up as a sugar to reduce "copy-paste" errors
 set (module_name "tools")
 #Note that the macros here require this directory added as a subdir of plumed/src
-set(module_${module_name} ON CACHE INTERNAL "always active module ${module_name}")
-ADDMODULETOKERNEL(${module_name}
+DECLAREPLUMEDMODULE(${module_name}
+"always"
+SOURCES
 Angle.cpp
 AtomNumber.cpp
 BiasRepresentation.cpp
@@ -51,11 +52,11 @@ Tree.cpp
 TypesafePtr.cpp
 Units.cpp
 Vector.cpp
-)
-ADDMODULENEEDS(${module_name}
+EXTRA_HEADERS
+File.h
+NEEDS
 	core lapack lepton
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	lapack #blas
 	lepton
 	config

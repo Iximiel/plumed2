@@ -2,28 +2,44 @@ cmake_minimum_required(VERSION 3.20.2)
 
 project(Plumed2 LANGUAGES C CXX)
 
-set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithDebInfo MinSizeRel)
+set (CMAKE_CXX_STANDARD 11)
+
+include(GNUInstallDirs)
+
 #some settingsvalues
 set(program_name "plumed" CACHE STRING "the name of the main executable")
-set(SOEXT "so" CACHE STRING "The extension of dynamic libraries (so/dylib)")
-set_property(CACHE SOEXT PROPERTY STRINGS "so" "dylib")
+string(REPLACE "." "" soextension ${CMAKE_SHARED_LIBRARY_SUFFIX})
 
-set (PLUMED_SRC ${CMAKE_CURRENT_SOURCE_DIR})
-set (PLUMED_MAKETOOLS ${PLUMED_SRC}/maketools )
-cmake_path (GET PLUMED_SRC PARENT_PATH PLUMED_MAIN_DIR)
+set(SOEXT ${soextension} CACHE INTERNAL "The extension of dynamic libraries (so/dylib)")
+#set_property(CACHE SOEXT PROPERTY STRINGS "so" "dylib")
+
+set (PLUMED_SOURCE_SRC ${CMAKE_CURRENT_SOURCE_DIR})
+set (PLUMED_BINARY_SRC ${CMAKE_CURRENT_BINARY_DIR})
+set (PLUMED_MAKETOOLS ${PLUMED_SOURCE_SRC}/maketools )
+cmake_path (GET PLUMED_SOURCE_SRC PARENT_PATH PLUMED_MAIN_DIR)
 set (PLUMED_SCRIPTS ${PLUMED_MAIN_DIR}/scripts)
 set (PLUMED_PATCHES ${PLUMED_MAIN_DIR}/patches)
 
-option(all_modules "Activates all modules, if on ignores the values of module_name when compiling" OFF)
+option(allmodules_activate "Activates all modules" OFF)
+option(allmodules_default "Revert all module to their default state" OFF)
+option(option_relaxed_dependencies "Ignore the modules that depend on a not found external library" OFF)
 
+#this is a list of the activated modules that will be included into the kernel
 set(modulesForKernel "")
 
 ################################################################################
-#Setting up global options
+###########################Setting up global options############################
 ################################################################################
+#these are needed to help in reconstruct the pkgconfigs and the *.inc like in
+#the original Makefile
+set(PLUMED_LD_FLAGS "")
+set(PLUMED_LIBS "")
+set(PLUMED_DYNAMIC_LIBS "")
+
 #this may be deactivated when we want to copile something more static
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+#This automatically adds the correct equivalent to -fPIC to the compiler
+option(CMAKE_POSITION_INDEPENDENT_CODE "set the flags for position independent code" ON)
+option(CMAKE_ENABLE_EXPORTS "Set the -rdynamic equivalent for your compiler" ON)
 #  --enable-basic-warnings enable basic warnings, default: yes
 option(enable_warnings_basic "enable basic warnings" ON)
 if(enable_warnings_basic)
@@ -74,97 +90,80 @@ endif(enable_warnings_errors)
 
 
 ################################################################################
-#Macro definitions
+###############################Macro definitions################################
 ################################################################################
-MACRO(SUBDIRLIST result curdir)
-  #This macro is from a lot of posts on stackoverflow
-  FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)
-  SET(dirlist "")
-  FOREACH(child ${children})
-    IF(IS_DIRECTORY ${curdir}/${child})
-      LIST(APPEND dirlist ${child})
+# support directory with .cmake files with useful macros
+list(APPEND CMAKE_MODULE_PATH "${PLUMED_SOURCE_SRC}/cmake")
+include(plumedCMakeMacros)
+
+################################################################################
+###############################Setting up Modules###############################
+################################################################################
+
+#getting the list of direcotries in src/
+FILE(GLOB children RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*)
+SET(alldirs "")
+FOREACH(child ${children})
+    IF(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${child})
+        LIST(APPEND alldirs ${child})
     ENDIF()
-  ENDFOREACH()
-  SET(${result} ${dirlist})
-ENDMACRO()
+ENDFOREACH()
 
-MACRO(ADDMODULETOKERNEL module_name)
-    #use: ADDMODULETOKERNEL(module_name listOfSources)
-    #Please write the source files explicitly
-    if(${module_${module_name}} )
-        set(OTHERARGS ${ARGV})
-        list(REMOVE_ITEM OTHERARGS ${module_name})
-        add_library(${module_name} OBJECT ${OTHERARGS} )
-        target_include_directories(${module_name} PRIVATE ${PLUMED_SRC})
-        list(APPEND modulesForKernel ${module_name})
-        set(modulesForKernel ${modulesForKernel} PARENT_SCOPE)
-    endif(${module_${module_name}})
-ENDMACRO(ADDMODULETOKERNEL)
-
-MACRO(ADDMODULENEEDS module_name)
-    #use: ADDMODULENEEDS(module_name listOfModules)
-
-    set(OTHERARGS ${ARGV})
-    list(REMOVE_ITEM OTHERARGS ${module_name})
-    set(moduleNeeds_${module_name} ${OTHERARGS} PARENT_SCOPE)
-    
-ENDMACRO(ADDMODULENEEDS)
-
-MACRO(ADDMODULEDEPENDENCIES module_name)
-    #use: ADDMODULEDEPENDENCIES(module_name listOfModules)
-    #adds the module on which this depends on (for compile definitions and so on)
-    #NB you may create circular dependencies
-    #NB this is particularly experimental
-    if(${module_${module_name}} )
-        set(OTHERARGS ${ARGV})
-        list(REMOVE_ITEM OTHERARGS ${module_name})
-        foreach(lib ${OTHERARGS})
-            #message("${module_name} is linked with ${lib}")
-            target_link_libraries(${module_name} PUBLIC ${lib})
-        endforeach(lib ${OTHERARGS})
-    endif(${module_${module_name}})
-ENDMACRO(ADDMODULEDEPENDENCIES)
-
-function(print_target_property target_name property)
-    get_target_property(tempvar ${target_name} ${property})
-    message("${target_name} <${property}>: ${tempvar}")
-    unset(tempvar)    
-endfunction(print_target_property)
-
-################################################################################
-#Setting up Modules
-################################################################################
-
-SUBDIRLIST(alldirs ${CMAKE_CURRENT_SOURCE_DIR})# CACHE INTERNAL FORCE)
-set(dirs ${alldirs})# CACHE INTERNAL FORCE)
+set(module_dirs ${alldirs})# CACHE INTERNAL FORCE)
 #directories that do not contain modules
 set(utildirs lib include maketools cmake)
-#these are the diretory to compile that do not have a module.type inside
 set(execDirs config wrapper) #removed main
 #these are directory with codes that may be external
 set(mayBeExternal blas lapack molfile)
-list(REMOVE_ITEM dirs main ${utildirs} ${execDirs} ${mayBeExternal})
-#this is needed for making "all_modules" work
-set(toggabledirs ${dirs})
-list(REMOVE_ITEM toggabledirs core tools lepton blas lapack asmjit)
+list(REMOVE_ITEM module_dirs main ${utildirs} ${execDirs})
 
+#the first subdir should is config
 foreach(dir ${execDirs})
     add_subdirectory(${dir})
 endforeach(dir ${execDirs})
 
-foreach(dir ${mayBeExternal})
-    add_subdirectory(${dir})
-endforeach(dir ${mayBeExternal})
+if(DEFINED CACHE{module_core})
+    #module_core will not be present on the first run:
+    #allmodules_activate will act on the cache correctly during the module declaration
+    if(allmodules_activate)
+        message("All module will be forced ON")
+        foreach(dir ${module_dirs})
+            if(${module_default_${dir}} STREQUAL "always")
+                continue()
+                else()
+                set(module_${dir} ON CACHE BOOL "activate module ${dir}" FORCE)
+            endif()
+        endforeach(dir ${module_dirs})
+    endif()
 
-foreach(dir ${dirs})
+    if(allmodules_default)
+        message("All module will be forced to their default status")
+        foreach(dir ${module_dirs})
+            if(${module_default_${dir}} STREQUAL "always")
+                continue()
+                else()
+                set(module_${dir} ${module_default_${dir}} CACHE BOOL "activate module ${dir}" FORCE)
+            endif()
+        endforeach(dir ${module_dirs})
+    endif()
+    else()
+    if(allmodules_activate)
+        message("All module will be activated")
+    endif()
+endif(DEFINED CACHE{module_core})
+
+foreach(dir ${module_dirs})
     add_subdirectory(${dir})
-endforeach(dir ${dirs})
-if(all_modules)
-    message("All module will be forced ON")
-    foreach(dir ${toggabledirs})
-        set(module_${dir} ON CACHE BOOL "activate module ${dir}" FORCE)
-    endforeach(dir ${toggabledirs})
-endif()
+endforeach(dir ${module_dirs})
+
+#I set up the "auto switch off" for these options,
+#so their won't be executed at each subsequent cmake run
+#but they still appear in the cmake cache editor for the user
+#(for example: the user may force default, and then activate only one module.
+#In this way that module won't be switched off on the next cmake run)
+set(allmodules_activate OFF CACHE BOOL "Activates all modules" FORCE)
+set(allmodules_default OFF CACHE BOOL "Revert all module to their default state" FORCE)
+#adding -lstdc++ -lc++ is done automatically by cmake
 
 #options ## options are already done
 ##  --bindir=DIR            user executables [EPREFIX/bin]
@@ -207,48 +206,18 @@ endif()
 #                          -std=c++ flag
 #  --enable-debug-glibcxx  enable enable boundary check, default: no
 #  --enable-shared         enable shared libs, default: yes
-#  --enable-dependency-tracking
-#                          enable dependency tracking, default: yes
 #  --enable-rpath          enable store rpath, default: no
-#  --enable-absolute-soname
-#                          enable store absolute soname (Linux only - this is
-#                          the default behavior on OSX). Only enable for
-#                          testing!, default: no
 #  --enable-absolute-install-name
 #                          enable store absolute relative (OSX only - disable
 #                          to have a behavior similar to Linux). Only disable
 #                          for testing!, default: yes
 #  --enable-loader-path    enable use @loader_path to find
 #                          libplumedKernel.dylib (OSX only), default: yes
-#  --enable-bsymbolic      enable use -Bsymbolic flag in making shared
-#                          libraries (Linux only), default: yes
 #  --enable-ld-r           enable group object files, default: yes
 #  --enable-ar-cr          enable use ar to build libplumedWrapper.a, default:
 #                          yes
 #  --enable-static-archive enable try to build libplumed.a for static linking,
 #                          default: yes
-#  --enable-asmjit         enable enable embedded asmjit, default: yes
-#  --enable-mpi            enable search for mpi, default: yes
-#  --enable-molfile-plugins
-#                          enable use molfile_plugins, default: yes
-#  --enable-external-molfile-plugins
-#                          enable search for external molfile_plugins, default:
-#                          yes
-#  --enable-readdir-r      enable search for readdir_r (threadsafe), default:
-#                          no
-#  --enable-cregex         enable search for C regular expression, default: yes
-#  --enable-rtld_default   enable search for RTLD_DEFAULT macro, default: yes
-#  --enable-chdir          enable search for chdir function, default: yes
-#  --enable-subprocess     enable search for functions needed to manage a
-#                          subprocess, default: yes
-#  --enable-getcwd         enable search for getcwd function, default: yes
-#  --enable-popen          enable search for popen, default: yes
-#  --enable-execinfo       enable search for execinfo, default: yes
-#  --enable-gsl            enable search for gsl, default: yes
-#  --enable-boost_graph    enable search for boost graph, default: no
-#  --enable-boost_serialization
-#                          enable search for boost serialization, default: no
-#  --enable-fftw           enable search for fftw, default: yes
 #  --enable-python         enable search for python, default: yes
 #  --enable-af_ocl         enable search for arrayfire_ocl, default: no
 #  --enable-af_cuda        enable search for arrayfire_cuda, default: no
@@ -256,13 +225,14 @@ endif()
 #  --enable-libtorch       enable search for libtorch, default: no
 
 
-#for debugging purpose
-#foreach(dir ${dirs} ${execDirs} ${mayBeExternal})
-#    message("${dir}: ${module_${dir}}")
-#endforeach(dir ${dirs} ${execDirs} ${mayBeExternal})
+#CMAKE will do this for us :)
+#  --enable-dependency-tracking
+#                          enable dependency tracking, default: yes
+
+################################################################################
 
 #check module dependencies
-foreach(dir ${dirs} ${mayBeExternal})
+foreach(dir ${module_dirs})
     if(${module_${dir}})
         set(notFound "")
         #message("${dir} ${moduleNeeds_${dir}}")
@@ -270,6 +240,7 @@ foreach(dir ${dirs} ${mayBeExternal})
             if (NOT module_${otherModule})
                 list(FIND mayBeExternal ${otherModule} isExternal)
                 if(${isExternal})
+                    #this may be removed?
                     string(TOUPPER ${otherModule} capsName)
                     if(${capsName}_FOUND)
                         continue()
@@ -284,57 +255,105 @@ foreach(dir ${dirs} ${mayBeExternal})
         endif(notFound)
         unset(notFound)
     endif(${module_${dir}})
-endforeach(dir ${dirs})
+endforeach(dir ${module_dirs})
 if (${modulesDependenciesProblems})
     message(FATAL_ERROR "Problems in module dependencies")
 endif(${modulesDependenciesProblems})
 ################################################################################
-#Setting up the main libraries
+#########################Setting up the main libraries##########################
 ################################################################################
 
 set(KernelTargets "")
+#In the original makefile:
+#->#OBJ_DYNAMIC_WRAPPER := ../wrapper/Plumed.o (here is target PlumedDynamicWrapper)
+#->#OBJ_WRAPPER := ../wrapper/PlumedStatic.o (here is target PlumedStaticWrapper)
 
 foreach(activeModule ${modulesForKernel})
     list(APPEND KernelTargets $<TARGET_OBJECTS:${activeModule}>)
 endforeach(activeModule ${modulesForKernel})
 
-#these targets build the two libPlumedKernel.so
-#building the shared libraries with the collected modules
+###############################libplumedKernel.so###############################
+#sharedplumedKernel collects all the module objects in a single shared object
+#->#PLUMED_KERNEL := $(PLUMED_LIBDIR)lib$(PLUMED_NAME)Kernel.$(SOEXT)
+#the old makefile recipe is:
+#->#$(PLUMED_KERNEL):$(OBJ_KERNEL)
+#->#	$(LDSHARED) -o $@ $^ $(SONAME_OPTION),"$(SONAME_INSTALL_PATH)$(notdir $@)" $(DYNAMIC_LIBS)
+#Cmake will automatically make the so relocatable on install
 add_library(sharedplumedKernel SHARED)
-set_target_properties(sharedplumedKernel
-    PROPERTIES 
-        LIBRARY_OUTPUT_NAME ${program_name}Kernel
-        #SUFFIX .${SOEXT} #I think that cmake will set so or dlyb by itself
-    )
+set_target_properties(sharedplumedKernel PROPERTIES
+    LIBRARY_OUTPUT_NAME ${program_name}Kernel)
 target_link_libraries(sharedplumedKernel PUBLIC
      ${modulesForKernel} # OBJ_KERNEL without config
      Config #within OBJ_KERNEL
     )
+#needed for tests:
+add_library(Plumed2::sharedplumedKernel ALIAS sharedplumedKernel)
 
-add_library(archiveplumedKernel STATIC)
-set_target_properties(archiveplumedKernel
-    PROPERTIES 
-        #LIBRARY_OUTPUT_NAME ${program_name}
-        ARCHIVE_OUTPUT_NAME ${program_name}
-        #SUFFIX .${SOEXT}
+###############################libplumedWrapper.a###############################
+#archiveplumedWrapper contains the dynamic wrapper
+#->#PLUMED_WRAPPER_LIB := $(PLUMED_LIBDIR)lib$(PLUMED_NAME)Wrapper.a
+#the old makefile recipe is:
+#->#$(PLUMED_WRAPPER_LIB): $(OBJ_DYNAMIC_WRAPPER)
+#->#	$(AR_CR) $@ $^
+add_library(archiveplumedWrapper STATIC)
+set_target_properties(archiveplumedWrapper PROPERTIES 
+    ARCHIVE_OUTPUT_NAME ${program_name}Wrapper)
+target_link_libraries(archiveplumedWrapper PUBLIC
+    PlumedDynamicWrapper
     )
-target_link_libraries(archiveplumedKernel PUBLIC
+
+###################################libplumed.a##################################
+#archiveplumedKernelWithMain contains the kernel objects ready to be statically linked
+#it also contains the main function
+#->#$(LD_RO) install/kernel.o $(OBJ_KERNEL)
+#->#    $(LD_RO) install/kernel.o $(OBJ_KERNEL)
+#the old makefile recipe is:
+#->#install/lib$(program_name).a: install/kernel.o $(OBJ_WRAPPER)
+#->#    $(AR_CR) $@ $^
+add_library(archiveplumedKernelWithMain STATIC)
+set_target_properties(archiveplumedKernelWithMain PROPERTIES
+        ARCHIVE_OUTPUT_NAME ${program_name})
+target_link_libraries(archiveplumedKernelWithMain PUBLIC
         ${modulesForKernel} # OBJ_KERNEL without config
         Config #within OBJ_KERNEL
+        PlumedStaticWrapper
     )
-#add_library(libplumedStatic OBJECT ${KernelTargets})
-#target_link_libraries(libplumedStatic INTERFACE ${modulesForKernel})
 
+##################################libplumed.so##################################
+#sharedplumedMain contains the main function and need to be linked to the shared
+#kernel
+#->#PLUMED_SHARED_OBJ := $(PLUMED_LIBDIR)lib$(PLUMED_NAME).$(SOEXT)
+#the old makefile recipe is:
+#->#$(PLUMED_SHARED_OBJ): $(OBJ_WRAPPER) $(PLUMED_KERNEL)
+#->#	$(LDSHARED) -o $@ $^ $(SONAME_OPTION),"$(SONAME_INSTALL_PATH)$(notdir $@)"
+add_library(sharedplumedMain SHARED)
+set_target_properties(sharedplumedMain PROPERTIES
+        LIBRARY_OUTPUT_NAME ${program_name})
+target_link_libraries(sharedplumedMain PUBLIC
+    PlumedStaticWrapper #object containging the main
+    sharedplumedKernel #the shared library with the kernel and the modules
+)
+#needed for tests:
+add_library(Plumed2::sharedplumedMain ALIAS sharedplumedMain)
+
+##########################end of libraries declaration##########################
+#installing the libraries
+
+install (TARGETS
+    sharedplumedKernel archiveplumedKernelWithMain archiveplumedWrapper sharedplumedMain
+    EXPORT Plumed2LIBS
+    ARCHIVE DESTINATION ${DIRS_LIB_INSTALL}
+    LIBRARY DESTINATION ${DIRS_LIB_INSTALL}
+)
+
+#these subdirectories contains informations for installing plumed
+add_subdirectory(lib)
+#the codes for the executable are within the main subdir
 add_subdirectory(main)
-
-#print_target_property(cltools COMPILE_DEFINITIONS)
-#print_target_property(molfile COMPILE_DEFINITIONS)
-
-# foreach(module_name blas lapack)
-# print_target_property(${module_name} COMPILE_OPTIONS)
-# print_target_property(${module_name} COMPILE_DEFINITIONS)
-# print_target_property(${module_name} INTERFACE_COMPILE_DEFINITIONS)
-# endforeach()
+#this subdirectory contains the informations for accessing the compiled plumed
+#without installing it,
+#AND installs the user macros for creating a plumed2 plugin (using LOAD FILE=file.cpp)
+add_subdirectory(cmake)
 ################################################################################
 #One can also use -DCMAKE_EXPORT_COMPILE_COMMANDS=ON in that case, such that we 
 #have all the commands in the file compile_commands.json without actually 
@@ -342,3 +361,99 @@ add_subdirectory(main)
 #-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 #thanks https://stackoverflow.com/questions/2670121/using-cmake-with-gnu-make-how-can-i-see-the-exact-commands#comment112625585_2673355
 ################################################################################
+
+file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/sourceme.sh
+     CONTENT [[#by sourcing this file you will be able to run plumed from the build directory
+export PATH="@CMAKE_BINARY_DIR@/src/main/:$PATH"
+export LIBRARY_PATH="@CMAKE_BINARY_DIR@/src/:$LIBRARY_PATH"
+export LD_LIBRARY_PATH="@CMAKE_BINARY_DIR@/src/:$LD_LIBRARY_PATH"
+export PLUMED_KERNEL="@CMAKE_BINARY_DIR@/src/libplumedKernel.so"
+export PLUMED_VIMPATH="@CMAKE_SOURCE_DIR@/vim"
+export PYTHONPATH="@CMAKE_SOURCE_DIR@/python:$PYTHONPATH"
+export PYTHONPATH="@CMAKE_SOURCE_DIR@/python:$PYTHONPATH"
+export CMAKE_PREFIX_PATH="@CMAKE_BINARY_DIR@/src/cmake:$CMAKE_PREFIX_PATH"
+export PLUMED_ROOT="@CMAKE_BINARY_DIR@"
+]]
+     #ESCAPE_QUOTES
+     @ONLY
+     )
+
+set (TODO [[
+     #TODO
+-DSTDC_HEADERS=1
+-DHAVE_SYS_TYPES_H=1
+-DHAVE_SYS_STAT_H=1
+-DHAVE_STDLIB_H=1
+-DHAVE_STRING_H=1
+-DHAVE_MEMORY_H=1
+-DHAVE_STRINGS_H=1
+-DHAVE_INTTYPES_H=1
+-DHAVE_STDINT_H=1
+-DHAVE_UNISTD_H=1
+
+]])
+
+if(SHOW_LINKING)
+    set(
+        CMAKE_ECHO_LINK_EXECUTABLE 
+        "<CMAKE_COMMAND> -E echo \"Flags: <FLAGS>\""
+        "<CMAKE_COMMAND> -E echo \"LinkFlags: <LINK_FLAGS>\""
+        "echo \"LinkLibraries: <LINK_LIBRARIES>\" > <TARGET>"
+    )
+    set(CMAKE_ECHO_STANDARD_LIBRARIES ${CMAKE_CXX_STANDARD_LIBRARIES})
+    set(CMAKE_ECHO_FLAGS ${CMAKE_CXX_FLAGS})
+    set(CMAKE_ECHO_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
+    set(CMAKE_ECHO_IMPLICIT_LINK_DIRECTORIES ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
+
+    set(CMAKE_ECHO_COMPILE_OBJECT
+    "<CMAKE_COMMAND> -E echo \"<DEFINES>\" >> <TARGET>")
+
+    file(WRITE null.echo "")
+
+    #add_executable(LinkLine "")
+    foreach(linkelper Shared Static Runtime)
+        add_executable(Link${linkelper}
+            null.echo
+        )
+        set_target_properties(
+            Link${linkelper}  
+                PROPERTIES
+                    LINKER_LANGUAGE ECHO
+                    SUFFIX          ".txt"
+        )
+        add_custom_command(
+            TARGET Link${linkelper}
+            POST_BUILD
+            # COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
+            COMMAND ${CMAKE_COMMAND} -E echo $<TARGET_FILE:Link${linkelper}> PackageCfg/$<TARGET_FILE_NAME:Link${linkelper}>
+        )
+    endforeach(linkelper )
+
+    target_link_libraries(LinkShared sharedplumedKernel PlumedStaticWrapper)
+    target_link_libraries(LinkStatic archiveplumedKernelWithMain PlumedStaticWrapper)
+    target_link_libraries(LinkRuntime PlumedDynamicWrapper)
+endif(SHOW_LINKING)
+# include(CMakePrintHelpers)
+# cmake_print_properties(TARGETS cltools plumed_bin
+#     PROPERTIES COMPILE_DEFINITIONS)
+
+# cmake_print_properties(TARGETS blas config PROPERTIES STATIC_LIBRARY_OPTIONS 
+# INTERFACE_LINK_OPTIONS        LINK_OPTIONS
+# INTERFACE_LINK_FLAGS          LINK_FLAGS 
+# INTERFACE_COMPILE_DEFINITIONS COMPILE_DEFINITIONS
+# INTERFACE_COMPILE_OPTIONS     COMPILE_OPTIONS 
+# INTERFACE_LINK_LIBRARIES      LINK_LIBRARIES
+# INTERFACE_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES )    
+
+message("PLUMED_LIBS: ${PLUMED_LIBS}")
+message("PLUMED_DYNAMIC_LIBS: ${PLUMED_DYNAMIC_LIBS}")
+message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
+message("CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
+#LIST(REMOVE_DUPLICATES PLUMED_LD_FLAGS)
+#message("PLUMED_LD_FLAGS: ${PLUMED_LD_FLAGS}")
+
+if (VERBOSE)
+    foreach(dir ${module_dirs})
+        message("${dir} default:${module_default_${dir}} activated: ${module_${dir}}")
+    endforeach(dir ${module_dirs})
+endif (VERBOSE)

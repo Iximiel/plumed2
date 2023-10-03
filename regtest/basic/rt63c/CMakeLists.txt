@@ -1,0 +1,8 @@
+PLUMED_TEST(rt63c TYPE driver
+ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --igro helix.input.gro --dump-forces ff --dump-full-virial --dump-forces-fmt=%7.4f"
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=driver
+arg="--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --igro helix.input.gro --dump-forces ff --dump-full-virial --dump-forces-fmt=%7.4f"
+]] )

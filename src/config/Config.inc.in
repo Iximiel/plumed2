@@ -24,6 +24,7 @@
 #include "version.h"
 #include <cstdlib>
 #include <cstring>
+#include <unordered_map>
 
 namespace PLMD {
 namespace config {
@@ -42,6 +43,14 @@ std::string getSoExt() {
 
 bool isInstalled() {
   return @ISINSTALLED@;
+}
+
+std::string getMPI_EXEC(){
+    return "@MPIEXEC_EXECUTABLE@";
+}
+
+std::string getPythonBin(){
+    return "@Python_EXECUTABLE@";
 }
 
 std::string getPlumedRoot() {
@@ -177,7 +186,40 @@ std::string getCompilationTime() {
   return __TIME__;
 }
 
+std::unordered_map<std::string,presence> plumedFeatures{
+#include "Config_Features.inc"
+};
 
+presence plumedHasFeature(std::string featureName){
+  if (plumedFeatures.count(featureName)>0){
+    return plumedFeatures[featureName];
+  }
+  return presence::notFound;
 }
+
+struct plumedModuleStatus{
+  presence isPresent;
+  presence defaultStatus;
+};
+
+std::unordered_map<std::string,plumedModuleStatus> plumedModules{
+#include "Config_Modules.inc"
+};
+
+//#include "Config_lib.inc"
+presence plumedHasModule(std::string moduleName){
+  if (plumedModules.count(moduleName)>0){
+    return plumedModules[moduleName].isPresent;
+  }
+  return presence::notFound;
 }
+presence plumedHasModuleDefault(std::string moduleName){
+  if (plumedModules.count(moduleName)>0){
+    return plumedModules[moduleName].defaultStatus;
+  }
+  return presence::notFound;
+}
+} //namespace config
+} // namespace PLMD
+
 

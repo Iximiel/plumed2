@@ -1,0 +1,21 @@
+PLUMED_TEST(rt19 TYPE driver
+ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%8.4f --restart"
+NEEDS zlib
+EXTRAFILES ../../trajectories/trajectory.xyz
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=driver
+plumed_needs=zlib
+# this is to test a different name
+arg="--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%8.4f --restart"
+extra_files="../../trajectories/trajectory.xyz"
+
+function plumed_regtest_after(){
+  gunzip COLVAR.gz
+  gunzip COLVAR.res.gz
+  gunzip HH.gz
+  gunzip CC.gz
+}
+
+]] )

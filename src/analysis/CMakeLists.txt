@@ -1,8 +1,9 @@
 #the variable module_name is set up as a sugar to reduce "copy-paste" errors
 set (module_name "analysis")
 #Note that the macros here require this directory added as a subdir of plumed/src
-option(module_${module_name} "activate module ${module_name}" ON)
-ADDMODULETOKERNEL(${module_name}
+DECLAREPLUMEDMODULE(${module_name}
+ON
+SOURCES
 AnalysisBase.cpp
 Average.cpp
 AverageVessel.cpp
@@ -23,11 +24,9 @@ SelectRandomFrames.cpp
 SelectWithStride.cpp
 WhamHistogram.cpp
 WhamWeights.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools reference vesselbase gridtools multicolvar bias
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	reference #core
 	#TODO: resolve THIS circular dependency:
 	#vesselbase gridtools multicolvar# it does actually depend on them, but it is better to avid cyclic dependencies

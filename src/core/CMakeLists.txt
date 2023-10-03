@@ -1,8 +1,9 @@
 #the variable module_name is set up as a sugar to reduce "copy-paste" errors
 set (module_name "core")
 #Note that the macros here require this directory added as a subdir of plumed/src
-set(module_${module_name} ON CACHE INTERNAL "always active module ${module_name}")
-ADDMODULETOKERNEL(${module_name}
+DECLAREPLUMEDMODULE(${module_name}
+"always"
+SOURCES
 ActionAnyorder.cpp
 ActionAtomistic.cpp
 Action.cpp
@@ -34,15 +35,12 @@ WithCmd.cpp
 PlumedMainMap.inc PlumedMainEnum.inc
 GREXMap.inc GREXEnum.inc
 CLToolMainMap.inc CLToolMainEnum.inc
-)
-
-ADDMODULENEEDS(${module_name}
+NEEDS
 config tools lepton
-)
 #tools depends on more modules that define COMPILE_DEFINITIONS, so
 #it is better to make core dependent of tools, and then solve the circularity
 #in a second time
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
     tools #lepton #lapack #blas #config
 )
 

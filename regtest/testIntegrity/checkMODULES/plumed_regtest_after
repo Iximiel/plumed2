@@ -1,0 +1,6 @@
+#!/bin/bash
+#I expect the following variables to be exported in run_ctest
+{
+  echo "I did nothig"
+} > referenceFile
+

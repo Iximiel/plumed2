@@ -1,0 +1,64 @@
+set(Plumed2_VERSION @PLUMED_VERSION_MAJOR@.@PLUMED_VERSION_MINOR@.@PLUMED_VERSION_PATCH@)
+
+@PACKAGE_INIT@
+
+#overiding this for the build conf
+macro(set_and_check _var _file)
+  set(${_var} "${_file}")
+  foreach(_check ${_file})
+    if(NOT EXISTS "${_check}")
+        message(FATAL_ERROR "File or directory ${_check} referenced by variable ${_var} does not exist !")
+    endif()
+  endforeach() 
+endmacro()
+
+include(CMakeFindDependencyMacro)
+
+@EXTERNAL_PACKAGES@
+
+include("${CMAKE_CURRENT_LIST_DIR}/Plumed2MODULES.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/Plumed2WRAPPERS.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/Plumed2LIBS.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/Plumed2EXEC.cmake")
+
+#user macros are included in this .cmake
+include("${CMAKE_CURRENT_LIST_DIR}/PlumedUserMacros.cmake")
+
+#TODO: ask for distinguish between the "include/plumed" and the "include" kind of installations
+set_and_check(Plumed2_INCLUDE_DIR "@PACKAGE_DIRS_INCLUDE_INSTALL@")
+set_and_check(Plumed2_LIB_DIR "@PACKAGE_DIRS_LIB_INSTALL@")
+set_and_check(Plumed2_BIN_DIR "@PACKAGE_DIRS_BIN_INSTALL@")
+set_and_check(Plumed2_EXTRA_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@")
+set_and_check(Plumed2_FORTRAN_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/fortran")
+set_and_check(Plumed2_VIM_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/vim")
+set_and_check(Plumed2_SCRIPTS_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/scripts")
+set_and_check(Plumed2_PATCHES_DIR "@PACKAGE_DIRS_EXTRA_INSTALL@/patches")
+
+#TODO: add to the manual:
+# To compile a fortran executable with plumed you have (at least) two ways write the CMakeLists.txt:
+# Method 1:
+# ```
+# cmake_minimum_required(VERSION 3.20)
+# project(exe-test CXX Fortran)
+# find_package(Plumed2 REQUIRED)
+# add_executable(exe main.f9 source.f90 ${Plumed2_FORTRAN})
+# # and then link the wanted plumed library
+# target_link_libraries(exe PUBLIC Plumed2::sharedplumedMain)
+# ```
+# Method 2:
+# ```
+# cmake_minimum_required(VERSION 3.20)
+# project(exe-test CXX Fortran)
+# find_package(Plumed2 REQUIRED)
+# #compiling PlumedFortran as a separated library
+# add_library (PlumedFortran ${Plumed2_FORTRAN})
+# add_executable(exe main.f9 source.f90)
+# #and linking it to the exe along with the wanted plumed library
+# target_link_libraries(exe PUBLIC Plumed2::sharedplumedKernel PlumedFortran)
+# ```
+set(Plumed2_FORTRAN "${Plumed2_FORTRAN_DIR}/plumed.f90")
+set(Plumed2_FORTRAN08 "${Plumed2_FORTRAN_DIR}/plumed_f08.f90")
+
+set(Plumed2_DIR "${CMAKE_CURRENT_LIST_DIR}")
+
+check_required_components(Plumed2)

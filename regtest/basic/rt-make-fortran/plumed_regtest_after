@@ -1,0 +1,4 @@
+#! /usr/bin/env bash
+nm build/CMakeFiles/exe.dir/test1.f90.o | grep "plumed_f_[A-Za-z0-9]*_$" > names.dat
+# ??may be changed (like in make-fortran08) to
+# nm build/CMakeFiles/exe.dir/*.o | grep "plumed_f_[A-Za-z0-9]*_$" > names.dat

@@ -33,6 +33,9 @@
 !/s2cm
 !/pytorch
 !/membranefusion
+!/testIntegrity
+!/piv
+!/fisst
 # These files we just want to ignore completely
 tmp
 report.txt

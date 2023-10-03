@@ -1,0 +1,8 @@
+PLUMED_TEST(rt28 TYPE driver
+ARGS "--plumed plumed.dat --ixyz trajectory.xyz"
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=driver
+arg="--plumed plumed.dat --ixyz trajectory.xyz"
+]] )

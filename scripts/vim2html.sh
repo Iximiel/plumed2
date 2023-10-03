@@ -32,7 +32,7 @@ EOF
 fi
 
 if [ ! -f "$VIMFILE" ] ; then
-  echo "Cannot find vimfile at $VIMFILE"
+  echo "Cannot find vimfile at $VIMFILE"  >&2
   exit 1
 fi
 
@@ -183,8 +183,3 @@ echo "$error" >&2
 if [ -n "$error" ] ; then
   exit 1
 fi
-
-
-
-
-

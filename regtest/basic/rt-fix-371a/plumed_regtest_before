@@ -1,0 +1,7 @@
+#! /usr/bin/env bash
+awk 'BEGIN{
+n=100100
+for(i=1;i<=n;i++) {
+  printf("ATOM      1  A   XXX     2    %8.3f%8.3f%8.3f  1.00  1.00\n",(i%100)*0.01,(int(i/100)%100)*0.01,int(i/100000)%100*0.01)
+}
+  }' > in.pdb

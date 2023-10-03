@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.20.2)
 
-
-
 project(Plumed2 LANGUAGES CXX)
 
 set(PLUMED_VERSION_SHORT "2.10")
@@ -16,14 +14,53 @@ execute_process(
 set(PLUMED_VERSION_MAJOR 2)
 set(PLUMED_VERSION_MINOR 10)
 set(PLUMED_VERSION_PATCH 0)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release
+RelWithDebInfo MinSizeRel." FORCE)
+endif(NOT CMAKE_BUILD_TYPE)
+
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS None Debug Release RelWithDebInfo MinSizeRel)
+
 #as now CMake is only experimental, it can be useful if you use vscode or other
 #IDE that have an interface with it, but we are not still confident that it is ready
 #for installation purposes
-set(CMAKE_SKIP_INSTALL_RULES YES)
-option(risk_accepted "CMake is experimental use at your own risk" OFF)
-if(NOT risk_accepted)
-   message(FATAL_ERROR "You must accept the risk to use the experimental cmake compilation: -Drisk_accepted=ON")
-endif(NOT risk_accepted)
+#set(CMAKE_SKIP_INSTALL_RULES YES)
+include(GNUInstallDirs)
+#this forces CMAKE_INSTALL_LIBDIR to be lib and not lib64
+set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
+#set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${program_name})
+set(DIRS_INCLUDE_INSTALL ${CMAKE_INSTALL_INCLUDEDIR}/plumed
+    CACHE PATH "Location of header files" )
+#set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib
+set(DIRS_LIB_INSTALL ${CMAKE_INSTALL_LIBDIR}
+    CACHE PATH "Location of library files" )
+set(DIRS_BIN_INSTALL ${CMAKE_INSTALL_BINDIR}
+    CACHE PATH "Location of executables" )
+set(DIRS_EXTRA_INSTALL ${CMAKE_INSTALL_LIBDIR}/plumed
+    CACHE PATH "Location of executables" )
+set(DIRS_CMAKE_INSTALL ${CMAKE_INSTALL_LIBDIR}/cmake/plumed
 
+    CACHE PATH "Location of executables" )
+
+option(CMAKE_EXPORT_COMPILE_COMMANDS "Enable/Disable output of compile commands during generation." ON)
+################################################################################
+#One can also use -DCMAKE_EXPORT_COMPILE_COMMANDS=ON in that case, such that we 
+#have all the commands in the file compile_commands.json without actually 
+#building the sources.
+#-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#thanks https://stackoverflow.com/questions/2670121/using-cmake-with-gnu-make-how-can-i-see-the-exact-commands#comment112625585_2673355
+################################################################################
 
 add_subdirectory(src)
+add_subdirectory(scripts)
+add_subdirectory(fortran)
+add_subdirectory(vim)
+
+install(DIRECTORY patches
+        DESTINATION ${DIRS_EXTRA_INSTALL})
+#This copy makes plumed work in the builddir
+file(COPY patches DESTINATION ${DIRS_EXTRA_INSTALL})
+
+enable_testing()
+add_subdirectory(regtest)

@@ -1,0 +1,13 @@
+PLUMED_TEST(rt-xdrfile-2 TYPE driver
+ARGS "--plumed plumed.dat --trajectory-stride 1 --timestep 0.005 --itrr traj.trr --multi 2"
+MPIPROCS 2
+)
+#the following variable is the original config file
+set(originalConfig [[
+mpiprocs=2
+type=driver
+# here we read two files traj.0.trr and traj.1.trr
+# the two trajectories have atoms in a different order so as to check that
+# each processor is writing on the correct output files
+arg="--plumed plumed.dat --trajectory-stride 1 --timestep 0.005 --itrr traj.trr --multi 2"
+]] )

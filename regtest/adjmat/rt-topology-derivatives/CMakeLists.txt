@@ -1,0 +1,13 @@
+PLUMED_TEST(rt-topology-derivatives TYPE driver
+ARGS "--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz"
+MODULES adjmat
+EXTRAFILES ../../trajectories/trajectory.xyz
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=driver
+plumed_modules=adjmat
+# this is to test a different name
+arg="--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz" # --debug-forces forces.num --dump-forces-fmt %8.4f"
+extra_files="../../trajectories/trajectory.xyz"
+]] )

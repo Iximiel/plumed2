@@ -1,0 +1,25 @@
+PLUMED_TEST(rt-lepton-asmjit TYPE driver
+ARGS "--plumed plumed.dat --ixyz traj.xyz --dump-forces forces --dump-forces-fmt=%10.6f"
+NEEDS asmjit
+EXPORTVARIABLES
+PLUMED_USE_ASMJIT "yes"
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=driver
+plumed_needs=asmjit
+# this is to test a different name
+arg="--plumed plumed.dat --ixyz traj.xyz --dump-forces forces --dump-forces-fmt=%10.6f"
+
+export PLUMED_USE_ASMJIT=yes
+
+function plumed_regtest_before(){
+awk 'BEGIN{
+  for(i=-50;i<=50;i++) {
+    print "1"
+    print "0 0 0"
+    print "X 0 0",i*0.1
+  }
+}' > traj.xyz
+}
+]] )

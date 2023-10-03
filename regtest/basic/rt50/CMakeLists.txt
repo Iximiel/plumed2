@@ -1,0 +1,11 @@
+PLUMED_TEST(rt50 TYPE sum_hills
+ARGS " --idw t1 --kt 0.6 --stride 300 --hills HILLS_t1 --fmt %8.3f "
+EXTRAFILES ../../trajectories/HILLS_t1 
+)
+#the following variable is the original config file
+set(originalConfig [[
+type=sum_hills
+# this is to test integration and formatting 
+arg=" --idw t1 --kt 0.6 --stride 300 --hills HILLS_t1 --fmt %8.3f "
+extra_files="../../trajectories/HILLS_t1 "
+]] )

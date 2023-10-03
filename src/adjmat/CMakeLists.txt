@@ -1,8 +1,9 @@
 #the variable module_name is set up as a sugar to reduce "copy-paste" errors
 set (module_name "adjmat")
 #Note that the macros here require this directory added as a subdir of plumed/src
-option(module_${module_name} "activate module ${module_name}" OFF)
-ADDMODULETOKERNEL(${module_name}
+DECLAREPLUMEDMODULE(${module_name}
+OFF
+SOURCES
 ActionWithInputMatrix.cpp
 AdjacencyMatrixBase.cpp
 AdjacencyMatrixVessel.cpp
@@ -25,11 +26,9 @@ OutputCluster.cpp
 SMACMatrix.cpp
 Sprint.cpp
 TopologyMatrix.cpp
-)
-ADDMODULENEEDS(${module_name}
+NEEDS
 	core tools vesselbase multicolvar
-)
-ADDMODULEDEPENDENCIES(${module_name}
+DEPENDS
 	#core #tools depends on
 	#tools #vesselbase depends on
 	#vesselbase # multicolvar depends on
