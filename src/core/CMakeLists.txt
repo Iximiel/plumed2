@@ -59,7 +59,7 @@ target_include_directories(${module_name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 MACRO(CREATEINC cppFile type outputFile)
     add_custom_command(OUTPUT ${outputFile}
         DEPENDS ${cppFile}
-        COMMAND bash ${PLUMED_MAKETOOLS}/makecmd_cmake ${type} "${CMAKE_CURRENT_SOURCE_DIR}/${cppFile}"  ${outputFile}
+        COMMAND bash ${PLUMED_MAKETOOLS}/makecmd ${type} "${CMAKE_CURRENT_SOURCE_DIR}/${cppFile}"  ${outputFile}
         COMMENT "Generating ${outputFile}"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
