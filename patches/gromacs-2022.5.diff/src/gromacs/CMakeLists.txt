@@ -332,7 +332,7 @@ target_link_libraries(libgromacs
                       $<$<PLATFORM_ID:SunOS>:socket>
                       PUBLIC
                       ${GMX_PUBLIC_LIBRARIES}
-                      Plumed2::sharedplumedKernel
+                      Plumed2::sharedplumedMain
                       )
 target_link_libraries(libgromacs PUBLIC legacy_api)
 # Dependencies from libgromacs to the modules are set up here, but

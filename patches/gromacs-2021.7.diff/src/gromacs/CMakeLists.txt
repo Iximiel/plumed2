@@ -322,7 +322,7 @@ target_link_libraries(libgromacs
                       $<$<PLATFORM_ID:SunOS>:socket>
                       PUBLIC
                       ${GMX_PUBLIC_LIBRARIES}
-                      Plumed2::sharedplumedKernel
+                      Plumed2::sharedplumedMain
                       )
 if (GMX_OPENMP)
     target_link_libraries(libgromacs PUBLIC OpenMP::OpenMP_CXX)
