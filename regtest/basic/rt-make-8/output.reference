@@ -1,4 +1,4 @@
-75
-75
-7.07107
-7.07107
+plumed_blas_ddot = 75
+plumed_blas_sdot = 75
+plumed_lapack_dlapy2 = 7.07107
+plumed_lapack_slapy2 = 7.07107
