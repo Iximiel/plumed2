@@ -198,6 +198,7 @@ run_make() {
   if [[ -n ${filesf90} ]]; then
     otherLang=$(cat << EOF
 ${otherLang}
+include(CheckLanguage)
 check_language(Fortran)
 if(NOT CMAKE_Fortran_COMPILER)
   message (FATAL_ERROR "NOT_APPLICABLE (Fortran compiler not found)")
