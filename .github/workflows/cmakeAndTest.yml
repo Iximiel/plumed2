@@ -44,6 +44,17 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - uses: actions/cache@v3
+      with:
+        path: ~/.ccache
+        key: ccache-reset1-linux${{ matrix.buildType }}${{matrix.mpi}}${{matrix.compiler}}hash-${{ github.sha }}
+        restore-keys: ccache-reset1-linux${{ matrix.buildType }}${{matrix.mpi}}${{matrix.compiler}}hash-
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+
     - name: Install generic packages
       run: |
         sudo apt-get update -qq
@@ -165,14 +176,16 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       #set up without warnings
       run: > 
+        ccache -s -M 100M;
         cmake -B ${{github.workspace}}/build 
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
         -Doption_relaxed_dependencies=ON 
         -Denable_boost_serialization=ON
         -Dallmodules_activate=ON 
-        -Denable_warnings_basic=OFF 
-        
+        -Denable_warnings_basic=OFF ;
+        ccache -s -M 100M
 
     - name: Build
       working-directory: ${{github.workspace}}/build
