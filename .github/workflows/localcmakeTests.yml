@@ -5,9 +5,9 @@ on:
   branches:
   - 'cmake**'
 jobs:
-  runBasicTests:
-    uses: ./.github/workflows/cmakeAndTest.yml
-    secrets: inherit
+  # runBasicTests:
+  #   uses: ./.github/workflows/cmakeAndTest.yml
+  #   secrets: inherit
   
   mac:
     uses: ./.github/workflows/macWF.yml

@@ -10,6 +10,7 @@ env:
 jobs:
   buildAndTest:
     strategy:
+      fail-fast: false
       matrix:
         compiler: [gcc]
         mpi: [mpi, nompi]
@@ -166,14 +167,12 @@ jobs:
       run: > 
         cmake -B ${{github.workspace}}/build 
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-        -Doption_relaxed_dependencies=ON 
-        -Dallmodules_activate=ON 
-        -Denable_boost_serialization=ON
-        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-        -Dallmodules_activate=ON 
-        -Denable_boost_serialization=ON
-        -Denable_warnings_basic=OFF 
         -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
+        -Doption_relaxed_dependencies=ON 
+        -Denable_boost_serialization=ON
+        -Dallmodules_activate=ON 
+        -Denable_warnings_basic=OFF 
+        
 
     - name: Build
       working-directory: ${{github.workspace}}/build
