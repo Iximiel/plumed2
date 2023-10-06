@@ -420,12 +420,13 @@ set -o pipefail
   # this is the executable used for getting the configuration:
   plumed_nompi="$plumed --no-mpi"
   cat <<EOF
-  ++ plumed: $plumed
-  ++ dir:  $dir
-  ++ Test type: $type
-  ++ Arguments: "$args"
-  ++ Processors: $mpiprocs
-  ++ Extra files: ${extra_files[@]}
+  ++ plumed:       $plumed
+  ++ dir:          $dir
+  ++ wdir:         $PWD
+  ++ Test type:    $type
+  ++ Arguments:    "$args"
+  ++ Processors:   $mpiprocs
+  ++ Extra files:  ${extra_files[@]}
   ++ Plumed needs: $plumed_needs
 EOF
   #export options to be avaiable to subcalled scripts

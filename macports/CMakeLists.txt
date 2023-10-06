@@ -18,7 +18,7 @@ CONTENT
 
 PortSystem          1.0
 PortGroup           mpi 1.0
-PortGroup           linear_     algebra 1.0
+PortGroup           linear_algebra 1.0
 PortGroup           debug 1.0
 PortGroup           cmake 1.1
 
@@ -65,18 +65,15 @@ git.branch          @GIT_VERSION@
 # --disable-mpi:          Do not search for MPI compiler (replaced when enabling mpi, see below)
 # --disable-python:       Python wrappers will be installed with a separate python port
 configure.args-append \
-                    -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                    -DCMAKE_BUILD_TYPE=Release \
                     -Doption_relaxed_dependencies=ON \
-                    -Denable_boost_serialization=ON \
-                    -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-                    -Dallmodules_activate=ON \
                     -Denable_mpi=OFF \
                     -Denable_python=OFF \
                     -Denable_static_linking=OFF \
                     -Denable_doc=OFF
 
 # install bash completions
-configure.args-append -DBASH_COMPLETION_DIR=${prefix}/share/bash-completion/completions
+#configure.args-append -DBASH_COMPLETION_DIR=${prefix}/share/bash-completion/completions
 
 # Hardcode path for libplumedKernel.dylib.
 # This allows to patch MD codes using the --runtime option but using as
@@ -94,22 +91,16 @@ mpi.setup
 if {[mpi_variant_isset]} {
     configure.args-replace -Denable_mpi=OFF -Denable_mpi=ON
 # command should be included in a pre-configure block to access properly the mpi.exec variable
-    pre-configure {
-# MPIEXEC is stored so that it can be used to perform tests
-        configure.args-append MPIEXEC="${mpi.exec}"
-    }
+#     pre-configure {
+# # MPIEXEC is stored so that it can be used to perform tests
+#         configure.args-append MPIEXEC="${mpi.exec}"
+#     }
 }
-
-# Optimization flags.
-# Notice that plumed is computationally heavy and that
-# this change has a significant impact in plumed performances
-configure.cxxflags-replace -Os -O3
 
 # Libraries.
 # Library names are specified here to make sure that
 # only requested packages are linked.
-configure.ldflags-append \
-                    -lz -lgsl -lfftw3
+
 depends_lib-append  port:fftw-3 \
                     port:gawk \
                     port:gsl \
@@ -125,17 +116,18 @@ if {[string match *clang* ${configure.compiler}]} {
 # This variant enables optional modules in PLUMED.
 # Notice that one of the optional modules (drr) requires boost_serialization
 variant allmodules description {Enable all optional modules} {
-    configure.args-append -Dallmodules_activate=ON
-    configure.args-append -Denable_boost_serialization=ON
+    configure.args-append \
+                        -Dallmodules_activate=ON \
+                        -Denable_boost_serialization=ON
     #configure.ldflags-append -lboost_serialization-mt
     depends_lib-append port:boost
 }
 
 # Link lapack/blas libraries
-pre-configure {
-    # commands should be included in a pre-configure block to access tcl variables
-    configure.ldflags-append ${linalglib}
-}
+# pre-configure {
+#     # commands should be included in a pre-configure block to access tcl variables
+#     configure.ldflags-append ${linalglib}
+# }
 
 # Allow running tests from MacPorts
 test.run yes
@@ -144,3 +136,4 @@ test.target check
 ]=]
 @ONLY
 )
+#TODO: Bash completitions
