@@ -39,8 +39,7 @@ set(DIRS_BIN_INSTALL ${CMAKE_INSTALL_BINDIR}
     CACHE PATH "Location of executables" )
 set(DIRS_EXTRA_INSTALL ${CMAKE_INSTALL_LIBDIR}/plumed
     CACHE PATH "Location of executables" )
-set(DIRS_CMAKE_INSTALL ${CMAKE_INSTALL_LIBDIR}/cmake/plumed
-
+set(DIRS_CMAKE_INSTALL ${CMAKE_INSTALL_LIBDIR}/cmake/Plumed2
     CACHE PATH "Location of executables" )
 
 option(CMAKE_EXPORT_COMPILE_COMMANDS "Enable/Disable output of compile commands during generation." ON)
@@ -58,9 +57,13 @@ add_subdirectory(fortran)
 add_subdirectory(vim)
 
 install(DIRECTORY patches
-        DESTINATION ${DIRS_EXTRA_INSTALL})
+        DESTINATION ${DIRS_EXTRA_INSTALL}
+        USE_SOURCE_PERMISSIONS)
 #This copy makes plumed work in the builddir
-file(COPY patches DESTINATION ${DIRS_EXTRA_INSTALL})
+file(COPY patches
+    DESTINATION ${DIRS_EXTRA_INSTALL}
+    USE_SOURCE_PERMISSIONS
+)
 
 enable_testing()
 add_subdirectory(regtest)

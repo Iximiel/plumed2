@@ -12,7 +12,7 @@ if(NOT TARGET Plumed2::plumed_bin)
   #when testing in the build environment
   set(STANDALONE_TESTS ON)
   else()
-  set (Plumed2_DIR "${CMAKE_BINARY_DIR}/lib/cmake/plumed")
+  set (Plumed2_DIR "${CMAKE_BINARY_DIR}/lib/cmake/Plumed2")
 endif()
 
 set(PLUMED_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR})

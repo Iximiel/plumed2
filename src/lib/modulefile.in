@@ -39,6 +39,9 @@ prepend-path  LIBRARY_PATH       $libdir
 # path for VIM syntax
 setenv        PLUMED_VIMPATH     $libdir/$progname/vim
 
+# path for CMake
+prepend-path  CMAKE_PREFIX_PATH  $libdir/cmake/
+
 # path for pkgconfig
 prepend-path  PKG_CONFIG_PATH    $libdir/pkgconfig/
 
