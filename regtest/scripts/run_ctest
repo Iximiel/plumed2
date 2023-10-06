@@ -196,7 +196,15 @@ run_make() {
   filesf90=$(ls ./*.f90 2>/dev/null)
   files=$(ls ./*.cpp ./*.f90 ./*.c 2>/dev/null)
   if [[ -n ${filesf90} ]]; then
-    otherLang="${otherLang}enable_language (Fortran)\n"
+    otherLang=$(cat << EOF
+${otherLang}
+check_language(Fortran)
+if(NOT CMAKE_Fortran_COMPILER)
+  message (FATAL_ERROR "NOT_APPLICABLE (Fortran compiler not found)")
+endif()
+enable_language (Fortran)  
+EOF
+)
     if [[ $compiler_language = "fortran08" ]]; then
       otherLang=$(
         cat <<EOF
