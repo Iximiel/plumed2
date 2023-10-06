@@ -351,7 +351,7 @@ check() {
         # ASCII and diff will be shown in the log
         test "$(head -c 10 "$file")" = "#! FIELDS " && DIFFOPT="-a"
         out="$(diff $DIFFOPT "$file" "$new.zfix")"
-        diff $DIFFOPT "$file" "$new.zfix"
+        
         test -n "$out" && {
           echo FAILURE
           echo "Diff for ${file%.reference}:"
@@ -370,9 +370,8 @@ check() {
   return $exitcode
 }
 
-#this settings make the pipe exit with failure code of any command
-#so the program exits with the exit state of the scripta and not the
-#one of tee
+#this settings make the pipe exit with failure code of any command so the 
+#program exits with the exit state of the script and not the one of tee
 set -o pipefail
 {
   if test -n "$PLUMED_PREPEND_PATH"; then
