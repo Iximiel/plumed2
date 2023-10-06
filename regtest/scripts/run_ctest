@@ -286,6 +286,7 @@ EOF
   cat <<EOF >CMakeLists.txt
 cmake_minimum_required(VERSION 3.20)
 project(exe-test CXX)
+set (CMAKE_CXX_STANDARD 11)
 $(echo -e "$otherLang")
 find_package(Plumed2 REQUIRED)
 $(echo -e "$compileLibs")
