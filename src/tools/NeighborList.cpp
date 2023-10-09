@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <numeric>
 
+
 namespace PLMD {
 
 NeighborList::NeighborList(const std::vector<AtomNumber>& list0, const std::vector<AtomNumber>& list1,
@@ -68,10 +69,12 @@ NeighborList::NeighborList(const std::vector<AtomNumber>& list0, const bool& ser
   lastupdate_=0;
 }
 
+NeighborList::~NeighborList()=default;
+
 void NeighborList::initialize() {
-  neighbors_.clear();
+  neighbors_.resize(nallpairs_);
   for(unsigned int i=0; i<nallpairs_; ++i) {
-    neighbors_.push_back(getIndexPair(i));
+    neighbors_[i]=getIndexPair(i);
   }
 }
 
@@ -79,17 +82,17 @@ std::vector<AtomNumber>& NeighborList::getFullAtomList() {
   return fullatomlist_;
 }
 
-std::pair<unsigned,unsigned> NeighborList::getIndexPair(unsigned ipair) {
-  std::pair<unsigned,unsigned> index;
+NeighborList::pairIDs NeighborList::getIndexPair(unsigned ipair) {
+  pairIDs index;
   if(twolists_ && do_pair_) {
-    index=std::pair<unsigned,unsigned>(ipair,ipair+nlist0_);
+    index=pairIDs(ipair,ipair+nlist0_);
   } else if (twolists_ && !do_pair_) {
-    index=std::pair<unsigned,unsigned>(ipair/nlist1_,ipair%nlist1_+nlist0_);
+    index=pairIDs(ipair/nlist1_,ipair%nlist1_+nlist0_);
   } else if (!twolists_) {
     unsigned ii = nallpairs_-1-ipair;
     unsigned  K = unsigned(std::floor((std::sqrt(double(8*ii+1))+1)/2));
     unsigned jj = ii-K*(K-1)/2;
-    index=std::pair<unsigned,unsigned>(nlist0_-1-K,nlist0_-1-jj);
+    index=pairIDs(nlist0_-1-K,nlist0_-1-jj);
   }
   return index;
 }
@@ -115,7 +118,7 @@ void NeighborList::update(const std::vector<Vector>& positions) {
     std::vector<unsigned> private_flat_nl;
     #pragma omp for nowait
     for(unsigned int i=rank; i<nallpairs_; i+=stride) {
-      std::pair<unsigned,unsigned> index=getIndexPair(i);
+      pairIDs index=getIndexPair(i);
       unsigned index0=index.first;
       unsigned index1=index.second;
       Vector distance;
@@ -181,7 +184,7 @@ std::vector<AtomNumber>& NeighborList::getReducedAtomList() {
 // I exploit the fact that requestlist_ is an ordered vector
       auto p = std::find(requestlist_.begin(), requestlist_.end(), index0); plumed_dbg_assert(p!=requestlist_.end()); newindex0=p-requestlist_.begin();
       p = std::find(requestlist_.begin(), requestlist_.end(), index1); plumed_dbg_assert(p!=requestlist_.end()); newindex1=p-requestlist_.begin();
-      neighbors_[i]=std::pair<unsigned,unsigned>(newindex0,newindex1);
+      neighbors_[i]=pairIDs(newindex0,newindex1);
     }
   reduced=true;
   return requestlist_;
@@ -203,7 +206,7 @@ unsigned NeighborList::size() const {
   return neighbors_.size();
 }
 
-std::pair<unsigned,unsigned> NeighborList::getClosePair(unsigned i) const {
+NeighborList::pairIDs NeighborList::getClosePair(unsigned i) const {
   return neighbors_[i];
 }
 

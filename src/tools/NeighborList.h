@@ -36,20 +36,24 @@ class Communicator;
 /// A class that implements neighbor lists from two lists or a single list of atoms
 class NeighborList
 {
+  public:
+  using pairIDs=std::pair<unsigned,unsigned>;
+  private:
   bool reduced;
   bool serial_;
   bool do_pair_,do_pbc_,twolists_;
   const PLMD::Pbc* pbc_;
   Communicator& comm;
   std::vector<PLMD::AtomNumber> fullatomlist_,requestlist_;
-  std::vector<std::pair<unsigned,unsigned> > neighbors_;
+  std::vector<pairIDs > neighbors_;
   double distance_;
-  unsigned stride_,nlist0_,nlist1_,nallpairs_,lastupdate_;
+  size_t nlist0_,nlist1_,nallpairs_;
+  unsigned stride_,lastupdate_;
 /// Initialize the neighbor list with all possible pairs
   void initialize();
 /// Return the pair of indexes in the positions array
 /// of the two atoms forming the i-th pair among all possible pairs
-  std::pair<unsigned,unsigned> getIndexPair(unsigned i);
+  pairIDs getIndexPair(unsigned i);
 /// Extract the list of atoms from the current list of close pairs
   void setRequestList();
 public:
@@ -63,6 +67,7 @@ public:
                const bool& do_pbc,
                const PLMD::Pbc& pbc, Communicator &cm, const double& distance=1.0e+30,
                const unsigned& stride=0);
+~NeighborList();
 /// Return the list of all atoms. These are needed to rebuild the neighbor list.
   std::vector<PLMD::AtomNumber>& getFullAtomList();
 /// Update the indexes in the neighbor list to match the
@@ -81,10 +86,9 @@ public:
 /// Get the size of the neighbor list
   unsigned size() const;
 /// Get the i-th pair of the neighbor list
-  std::pair<unsigned,unsigned> getClosePair(unsigned i) const;
+  pairIDs getClosePair(unsigned i) const;
 /// Get the list of neighbors of the i-th atom
   std::vector<unsigned> getNeighbors(unsigned i);
-  ~NeighborList() {}
 /// Get the i-th pair of AtomNumbers from the neighbor list
   std::pair<AtomNumber,AtomNumber> getClosePairAtomNumber(unsigned i) const;
 };
