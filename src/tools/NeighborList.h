@@ -34,21 +34,26 @@ class Communicator;
 
 /// \ingroup TOOLBOX
 /// A class that implements neighbor lists from two lists or a single list of atoms
-class NeighborList
-{
-  public:
+class NeighborList {
+public:
   using pairIDs=std::pair<unsigned,unsigned>;
-  private:
-  bool reduced;
+private:
+  bool reduced=false;
   bool serial_;
-  bool do_pair_,do_pbc_,twolists_;
+  bool do_pair_;
+  bool do_pbc_;
+  bool twolists_;
   const PLMD::Pbc* pbc_;
   Communicator& comm;
-  std::vector<PLMD::AtomNumber> fullatomlist_,requestlist_;
-  std::vector<pairIDs > neighbors_;
+  std::vector<PLMD::AtomNumber> fullatomlist_{};
+  std::vector<PLMD::AtomNumber> requestlist_{};
+  std::vector<pairIDs > neighbors_{};
   double distance_;
-  size_t nlist0_,nlist1_,nallpairs_;
-  unsigned stride_,lastupdate_;
+  size_t nlist0_=0;
+  size_t nlist1_=0;
+  size_t nallpairs_;
+  unsigned stride_=0;
+  unsigned lastupdate_=0;
 /// Initialize the neighbor list with all possible pairs
   void initialize();
 /// Return the pair of indexes in the positions array
@@ -67,7 +72,7 @@ public:
                const bool& do_pbc,
                const PLMD::Pbc& pbc, Communicator &cm, const double& distance=1.0e+30,
                const unsigned& stride=0);
-~NeighborList();
+  ~NeighborList();
 /// Return the list of all atoms. These are needed to rebuild the neighbor list.
   std::vector<PLMD::AtomNumber>& getFullAtomList();
 /// Update the indexes in the neighbor list to match the

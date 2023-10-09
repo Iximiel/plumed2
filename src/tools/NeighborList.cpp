@@ -33,18 +33,30 @@
 
 namespace PLMD {
 
-NeighborList::NeighborList(const std::vector<AtomNumber>& list0, const std::vector<AtomNumber>& list1,
-                           const bool& serial, const bool& do_pair, const bool& do_pbc, const Pbc& pbc, Communicator& cm,
-                           const double& distance, const unsigned& stride): reduced(false),
-  serial_(serial), do_pair_(do_pair), do_pbc_(do_pbc), pbc_(&pbc), comm(cm),
-  distance_(distance), stride_(stride)
-{
-// store full list of atoms needed
-  fullatomlist_=list0;
+NeighborList::NeighborList(const std::vector<AtomNumber>& list0,
+                           const std::vector<AtomNumber>& list1,
+                           const bool& serial,
+                           const bool& do_pair,
+                           const bool& do_pbc,
+                           const Pbc& pbc,
+                           Communicator& cm,
+                           const double& distance,
+                           const unsigned& stride)
+  : reduced(false),
+    serial_(serial),
+    do_pair_(do_pair),
+    do_pbc_(do_pbc),
+    twolists_(true),
+    pbc_(&pbc),
+    comm(cm),
+    //copy-initialize fullatomlist_
+    fullatomlist_(list0),
+    distance_(distance),
+    nlist0_(list0.size()),
+    nlist1_(list1.size()),
+    stride_(stride) {
+  // store the rest of the atoms into fullatomlist_
   fullatomlist_.insert(fullatomlist_.end(),list1.begin(),list1.end());
-  nlist0_=list0.size();
-  nlist1_=list1.size();
-  twolists_=true;
   if(!do_pair) {
     nallpairs_=nlist0_*nlist1_;
   } else {
@@ -53,20 +65,27 @@ NeighborList::NeighborList(const std::vector<AtomNumber>& list0, const std::vect
     nallpairs_=nlist0_;
   }
   initialize();
-  lastupdate_=0;
 }
 
-NeighborList::NeighborList(const std::vector<AtomNumber>& list0, const bool& serial, const bool& do_pbc,
-                           const Pbc& pbc, Communicator& cm, const double& distance,
-                           const unsigned& stride): reduced(false),
-  serial_(serial), do_pbc_(do_pbc), pbc_(&pbc), comm(cm),
-  distance_(distance), stride_(stride) {
-  fullatomlist_=list0;
-  nlist0_=list0.size();
-  twolists_=false;
-  nallpairs_=nlist0_*(nlist0_-1)/2;
+NeighborList::NeighborList(const std::vector<AtomNumber>& list0,
+                           const bool& serial, const bool& do_pbc,
+                           const Pbc& pbc,
+                           Communicator& cm,
+                           const double& distance,
+                           const unsigned& stride)
+  : reduced(false),
+    serial_(serial),
+    do_pbc_(do_pbc),
+    twolists_(false),
+    pbc_(&pbc),
+    comm(cm),
+    //copy-initialize fullatomlist_
+    fullatomlist_(list0),
+    distance_(distance),
+    nlist0_(list0.size()),
+    nallpairs_(nlist0_*(nlist0_-1)/2),
+    stride_(stride) {
   initialize();
-  lastupdate_=0;
 }
 
 NeighborList::~NeighborList()=default;
