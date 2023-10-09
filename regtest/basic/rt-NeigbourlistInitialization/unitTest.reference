@@ -1,0 +1,72 @@
+Single list:(100 atoms)
+[100]Initial number: pass
+
+Double list, no pairs:(100, 100 atoms)
+[100, 100]Initial number: pass
+
+Double list, with pairs:
+[100, 100]Initial number: pass
+
+Double list, no pairs:(100, 500 atoms)
+[100, 500]Initial number: pass
+
+Double list, no pairs:(100, 1000 atoms)
+[100, 1000]Initial number: pass
+
+Double list, no pairs:(100, 10000 atoms)
+[100, 10000]Initial number: pass
+
+Single list:(500 atoms)
+[500]Initial number: pass
+
+Double list, no pairs:(500, 100 atoms)
+[500, 100]Initial number: pass
+
+Double list, no pairs:(500, 500 atoms)
+[500, 500]Initial number: pass
+
+Double list, with pairs:
+[500, 500]Initial number: pass
+
+Double list, no pairs:(500, 1000 atoms)
+[500, 1000]Initial number: pass
+
+Double list, no pairs:(500, 10000 atoms)
+[500, 10000]Initial number: pass
+
+Single list:(1000 atoms)
+[1000]Initial number: pass
+
+Double list, no pairs:(1000, 100 atoms)
+[1000, 100]Initial number: pass
+
+Double list, no pairs:(1000, 500 atoms)
+[1000, 500]Initial number: pass
+
+Double list, no pairs:(1000, 1000 atoms)
+[1000, 1000]Initial number: pass
+
+Double list, with pairs:
+[1000, 1000]Initial number: pass
+
+Double list, no pairs:(1000, 10000 atoms)
+[1000, 10000]Initial number: pass
+
+Single list:(10000 atoms)
+[10000]Initial number: pass
+
+Double list, no pairs:(10000, 100 atoms)
+[10000, 100]Initial number: pass
+
+Double list, no pairs:(10000, 500 atoms)
+[10000, 500]Initial number: pass
+
+Double list, no pairs:(10000, 1000 atoms)
+[10000, 1000]Initial number: pass
+
+Double list, no pairs:(10000, 10000 atoms)
+[10000, 10000]Initial number: pass
+
+Double list, with pairs:
+[10000, 10000]Initial number: pass
+

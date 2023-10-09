@@ -1,0 +1,18 @@
+type=make
+#type=driver
+#plumed_needs="dlopen"
+#arg="--plumed plumed.dat --ixyz trajectory.xyz"
+
+#the sum of the first 100000 numbers is > std::numeric_limits<int>::max() and 
+#the sum of the first 100000 numbers is > std::numeric_limits<unsigned int>::max()
+#the sum of the first 100000 numbers is the number of pairs created in the NL
+#function plumed_regtest_before(){
+# awk 'BEGIN{
+#   nat=100000
+#   printf "%i\n", nat
+#   printf "1 1 130\n"
+#   for(i=0;i<nat;i++) {
+#     printf "X 0 0 %f\n",i*0.001
+#   }
+# }' > trajectory.xyz
+# }
