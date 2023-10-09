@@ -1,72 +1,96 @@
-Single list:(100 atoms)
+Single list:
 [100]Initial number: pass
+[100]Expected couples: pass
 
-Double list, no pairs:(100, 100 atoms)
+Double list, no pairs:
 [100, 100]Initial number: pass
+[100, 100]Expected couples: pass
 
 Double list, with pairs:
 [100, 100]Initial number: pass
+[100, 100]Expected couples: pass
 
-Double list, no pairs:(100, 500 atoms)
+Double list, no pairs:
 [100, 500]Initial number: pass
+[100, 500]Expected couples: pass
 
-Double list, no pairs:(100, 1000 atoms)
+Double list, no pairs:
 [100, 1000]Initial number: pass
+[100, 1000]Expected couples: pass
 
-Double list, no pairs:(100, 10000 atoms)
+Double list, no pairs:
 [100, 10000]Initial number: pass
+[100, 10000]Expected couples: pass
 
-Single list:(500 atoms)
+Single list:
 [500]Initial number: pass
+[500]Expected couples: pass
 
-Double list, no pairs:(500, 100 atoms)
+Double list, no pairs:
 [500, 100]Initial number: pass
+[500, 100]Expected couples: pass
 
-Double list, no pairs:(500, 500 atoms)
+Double list, no pairs:
 [500, 500]Initial number: pass
+[500, 500]Expected couples: pass
 
 Double list, with pairs:
 [500, 500]Initial number: pass
+[500, 500]Expected couples: pass
 
-Double list, no pairs:(500, 1000 atoms)
+Double list, no pairs:
 [500, 1000]Initial number: pass
+[500, 1000]Expected couples: pass
 
-Double list, no pairs:(500, 10000 atoms)
+Double list, no pairs:
 [500, 10000]Initial number: pass
+[500, 10000]Expected couples: pass
 
-Single list:(1000 atoms)
+Single list:
 [1000]Initial number: pass
+[1000]Expected couples: pass
 
-Double list, no pairs:(1000, 100 atoms)
+Double list, no pairs:
 [1000, 100]Initial number: pass
+[1000, 100]Expected couples: pass
 
-Double list, no pairs:(1000, 500 atoms)
+Double list, no pairs:
 [1000, 500]Initial number: pass
+[1000, 500]Expected couples: pass
 
-Double list, no pairs:(1000, 1000 atoms)
+Double list, no pairs:
 [1000, 1000]Initial number: pass
+[1000, 1000]Expected couples: pass
 
 Double list, with pairs:
 [1000, 1000]Initial number: pass
+[1000, 1000]Expected couples: pass
 
-Double list, no pairs:(1000, 10000 atoms)
+Double list, no pairs:
 [1000, 10000]Initial number: pass
+[1000, 10000]Expected couples: pass
 
-Single list:(10000 atoms)
+Single list:
 [10000]Initial number: pass
+[10000]Expected couples: pass
 
-Double list, no pairs:(10000, 100 atoms)
+Double list, no pairs:
 [10000, 100]Initial number: pass
+[10000, 100]Expected couples: pass
 
-Double list, no pairs:(10000, 500 atoms)
+Double list, no pairs:
 [10000, 500]Initial number: pass
+[10000, 500]Expected couples: pass
 
-Double list, no pairs:(10000, 1000 atoms)
+Double list, no pairs:
 [10000, 1000]Initial number: pass
+[10000, 1000]Expected couples: pass
 
-Double list, no pairs:(10000, 10000 atoms)
+Double list, no pairs:
 [10000, 10000]Initial number: pass
+[10000, 10000]Expected couples: pass
 
 Double list, with pairs:
 [10000, 10000]Initial number: pass
+[10000, 10000]Expected couples: pass
 

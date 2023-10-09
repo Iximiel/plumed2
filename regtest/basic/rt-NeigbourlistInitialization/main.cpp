@@ -30,14 +30,24 @@ int main(int, char **) {
       ++i;
     }
     {
-      report << "Single list:(" << nat0 << " atoms)\n";
+      report << "Single list:\n";
       size_t expected = ((nat0 - 1) * nat0) / 2;
       auto nl = NeighborList(list0, serial, do_pbc, pbc, cm);
       // std::cerr << nl.size() << "==" << expected << ": " << std::boolalpha
       //  << (nl.size() == expected) << '\n';
       report << "[" << nat0
              << "]Initial number: " << check(nl.size() == expected);
-
+      bool expectedcouples = true;
+      for (size_t cID = 0; cID < expected && expectedcouples; ++cID) {
+        unsigned ii = expected - 1 - cID;
+        unsigned K =
+            unsigned(std::floor((std::sqrt(double(8 * ii + 1)) + 1) / 2));
+        unsigned jj = ii - K * (K - 1) / 2;
+        auto couple = nl.getClosePair(cID);
+        expectedcouples &= couple.first == nat0 - 1 - K;
+        expectedcouples &= couple.second == nat0 - 1 - jj;
+      }
+      report << "[" << nat0 << "]Expected couples: " << check(expectedcouples);
       report << "\n";
     }
     for (size_t nat1 : {100, 500, 1000, 10000}) {
@@ -51,8 +61,7 @@ int main(int, char **) {
       }
 
       {
-        report << "Double list, no pairs:(" << nat0 << ", " << nat1
-               << " atoms)\n";
+        report << "Double list, no pairs:\n";
         bool do_pair = false;
         size_t expected = nat1 * nat0;
         auto nl = NeighborList(list0, list1, serial, do_pair, do_pbc, pbc, cm);
@@ -60,6 +69,14 @@ int main(int, char **) {
         //  << (nl.size() == expected) << '\n';
         report << "[" << nat0 << ", " << nat1
                << "]Initial number: " << check(nl.size() == expected);
+        bool expectedcouples = true;
+        for (size_t cID = 0; cID < expected && expectedcouples; ++cID) {
+          auto couple = nl.getClosePair(cID);
+          expectedcouples &= couple.first == (cID / nat1);
+          expectedcouples &= couple.second == (cID % nat1 + nat0);
+        }
+        report << "[" << nat0 << ", " << nat1
+               << "]Expected couples: " << check(expectedcouples);
         report << "\n";
       }
 
@@ -72,6 +89,14 @@ int main(int, char **) {
         //  << (nl.size() == expected) << '\n';
         report << "[" << nat0 << ", " << nat1
                << "]Initial number: " << check(nl.size() == expected);
+        bool expectedcouples = true;
+        for (size_t cID = 0; cID < expected && expectedcouples; ++cID) {
+          auto couple = nl.getClosePair(cID);
+          expectedcouples &= couple.first == cID;
+          expectedcouples &= couple.second == cID + nat0;
+        }
+        report << "[" << nat0 << ", " << nat1
+               << "]Expected couples: " << check(expectedcouples);
         report << "\n";
       }
     }
