@@ -30,7 +30,6 @@
 #include <algorithm>
 #include <numeric>
 
-
 namespace PLMD {
 
 NeighborList::NeighborList(const std::vector<AtomNumber>& list0,
@@ -60,8 +59,10 @@ NeighborList::NeighborList(const std::vector<AtomNumber>& list0,
   if(!do_pair) {
     nallpairs_=nlist0_*nlist1_;
   } else {
-    plumed_assert(nlist0_==nlist1_) << "when using PAIR option, the two groups should have the same number of elements\n"
-                                    << "the groups you specified have size "<<nlist0_<<" and "<<nlist1_;
+    plumed_assert(nlist0_==nlist1_)
+        << "when using PAIR option, the two groups should have the same number"
+        " of elements\n" << "the groups you specified have size "
+        <<nlist0_<<" and "<<nlist1_;
     nallpairs_=nlist0_;
   }
   initialize();
@@ -92,22 +93,23 @@ NeighborList::~NeighborList()=default;
 
 void NeighborList::initialize() {
   neighbors_.resize(nallpairs_);
-  for(unsigned int i=0; i<nallpairs_; ++i) {
+  //TODO: test is this accelerate
+  //#pragma omp parallel for default(shared)
+  for(unsigned int i=0; i<nallpairs_; ++i)
     neighbors_[i]=getIndexPair(i);
-  }
 }
 
 std::vector<AtomNumber>& NeighborList::getFullAtomList() {
   return fullatomlist_;
 }
 
-NeighborList::pairIDs NeighborList::getIndexPair(unsigned ipair) {
+NeighborList::pairIDs NeighborList::getIndexPair(const unsigned ipair) {
   pairIDs index;
-  if(twolists_ && do_pair_) {
+  if(twolists_ && do_pair_)
     index=pairIDs(ipair,ipair+nlist0_);
-  } else if (twolists_ && !do_pair_) {
+  else if (twolists_ && !do_pair_)
     index=pairIDs(ipair/nlist1_,ipair%nlist1_+nlist0_);
-  } else if (!twolists_) {
+  else if (!twolists_) {
     unsigned ii = nallpairs_-1-ipair;
     unsigned  K = unsigned(std::floor((std::sqrt(double(8*ii+1))+1)/2));
     unsigned jj = ii-K*(K-1)/2;
@@ -153,15 +155,21 @@ void NeighborList::update(const std::vector<Vector>& positions) {
       }
     }
     #pragma omp critical
-    local_flat_nl.insert(local_flat_nl.end(), private_flat_nl.begin(), private_flat_nl.end());
+    local_flat_nl.insert(local_flat_nl.end(),
+                         private_flat_nl.begin(),
+                         private_flat_nl.end());
   }
 
   // find total dimension of neighborlist
   std::vector <int> local_nl_size(stride, 0);
   local_nl_size[rank] = local_flat_nl.size();
-  if(!serial_) comm.Sum(&local_nl_size[0], stride);
+  if(!serial_)
+    comm.Sum(&local_nl_size[0], stride);
   int tot_size = std::accumulate(local_nl_size.begin(), local_nl_size.end(), 0);
-  if(tot_size==0) {setRequestList(); return;}
+  if(tot_size==0) {
+    setRequestList();
+    return;
+  }
   // merge
   std::vector<unsigned> merge_nl(tot_size, 0);
   // calculate vector of displacement
@@ -173,8 +181,14 @@ void NeighborList::update(const std::vector<Vector>& positions) {
     disp[i+1] = rank_size;
   }
   // Allgather neighbor list
-  if(comm.initialized()&&!serial_) comm.Allgatherv((!local_flat_nl.empty()?&local_flat_nl[0]:NULL), local_nl_size[rank], &merge_nl[0], &local_nl_size[0], &disp[0]);
-  else merge_nl = local_flat_nl;
+  if(comm.initialized()&&!serial_) {
+    comm.Allgatherv((!local_flat_nl.empty()?&local_flat_nl[0]:NULL),
+                    local_nl_size[rank],
+                    &merge_nl[0],
+                    &local_nl_size[0],
+                    &disp[0]);
+  } else
+    merge_nl = local_flat_nl;
   // resize neighbor stuff
   neighbors_.resize(tot_size/2);
   for(unsigned i=0; i<tot_size/2; i++) {
@@ -196,15 +210,20 @@ void NeighborList::setRequestList() {
 }
 
 std::vector<AtomNumber>& NeighborList::getReducedAtomList() {
-  if(!reduced)for(unsigned int i=0; i<size(); ++i) {
-      unsigned newindex0=0,newindex1=0;
+  if(!reduced) {
+    for(unsigned int i=0; i<size(); ++i) {
       AtomNumber index0=fullatomlist_[neighbors_[i].first];
       AtomNumber index1=fullatomlist_[neighbors_[i].second];
 // I exploit the fact that requestlist_ is an ordered vector
-      auto p = std::find(requestlist_.begin(), requestlist_.end(), index0); plumed_dbg_assert(p!=requestlist_.end()); newindex0=p-requestlist_.begin();
-      p = std::find(requestlist_.begin(), requestlist_.end(), index1); plumed_dbg_assert(p!=requestlist_.end()); newindex1=p-requestlist_.begin();
+      auto p = std::find(requestlist_.begin(), requestlist_.end(), index0);
+      plumed_dbg_assert(p!=requestlist_.end());
+      unsigned newindex0=p-requestlist_.begin();
+      p = std::find(requestlist_.begin(), requestlist_.end(), index1);
+      plumed_dbg_assert(p!=requestlist_.end());
+      unsigned newindex1=p-requestlist_.begin();
       neighbors_[i]=pairIDs(newindex0,newindex1);
     }
+  }
   reduced=true;
   return requestlist_;
 }
@@ -217,7 +236,7 @@ unsigned NeighborList::getLastUpdate() const {
   return lastupdate_;
 }
 
-void NeighborList::setLastUpdate(unsigned step) {
+void NeighborList::setLastUpdate(const unsigned step) {
   lastupdate_=step;
 }
 
@@ -225,23 +244,27 @@ unsigned NeighborList::size() const {
   return neighbors_.size();
 }
 
-NeighborList::pairIDs NeighborList::getClosePair(unsigned i) const {
+NeighborList::pairIDs NeighborList::getClosePair(const unsigned i) const {
   return neighbors_[i];
 }
 
-std::pair<AtomNumber,AtomNumber> NeighborList::getClosePairAtomNumber(unsigned i) const {
-  std::pair<AtomNumber,AtomNumber> Aneigh;
-  Aneigh=std::pair<AtomNumber,AtomNumber>(fullatomlist_[neighbors_[i].first],fullatomlist_[neighbors_[i].second]);
+NeighborList::pairAtomNumbers
+NeighborList::getClosePairAtomNumber(const unsigned i) const {
+  pairAtomNumbers Aneigh=pairAtomNumbers(
+                           fullatomlist_[neighbors_[i].first],
+                           fullatomlist_[neighbors_[i].second]);
   return Aneigh;
 }
 
-std::vector<unsigned> NeighborList::getNeighbors(unsigned index) {
+std::vector<unsigned> NeighborList::getNeighbors(const unsigned index) {
   std::vector<unsigned> neighbors;
   for(unsigned int i=0; i<size(); ++i) {
-    if(neighbors_[i].first==index)  neighbors.push_back(neighbors_[i].second);
-    if(neighbors_[i].second==index) neighbors.push_back(neighbors_[i].first);
+    if(neighbors_[i].first==index)
+      neighbors.push_back(neighbors_[i].second);
+    if(neighbors_[i].second==index)
+      neighbors.push_back(neighbors_[i].first);
   }
   return neighbors;
 }
 
-}
+} // namespace PLMD
