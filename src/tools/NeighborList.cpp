@@ -92,7 +92,12 @@ NeighborList::NeighborList(const std::vector<AtomNumber>& list0,
 NeighborList::~NeighborList()=default;
 
 void NeighborList::initialize() {
-  neighbors_.resize(nallpairs_);
+  try {
+    neighbors_.resize(nallpairs_);
+  } catch (...) {
+    plumed_error_nested() << "An error happened while allocating the neighbor "
+                          "list, please decrease the number of atoms used";
+  }
   //TODO: test is this accelerate
   //#pragma omp parallel for default(shared)
   for(unsigned int i=0; i<nallpairs_; ++i)
