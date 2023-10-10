@@ -19,11 +19,26 @@ foreach(opt
 endforeach()
 
 #these packages are called with find_package(name) without options
-foreach(dep BLAS LAPACK OpenMP MPI GSL ZLIB Backtrace Torch)
-    if(${dep}_FOUND)
-        list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep})")
-    endif()
-endforeach()
+# foreach(dep BLAS LAPACK OpenMP MPI GSL ZLIB Backtrace Torch)
+#     if(${dep}_FOUND)
+#         list(APPEND EXTERNAL_PACKAGES "find_dependency(${dep})")
+#     endif()
+# endforeach()
+
+#see this https://stackoverflow.com/a/68838772
+get_property(packages GLOBAL PROPERTY PACKAGES_FOUND)
+foreach (pkg IN LISTS packages)
+  get_property(is_transitive GLOBAL PROPERTY _CMAKE_${pkg}_TRANSITIVE_DEPENDENCY)
+  if (is_transitive)
+    continue()
+  elseif (${pkg}_VERSION)
+    string(APPEND EXTERNAL_PACKAGES "find_dependency(${pkg} ${${pkg}_VERSION})\n")
+  else ()
+    string(APPEND EXTERNAL_PACKAGES "find_dependency(${pkg})\n")
+  endif()
+endforeach ()
+
+
 
 if(PkgConfig_FOUND)
     list(APPEND EXTERNAL_PACKAGES "\nfind_dependency(PkgConfig)")
