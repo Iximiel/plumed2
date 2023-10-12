@@ -105,7 +105,7 @@ EOF
 actionsList=$($plumed --no-mpi manual --action --allactions 2>/dev/null)
 
 if [[ -z "$actionsList" ]]; then
-  echo "Plumed returned no actions!"
+  echo "$plumed returned no actions!"
   exit 1
 fi
 
