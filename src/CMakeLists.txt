@@ -4,8 +4,6 @@ project(Plumed2 LANGUAGES C CXX)
 
 set (CMAKE_CXX_STANDARD 11)
 
-include(GNUInstallDirs)
-
 #some settingsvalues
 set(program_name "plumed" CACHE STRING "the name of the main executable")
 string(REPLACE "." "" soextension ${CMAKE_SHARED_LIBRARY_SUFFIX})

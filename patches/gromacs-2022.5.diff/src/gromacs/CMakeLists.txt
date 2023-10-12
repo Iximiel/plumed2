@@ -31,7 +31,7 @@
 # To help us fund GROMACS development, we humbly ask that you cite
 # the research papers on the package. Check out https://www.gromacs.org.
 
-include(${CMAKE_SOURCE_DIR}/Plumed.cmake)
+find_package(Plumed2 REQUIRED)
 
 set(LIBGROMACS_SOURCES)
 
@@ -332,7 +332,7 @@ target_link_libraries(libgromacs
                       $<$<PLATFORM_ID:SunOS>:socket>
                       PUBLIC
                       ${GMX_PUBLIC_LIBRARIES}
-                      ${PLUMED_LOAD}
+                      Plumed2::sharedplumedMain
                       )
 target_link_libraries(libgromacs PUBLIC legacy_api)
 # Dependencies from libgromacs to the modules are set up here, but

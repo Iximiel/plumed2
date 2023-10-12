@@ -32,15 +32,13 @@ set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries")
 #set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${program_name})
 set(DIRS_INCLUDE_INSTALL ${CMAKE_INSTALL_INCLUDEDIR}/plumed
     CACHE PATH "Location of header files" )
-#set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib
 set(DIRS_LIB_INSTALL ${CMAKE_INSTALL_LIBDIR}
     CACHE PATH "Location of library files" )
 set(DIRS_BIN_INSTALL ${CMAKE_INSTALL_BINDIR}
     CACHE PATH "Location of executables" )
-set(DIRS_EXTRA_INSTALL ${CMAKE_INSTALL_LIBDIR}/plumed
+set(DIRS_EXTRA_INSTALL ${DIRS_LIB_INSTALL}/plumed
     CACHE PATH "Location of executables" )
-set(DIRS_CMAKE_INSTALL ${CMAKE_INSTALL_LIBDIR}/cmake/plumed
-
+set(DIRS_CMAKE_INSTALL ${DIRS_LIB_INSTALL}/cmake/Plumed2
     CACHE PATH "Location of executables" )
 
 option(CMAKE_EXPORT_COMPILE_COMMANDS "Enable/Disable output of compile commands during generation." ON)
@@ -58,9 +56,13 @@ add_subdirectory(fortran)
 add_subdirectory(vim)
 
 install(DIRECTORY patches
-        DESTINATION ${DIRS_EXTRA_INSTALL})
+        DESTINATION ${DIRS_EXTRA_INSTALL}
+        USE_SOURCE_PERMISSIONS)
 #This copy makes plumed work in the builddir
-file(COPY patches DESTINATION ${DIRS_EXTRA_INSTALL})
+file(COPY patches
+    DESTINATION ${DIRS_EXTRA_INSTALL}
+    USE_SOURCE_PERMISSIONS
+)
 
 enable_testing()
 add_subdirectory(regtest)

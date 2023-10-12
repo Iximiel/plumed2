@@ -11,7 +11,7 @@ install( FILES plumed_f08.f90  plumed.f90
 
 #copy file for build-only plumed
 file(COPY plumed_f08.f90  plumed.f90
-DESTINATION ${CMAKE_BINARY_DIR}/lib/plumed/fortran
+DESTINATION ${CMAKE_BINARY_DIR}/${DIRS_EXTRA_INSTALL}/fortran
 USE_SOURCE_PERMISSIONS
 )
 include(CheckLanguage)

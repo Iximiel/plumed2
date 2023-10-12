@@ -35,7 +35,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     message(FATAL_ERROR "CMake called with the wrong directory; please use the top GROMACS directory (${CMAKE_CURRENT_SOURCE_DIR}/../../)")
 endif()
 
-include(${CMAKE_SOURCE_DIR}/Plumed.cmake)
+find_package(Plumed2 REQUIRED)
 
 set(LIBGROMACS_SOURCES)
 
@@ -202,7 +202,7 @@ if(GMX_GPU_FFT_VKFFT)
     target_link_libraries(libgromacs PRIVATE VkFFT)
 endif()
 if(GMX_GPU_FFT_ROCFFT)
-    target_link_libraries(libgromacs PUBLIC roc::rocfft)
+    target_link_libraries(libgromacs PRIVATE roc::rocfft)
 endif()
 
 target_link_libraries(libgromacs PRIVATE $<BUILD_INTERFACE:common>)
@@ -345,7 +345,7 @@ target_link_libraries(libgromacs
                       $<$<PLATFORM_ID:SunOS>:socket>
                       PUBLIC
                       ${GMX_PUBLIC_LIBRARIES}
-                      ${PLUMED_LOAD}
+                      Plumed2::sharedplumedMain
                       )
 target_link_libraries(libgromacs PRIVATE legacy_api)
 # Dependencies from libgromacs to the modules are set up here, but
