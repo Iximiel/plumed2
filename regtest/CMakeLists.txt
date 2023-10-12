@@ -12,7 +12,7 @@ if(NOT TARGET Plumed2::plumed_bin)
   #when testing in the build environment
   set(STANDALONE_TESTS ON)
   else()
-  set (Plumed2_DIR "${CMAKE_BINARY_DIR}/lib/cmake/Plumed2")
+  set (Plumed2_DIR "${CMAKE_BINARY_DIR}/${DIRS_LIB_INSTALL}/cmake/Plumed2")
 endif()
 
 set(PLUMED_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -159,7 +159,7 @@ function(PLUMED_TEST test_name)
 
   if(NOT STANDALONE_TESTS)
     list(APPEND PLUMED_TEST_EXPORTVARIABLES
-      "-ePLUMED_ROOT=${CMAKE_BINARY_DIR}/lib/plumed")
+      "-ePLUMED_ROOT=${CMAKE_BINARY_DIR}/${DIRS_LIB_INSTALL}/plumed")
     set(PLUMED_TEST_NOT_STANDALONELIB "-l${CMAKE_BINARY_DIR}/src")
   endif()
   
