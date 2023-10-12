@@ -106,6 +106,7 @@ actionsList=$($plumed --no-mpi manual --action --allactions 2>/dev/null)
 
 if [[ -z "$actionsList" ]]; then
   echo "$plumed returned no actions!"
+  $plumed --no-mpi manual --action --allactions 2>/dev/null
   exit 1
 fi
 
