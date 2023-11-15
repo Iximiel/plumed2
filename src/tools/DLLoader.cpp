@@ -39,18 +39,19 @@ bool DLLoader::installed() {
 
 void* DLLoader::load(const std::string&s, const bool useGlobal) {
 #ifdef __PLUMED_HAS_DLOPEN
-  void* p=nullptr;
+  int flags=RTLD_NOW | RTLD_LOCAL;
+  
   if (useGlobal)
-    p=dlopen(s.c_str(),RTLD_NOW|RTLD_GLOBAL);
-  else
-    p=dlopen(s.c_str(),RTLD_NOW|RTLD_LOCAL);
+    flags=RTLD_NOW|RTLD_GLOBAL;
+  
+DLpointer p{dlopen(s.c_str(),flags)};
   if(!p) {
     lastError=dlerror();
   } else {
     lastError="";
     handles.push(p);
   }
-  return p;
+  return p.get();
 #else
   return NULL;
 #endif
@@ -63,21 +64,24 @@ const std::string & DLLoader::error() {
 DLLoader::~DLLoader() {
   auto debug=std::getenv("PLUMED_LOAD_DEBUG");
 #ifdef __PLUMED_HAS_DLOPEN
-  if(debug) std::fprintf(stderr,"delete dlloader\n");
+  if(debug)
+    std::fprintf(stderr,"delete dlloader\n");
   while(!handles.empty()) {
-    int ret=dlclose(handles.top());
-    if(ret) {
-      std::fprintf(stderr,"+++ error reported by dlclose: %s\n",dlerror());
-    }
     handles.pop();
   }
-  if(debug) std::fprintf(stderr,"end delete dlloader\n");
+  if(debug)
+    std::fprintf(stderr,"end delete dlloader\n");
 #endif
 }
 
-DLLoader::DLLoader() {
-  // do nothing
-}
+DLLoader::DLLoader() =default;
 
+void DLDeleter ::   operator()(void* dlAddress) {
+#ifdef __PLUMED_HAS_DLOPEN
+  int ret=dlclose(dlAddress);
+  if(ret)
+    std::fprintf(stderr,"+++ error reported by dlclose: %s\n",dlerror());
+#endif
+}
 
 }

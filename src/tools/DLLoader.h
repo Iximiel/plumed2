@@ -24,8 +24,14 @@
 
 #include <stack>
 #include <string>
+#include <memory>
 
 namespace PLMD {
+
+///Deleter class for simplifying the usage of the handles in the DLLoader
+struct DLDeleter {
+  void operator()(void* );
+};
 
 /// \ingroup TOOLBOX
 /// Class taking care of dynamic loading.
@@ -38,7 +44,8 @@ namespace PLMD {
 /// contain self-registering classes, they will register themselves
 /// to the ActionRegister object.
 class DLLoader {
-  std::stack<void*> handles;
+  using DLpointer=std::unique_ptr<void*,DLDeleter>;
+  std::stack<DLpointer> handles;
   std::string lastError;
   /// Deleted copy constructor
   DLLoader(const DLLoader&) = delete;
