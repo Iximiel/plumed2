@@ -12,7 +12,7 @@ RUN yum -y update \
  && pip3 install numpy \
  && pip3 install cython numpy pandas \
  && pip3 install MDAnalysis \
- && pip3 install git+https://github.com/mdtraj/mdtraj@1.9.7
+ && pip3 install mdtraj
 
 RUN useradd -ms /bin/bash plumed
 USER plumed
@@ -36,7 +36,6 @@ RUN . /etc/bashrc \
  && export INCLUDE=$HOME/opt/include:$INCLUDE \
  && export LIBRARY_PATH=$HOME/opt/lib:$LIBRARY_PATH \
  && export LD_LIBRARY_PATH=$HOME/opt/lib:$LD_LIBRARY_PATH \
- && export FC="gfortran -fallow-argument-mismatch" \
  && tar xzf plumed2.tgz \
  && cd plumed2 \
  && export PYTHONPATH=$PWD/python:$PYTHONPATH \

@@ -25,6 +25,7 @@
  Extension for the middleman algorithm (now removed) by Max Muehlbauer
  Refactoring for hySAXS Martini form factors for Nucleic Acids by Cristina Paissoni
  Refactoring for hySAS OneBead form factors with solvent correction by Federico Ballabio and Riccardo Capelli
+ Resolution function by Henrique Musseli Cezar
 */
 
 #include "MetainferenceBase.h"
@@ -35,6 +36,8 @@
 #include "tools/Communicator.h"
 #include "tools/Pbc.h"
 #include "tools/PDB.h"
+#include "tools/Tools.h"
+#include "tools/IFile.h"
 
 #include <map>
 #include <iterator>
@@ -85,7 +88,7 @@ solvent accessible beads only: the form factors of the amino acids / phosphate g
 nucleobases with a SASA (computed via LCPO algorithm) greater than a threshold are corrected according to an
 electron density term. Both the surface cut-off threshold and the electron density term can be set by the user
 with the SASA_CUTOFF and SOLVATION_CORRECTION keywords. Moreover, SASA stride calculation can be modified using
-SOLVATION_STRIDE, which is set to 100 steps by default.
+SOLVATION_STRIDE, which is set to 10 steps by default.
 ONEBEAD requires an additional PDB file to perform mapping conversion, which must be provided via TEMPLATE
 keyword. This PDB file should only include the atoms for which the SAXS intensity will be computed.
 The AMBER OL3 (RNA) and OL15 (DNA) naming is required for nucleic acids.
@@ -101,6 +104,9 @@ the intensity at q = 0. Each EXPINT is divided by SCALE_EXPINT.
 The maximum QVALUE for ONEBEAD is set to 0.3 inverse angstroms.
 The solvent density, that by default is set to 0.334 electrons per cubic angstrom (bulk water), can be modified
 using the SOLVDENS keyword.
+
+The ABSOLUTE flag can be used in order to calculate intensities in the absolute scale. It is only available for
+the ATOMISTIC scheme and cannot be used with SCALE_EXPINT.
 
 By default SAXS is calculated using Debye on CPU, by adding the GPU flag it is possible to solve the equation on
 a GPU if the ARRAYFIRE libraries are installed and correctly linked.
@@ -149,7 +155,8 @@ PRINT ARG=(SAXS\.q-.*),(SAXS\.exp-.*) FILE=saxsdata STRIDE=1
 Calculates SANS intensity.
 
 SANS intensities are calculated for a set of scattering vectors using QVALUE keywords numbered from 1.
-Form factors are automatically assigned to atoms using the ATOMISTIC flag by reading a PDB file or, alternatively,
+Form factors are automatically assigned to atoms using the ATOMISTIC flag by reading a PDB file, by reading
+the scattering lengths with the PARAMETERS keyword from input or with the PARAMETERSFILE keyword or, alternatively,
 a ONEBEAD coarse-grained implementation is available.
 
 Both for ATOMISTIC and ONEBEAD the user must provide an all-atom PDB file via MOLINFO before the SANS instruction.
@@ -162,7 +169,7 @@ solvent accessible beads only: the form factors of the amino acids / phosphate g
 nucleobases with a SASA (computed via LCPO algorithm) greater than a threshold are corrected according to an
 electron density term. Both the surface cut-off threshold and the electron density term can be set by the user
 with the SASA_CUTOFF and SOLVATION_CORRECTION keywords. Moreover, SASA stride calculation can be modified using
-SOLVATION_STRIDE, which is set to 100 steps by default. The deuteration of the solvent-exposed residues is chosen
+SOLVATION_STRIDE, which is set to 10 steps by default. The deuteration of the solvent-exposed residues is chosen
 with a probability equal to the deuterium concentration in the buffer. The deuterated residues are updated with a
 stride equal to SOLVATION_STRIDE. The fraction of deuterated water can be set with DEUTER_CONC, the default value
 is 0.
@@ -184,6 +191,9 @@ the intensity at q = 0. Each EXPINT is divided by SCALE_EXPINT.
 The maximum QVALUE for ONEBEAD is set to 0.3 inverse angstroms.
 The solvent density, that by default is set to 0.334 electrons per cubic angstrom (bulk water), can be modified
 using the SOLVDENS keyword.
+
+The ABSOLUTE flag can be used in order to calculate intensities in the absolute scale. It is only available for
+the ATOMISTIC scheme and cannot be used with SCALE_EXPINT.
 
 By default SANS is calculated using Debye on CPU, by adding the GPU flag it is possible to solve the equation on a
 GPU if the ARRAYFIRE libraries are installed and correctly linked.
@@ -248,11 +258,20 @@ private:
          BB_PO2,
          NONEBEAD
        };
+  struct SplineCoeffs {
+    double a;
+    double b;
+    double c;
+    double d;
+    double x;
+  };
   bool saxs;
+  bool absolute;
   bool pbc;
   bool serial;
   bool gpu;
   bool onebead;
+  bool resolution;
   bool isFirstStep;
   int  deviceid;
   unsigned nres;
@@ -290,6 +309,11 @@ private:
   std::vector<double> Iq0_mix_H;
   std::vector<double> Iq0_vac_D;
   std::vector<double> Iq0_mix_D;
+  unsigned int Nj;
+  std::vector<std::vector<double> > qj_list;
+  std::vector<std::vector<double> > Rij;
+  std::vector<double> sigma_res;
+
 
   void calculate_gpu(std::vector<Vector> &pos, std::vector<Vector> &deriv);
   void calculate_cpu(std::vector<Vector> &pos, std::vector<Vector> &deriv);
@@ -305,6 +329,9 @@ private:
   void getOnebeadparam_sansH(const PDB &pdb, const std::vector<AtomNumber> &atoms, std::vector<std::vector<long double> > &parameter_vac_H, std::vector<std::vector<long double> > &parameter_mix_H, std::vector<std::vector<long double> > &parameter_solv_H);
   void getOnebeadparam_sansD(const PDB &pdb, const std::vector<AtomNumber> &atoms, std::vector<std::vector<long double> > &parameter_vac_D, std::vector<std::vector<long double> > &parameter_mix_D);
   double calculateAFFsans(const std::vector<AtomNumber> &atoms, std::vector<std::vector<long double> > &FF_tmp, const double deuter_conc);
+  void resolution_function();
+  std::vector<SplineCoeffs> spline_coeffs(std::vector<double> &x, std::vector<double> &y);
+  inline double interpolation(std::vector<SplineCoeffs> &coeffs, double x);
 
 public:
   static void registerKeywords( Keywords& keys );
@@ -319,31 +346,36 @@ PLUMED_REGISTER_ACTION(SAXS,"SANS")
 void SAXS::registerKeywords(Keywords& keys) {
   componentsAreNotOptional(keys);
   MetainferenceBase::registerKeywords(keys);
-  keys.addFlag("NOPBC",false,"ignore the periodic boundary conditions when calculating distances");
+  keys.addFlag("NOPBC",false,"Ignore the periodic boundary conditions when calculating distances");
   keys.addFlag("SERIAL",false,"Perform the calculation in serial - for debug purpose");
   keys.add("compulsory","DEVICEID","-1","Identifier of the GPU to be used");
-  keys.addFlag("GPU",false,"calculate SAXS using ARRAYFIRE on an accelerator device");
-  keys.addFlag("ATOMISTIC",false,"calculate SAXS for an atomistic model");
-  keys.addFlag("MARTINI",false,"calculate SAXS for a Martini model");
+  keys.addFlag("GPU",false,"Calculate SAXS using ARRAYFIRE on an accelerator device");
+  keys.addFlag("ABSOLUTE",false,"Absolute intensity: the intensities for each q-value are not normalised for the intensity at q=0.");
+  keys.addFlag("ATOMISTIC",false,"Calculate SAXS for an atomistic model");
+  keys.addFlag("MARTINI",false,"Calculate SAXS for a Martini model");
   keys.addFlag("ONEBEAD",false,"calculate SAXS for a single bead model");
   keys.add("compulsory","TEMPLATE","template.pdb","A PDB file is required for ONEBEAD mapping");
   keys.add("atoms","ATOMS","The atoms to be included in the calculation, e.g. the whole protein");
   keys.add("numbered","QVALUE","Selected scattering lengths in inverse angstroms are given as QVALUE1, QVALUE2, ...");
   keys.add("numbered","PARAMETERS","Used parameter Keywords like PARAMETERS1, PARAMETERS2. These are used to calculate the form factor for the \\f$i\\f$th atom/bead");
+  keys.add("optional","PARAMETERSFILE","Read the PARAMETERS from a file");
   keys.add("compulsory","DEUTER_CONC","0.","Fraction of deuterated solvent");
   keys.add("compulsory","SOLVDENS","0.334","Density of the solvent to be used for the correction of atomistic form factors");
-  keys.add("compulsory","SOLVATION_CORRECTION","0.0","Hydration layer electron density correction (ONEBEAD only)");
+  keys.add("compulsory","SOLVATION_CORRECTION","0.0","Solvation layer electron density correction (ONEBEAD only)");
   keys.add("compulsory","SASA_CUTOFF","1.0","SASA value to consider a residue as exposed to the solvent (ONEBEAD only)");
   keys.add("numbered","EXPINT","Add an experimental value for each q value");
-  keys.add("compulsory","SOLVATION_STRIDE","100","Number of steps between every new residues solvation estimation via LCPO (ONEBEAD only)");
+  keys.add("numbered","SIGMARES","Variance of Gaussian distribution describing the deviation in the scattering angle for each q value");
+  keys.add("compulsory","N","10","Number of points in the resolution function integral");
+  keys.add("compulsory","SOLVATION_STRIDE","10","Number of steps between every new residues solvation estimation via LCPO (ONEBEAD only)");
   keys.add("compulsory","SCALE_EXPINT","1.0","Scaling value for experimental data normalization");
-  keys.addOutputComponent("q","default","the # SAXS of q");
-  keys.addOutputComponent("exp","EXPINT","the # experimental intensity");
+  keys.addOutputComponent("q","default","The # SAXS of q");
+  keys.addOutputComponent("exp","EXPINT","The # experimental intensity");
 }
 
 SAXS::SAXS(const ActionOptions&ao):
   PLUMED_METAINF_INIT(ao),
   saxs(true),
+  absolute(false),
   pbc(true),
   serial(false),
   gpu(false),
@@ -398,12 +430,20 @@ SAXS::SAXS(const ActionOptions&ao):
   onebead=false;
   parseFlag("ONEBEAD",onebead);
   if(onebead) log.printf("  using ONEBEAD form factors\n");
+  bool fromfile=false;
+  std::string parametersfile;
+  parse("PARAMETERSFILE",parametersfile);
+  if (parametersfile.length() != 0) fromfile=true;
+  if(fromfile) log.printf("  will read form factors from file\n");
+  parseFlag("ABSOLUTE",absolute);
 
   if(martini&&atomistic) error("You cannot use MARTINI and ATOMISTIC at the same time");
   if(martini&&onebead) error("You cannot use MARTINI and ONEBEAD at the same time");
   if(onebead&&atomistic) error("You cannot use ONEBEAD and ATOMISTIC at the same time");
   if((martini)&&(!saxs)) error("MARTINI cannot be used with SANS");
-  if((!atomistic)&&(!martini)&&(!onebead)&&(!saxs)) error("External PARAMETERS cannot be used with SANS");
+  if((fromfile)&&((atomistic)||(martini)||(onebead))) {
+    error("You cannot read parameters from file and use ATOMISTIC/MARTINI/ONEBEAD");
+  }
 
   unsigned ntarget=0;
   for(unsigned i=0;; ++i) {
@@ -429,13 +469,16 @@ SAXS::SAXS(const ActionOptions&ao):
   double scale_expint=1.;
   parse("SCALE_EXPINT",scale_expint);
 
+  if((!atomistic&&absolute)||(absolute&&scale_expint!=1)) error("ABSOLUTE can be used only combined with ATOMISTIC without SCALE_EXPINT");
+  if(atomistic) log.printf("  Scale for intensities: %s\n", absolute ? "absolute" : "normalised");
+
   double correction = 0.00;
   parse("SOLVATION_CORRECTION", correction);
   rho_corr=rho-correction;
   if(onebead) log.printf("  Solvation density contribution: %lf\n", correction);
-  if((atomistic||martini)&&(rho_corr!=rho)) log.printf("  Solvation density contribution is taken into account in ONEBEAD only\n");
+  if((atomistic||martini||fromfile)&&(rho_corr!=rho)) log.printf("  Solvation density contribution is taken into account in ONEBEAD only\n");
 
-  solv_stride = 100;
+  solv_stride = 10;
   parse("SOLVATION_STRIDE", solv_stride);
   if(solv_stride < 1.) error("SOLVATION_STRIDE must be greater than 0");
   if(onebead&&(rho_corr!=rho)) log.printf("  SASA calculation stride: %u\n", solv_stride);
@@ -446,6 +489,7 @@ SAXS::SAXS(const ActionOptions&ao):
 
   deuter_conc = 0.;
   parse("DEUTER_CONC", deuter_conc);
+  if ((deuter_conc)&&(fromfile)) error("DEUTER_CONC cannot be used with PARAMETERSFILE");
   if(deuter_conc < 0. || deuter_conc > 1.) error("DEUTER_CONC must be in 0-1 range");
   if ((atomistic||onebead)&&(!saxs)) log.printf("  Solvent deuterium fraction: %lf/1.000000\n", deuter_conc);
 
@@ -457,7 +501,7 @@ SAXS::SAXS(const ActionOptions&ao):
     if( !pdb.read(template_name,plumed.getAtoms().usingNaturalUnits(),1.) ) plumed_merror("missing input file " + template_name);
   }
 
-  // Here we perform the preliminary mapping for onebead representation
+  // preliminary mapping for onebead representation
   if(onebead) {
     LCPOparam.resize(size);
     nres = getOnebeadMapping(pdb, atoms);
@@ -482,7 +526,6 @@ SAXS::SAXS(const ActionOptions&ao):
   std::vector<std::vector<long double> > FF_tmp_vac;
   std::vector<std::vector<long double> > FF_tmp_mix;
   std::vector<std::vector<long double> > FF_tmp_solv;
-  std::vector<std::vector<long double> > parameter;
   // SANS
   std::vector<std::vector<long double> > FF_tmp_vac_H;
   std::vector<std::vector<long double> > FF_tmp_mix_H;
@@ -492,29 +535,112 @@ SAXS::SAXS(const ActionOptions&ao):
   std::vector<std::vector<long double> > parameter_H;
   std::vector<std::vector<long double> > parameter_D;
 
-  if(!atomistic&&!martini&&!onebead) {
-    // read in parameter std::vector
-    parameter.resize(size);
-    ntarget=0;
-    for(unsigned i=0; i<size; ++i) {
-      if( !parseNumberedVector( "PARAMETERS", i+1, parameter[i]) ) break;
-      ntarget++;
-    }
-    if( ntarget!=size ) error("found wrong number of parameter std::vectors");
-    FF_tmp.resize(numq,std::vector<long double>(size));
-    for(unsigned i=0; i<size; ++i) {
-      atoi[i]=i;
-      for(unsigned k=0; k<numq; ++k) {
-        for(unsigned j=0; j<parameter[i].size(); ++j) {
-          FF_tmp[k][i]+= parameter[i][j]*std::pow(static_cast<long double>(q_list[k]),j);
+  if(!atomistic&&!martini&&!onebead&&!fromfile) { // read PARAMETERS from PLUMED file
+    if (saxs) {
+      // read in parameter std::vector
+      std::vector<std::vector<long double> > parameter;
+      parameter.resize(size);
+      ntarget=0;
+      for(unsigned i=0; i<size; ++i) {
+        if( !parseNumberedVector( "PARAMETERS", i+1, parameter[i]) ) break;
+        ntarget++;
+      }
+      if( ntarget!=size ) error("found wrong number of parameter std::vectors");
+      FF_tmp.resize(numq,std::vector<long double>(size));
+      for(unsigned i=0; i<size; ++i) {
+        atoi[i]=i;
+        for(unsigned k=0; k<numq; ++k) {
+          for(unsigned j=0; j<parameter[i].size(); ++j) {
+            FF_tmp[k][i]+= parameter[i][j]*std::pow(static_cast<long double>(q_list[k]),j);
+          }
         }
       }
+      for(unsigned i=0; i<size; ++i) Iq0+=parameter[i][0];
+      Iq0 *= Iq0;
     }
-    for(unsigned i=0; i<size; ++i) Iq0+=parameter[i][0];
-    Iq0 *= Iq0;
+    else { // SANS
+      std::vector<long double> parameter;
+      parameter.resize(size);
+      ntarget=0;
+      for(unsigned i=0; i<size; ++i) {
+        if( !parseNumbered( "PARAMETERS", i+1, parameter[i]) ) break;
+        ntarget++;
+      }
+      if( ntarget!=size ) error("found wrong number of parameter std::vectors");
+      FF_tmp.resize(numq,std::vector<long double>(size));
+      for(unsigned i=0; i<size; ++i) {
+        atoi[i]=i;
+        for(unsigned k=0; k<numq; ++k) {
+          FF_tmp[k][i]+= parameter[i];
+        }
+      }
+      for(unsigned i=0; i<size; ++i) Iq0+=parameter[i];
+      Iq0 *= Iq0;
+    }
+  } else if (fromfile) { // read PARAMETERS from user-provided file
+    log.printf("  Reading PARAMETERS from file: %s\n", parametersfile.c_str());
+    if (saxs) {
+      FF_tmp.resize(numq,std::vector<long double>(size));
+      std::vector<std::vector<long double> > parameter;
+      parameter.resize(size);
+
+      IFile ifile;
+      ifile.open(parametersfile);
+      std::string line;
+
+      ntarget=0;
+      while(ifile.getline(line)) {
+        Tools::ltrim(line);
+        Tools::trimComments(line);
+        if (line.empty()) continue;
+        if (ntarget > size) error("PARAMETERSFILE has more PARAMETERS than there are scattering centers");
+        std::string num; Tools::convert(ntarget+1,num);
+        std::vector<std::string> lineread{line};
+        if (!Tools::parseVector(lineread, "PARAMETERS"+num, parameter[ntarget], -1)) error("Missing PARAMETERS or PARAMETERS not sorted");
+        ntarget++;
+      }
+      if( ntarget!=size ) error("found wrong number of PARAMETERS in file");
+
+      for(unsigned i=0; i<size; ++i) {
+        atoi[i]=i;
+        for(unsigned k=0; k<numq; ++k) {
+          for(unsigned j=0; j<parameter[i].size(); ++j) {
+            FF_tmp[k][i]+= parameter[i][j]*std::pow(static_cast<long double>(q_list[k]),j);
+          }
+        }
+      }
+      for(unsigned i=0; i<size; ++i) Iq0+=parameter[i][0];
+      Iq0 *= Iq0;
+    } else { // SANS
+      FF_tmp.resize(numq,std::vector<long double>(size));
+
+      IFile ifile;
+      ifile.open(parametersfile);
+      std::string line;
+
+      ntarget=0;
+      while(ifile.getline(line)) {
+        Tools::ltrim(line);
+        Tools::trimComments(line);
+        if (line.empty()) continue;
+        if (ntarget > size) error("PARAMETERSFILE has more PARAMETERS than there are scattering centers");
+        std::string num; Tools::convert(ntarget+1,num);
+        std::vector<std::string> lineread{line};
+        long double scatlen;
+        atoi[ntarget]=ntarget;
+        if (!Tools::parse(lineread, "PARAMETERS"+num, scatlen, -1)) error("Missing PARAMETERS or PARAMETERS not sorted");
+        for(unsigned k=0; k<numq; ++k) {
+          FF_tmp[k][ntarget] = scatlen;
+        }
+        ntarget++;
+      }
+      if( ntarget!=size ) error("found wrong number of PARAMETERS in file");
+      for(unsigned i=0; i<size; ++i) Iq0+=FF_tmp[0][i];
+      Iq0 *= Iq0;
+    }
   } else if(onebead) {
     if(saxs) {
-      // read in parameter std::vector
+      // read built-in ONEBEAD parameters
       FF_tmp_vac.resize(numq,std::vector<long double>(NONEBEAD));
       FF_tmp_mix.resize(numq,std::vector<long double>(NONEBEAD));
       FF_tmp_solv.resize(numq,std::vector<long double>(NONEBEAD));
@@ -541,7 +667,7 @@ SAXS::SAXS(const ActionOptions&ao):
         Iq0_solv[i]=parameter_solv[atoi[i]][0];
       }
     } else { // SANS
-      // read in parameter std::vector
+      // read built-in ONEBEAD parameters
       FF_tmp_vac_H.resize(numq,std::vector<long double>(NONEBEAD));
       FF_tmp_mix_H.resize(numq,std::vector<long double>(NONEBEAD));
       FF_tmp_solv_H.resize(numq,std::vector<long double>(NONEBEAD));
@@ -578,8 +704,9 @@ SAXS::SAXS(const ActionOptions&ao):
       }
     }
   } else if(martini) {
-    // read in parameter std::vector
+    // read built-in MARTINI parameters
     FF_tmp.resize(numq,std::vector<long double>(NMARTINI));
+    std::vector<std::vector<long double> > parameter;
     parameter.resize(NMARTINI);
     getMartiniFFparam(atoms, parameter);
     for(unsigned i=0; i<NMARTINI; ++i) {
@@ -610,6 +737,23 @@ SAXS::SAXS(const ActionOptions&ao):
   if(ntarget!=numq && ntarget!=0) error("found wrong number of EXPINT values");
   if(ntarget==numq) exp=true;
   if(getDoScore()&&!exp) error("with DOSCORE you need to set the EXPINT values");
+
+  sigma_res.resize( numq );
+  resolution=false;
+  ntarget=0;
+  for(unsigned i=0; i<numq; ++i) {
+    if( !parseNumbered( "SIGMARES", i+1, sigma_res[i] ) ) break;
+    ntarget++;
+  }
+  if(ntarget!=numq && ntarget!=0) error("found wrong number of SIGMARES values");
+  if(ntarget==numq) resolution=true;
+
+  if(gpu && resolution) error("Resolution function is not supported in GPUs");
+
+  Nj = 10;
+  parse("N", Nj);
+  if (Nj < 2) error("N should be larger than 1");
+  if (resolution) log.printf("  Resolution function with N: %d\n", Nj);
 
   if(!gpu) {
     FF_rank.resize(numq);
@@ -730,15 +874,28 @@ SAXS::SAXS(const ActionOptions&ao):
   // convert units to nm^-1
   for(unsigned i=0; i<numq; ++i) {
     q_list[i]=q_list[i]*10.0;    // factor 10 to convert from A^-1 to nm^-1
+    if (resolution) sigma_res[i]=sigma_res[i]*10.0;
   }
+
+  // compute resolution function after converting units
+  if (resolution) {
+    qj_list.resize(numq, std::vector<double>(Nj));
+    Rij.resize(numq, std::vector<double>(Nj));
+    // compute Rij and qj_list
+    resolution_function();
+  }
+
   log<<"  Bibliography ";
   if(martini) {
-    log<<plumed.cite("Niebling, Björling, Westenhoff, J Appl Crystallogr 47, 1190–1198 (2014).");
-    log<<plumed.cite("Paissoni, Jussupow, Camilloni, J Appl Crystallogr 52, 394-402 (2019).");
+    log<<plumed.cite("Niebling, Björling, Westenhoff, J Appl Crystallogr 47, 1190–1198 (2014)");
+    log<<plumed.cite("Paissoni, Jussupow, Camilloni, J Appl Crystallogr 52, 394-402 (2019)");
   }
   if(atomistic) {
-    log<<plumed.cite("Fraser, MacRae, Suzuki, J. Appl. Crystallogr., 11, 693–694 (1978).");
-    log<<plumed.cite("Brown, Fox, Maslen, O'Keefe, Willis, International Tables for Crystallography C, 554–595 (International Union of Crystallography, 2006).");
+    log<<plumed.cite("Fraser, MacRae, Suzuki, J. Appl. Crystallogr., 11, 693–694 (1978)");
+    log<<plumed.cite("Brown, Fox, Maslen, O'Keefe, Willis, International Tables for Crystallography C, 554–595 (International Union of Crystallography, 2006)");
+  }
+  if(resolution) {
+    log<<plumed.cite("Pedersen, Posselt, Mortensen, J. Appl. Crystallogr., 23, 321–333 (1990)");
   }
 
   log<< plumed.cite("Bonomi, Camilloni, Bioinformatics, 33, 3999 (2017)");
@@ -776,15 +933,18 @@ void SAXS::calcNlist(std::vector<std::vector<int> > &Nlist)
 }
 
 // calculates SASA according to LCPO algorithm
-void SAXS::sasa_calculate(std::vector<bool> &solv_res)
-{
+void SAXS::sasa_calculate(std::vector<bool> &solv_res) {
   unsigned natoms = getNumberOfAtoms();
   std::vector<std::vector<int> > Nlist(natoms);
   calcNlist(Nlist);
   std::vector<double> sasares(nres, 0.);
-  for(unsigned i = 0; i < natoms; ++i) {
-    if(LCPOparam[i].size()>1) {
-      if(LCPOparam[i][1]>0.0) {
+
+  #pragma omp parallel num_threads(OpenMP::getNumThreads())
+  {
+    std::vector<double> private_sasares(nres, 0.);
+    #pragma omp for
+    for (unsigned i = 0; i < natoms; ++i) {
+      if (LCPOparam[i].size() > 1 && LCPOparam[i][1] > 0.0) {
         double Aij = 0.0;
         double Aijk = 0.0;
         double Ajk = 0.0;
@@ -808,13 +968,19 @@ void SAXS::sasa_calculate(std::vector<bool> &solv_res)
           Ajk += Ajkt;
         }
         double sasai = (LCPOparam[i][1]*S1+LCPOparam[i][2]*Aij+LCPOparam[i][3]*Ajk+LCPOparam[i][4]*Aijk);
-        if (sasai > 0 ) {
-          sasares[residue_atom[i]] += sasai/100.;
+        if (sasai > 0) {
+          private_sasares[residue_atom[i]] += sasai / 100.0;
         }
       }
     }
+    #pragma omp critical
+    { // combining private_sasares into sasares
+      for (unsigned i = 0; i < nres; ++i) {
+        sasares[i] += private_sasares[i];
+      }
+    }
   }
-  for(unsigned i=0; i<nres; ++i) {
+  for(unsigned i=0; i<nres; ++i) { // updating solv_res based on sasares
     if(sasares[i]>sasa_cutoff) solv_res[i] = 1;
     else solv_res[i] = 0;
   }
@@ -993,6 +1159,62 @@ void SAXS::calculate_cpu(std::vector<Vector> &pos, std::vector<Vector> &deriv)
   if(!serial) {
     comm.Sum(&deriv[0][0], 3*deriv.size());
     comm.Sum(&sum[0], numq);
+  }
+
+  if (resolution) {
+    // get spline for scatering curve
+    std::vector<SplineCoeffs> scatt_coeffs = spline_coeffs(q_list, sum);
+
+    // get spline for the derivatives
+    // copy the deriv to a new vector and zero deriv
+    std::vector<Vector> old_deriv(deriv);
+    memset(&deriv[0][0], 0.0, deriv.size() * sizeof deriv[0]);
+
+    unsigned nt=OpenMP::getNumThreads();
+    for (unsigned i=rank; i<size; i+=stride) {
+      std::vector<double> deriv_i_x(numq);
+      std::vector<double> deriv_i_y(numq);
+      std::vector<double> deriv_i_z(numq);
+
+      std::vector<SplineCoeffs> deriv_coeffs_x;
+      std::vector<SplineCoeffs> deriv_coeffs_y;
+      std::vector<SplineCoeffs> deriv_coeffs_z;
+      for (unsigned k=0; k<numq; k++) {
+        unsigned kdx = k*size;
+        deriv_i_x[k] = old_deriv[kdx+i][0];
+        deriv_i_y[k] = old_deriv[kdx+i][1];
+        deriv_i_z[k] = old_deriv[kdx+i][2];
+      }
+      deriv_coeffs_x = spline_coeffs(q_list, deriv_i_x);
+      deriv_coeffs_y = spline_coeffs(q_list, deriv_i_y);
+      deriv_coeffs_z = spline_coeffs(q_list, deriv_i_z);
+
+      // compute derivative with the smearing using the resolution function
+      #pragma omp parallel for num_threads(nt)
+      for (unsigned k=0; k<numq; k++) {
+        unsigned kdx = k*size;
+        double dq = qj_list[k][1] - qj_list[k][0];
+        for (unsigned j=0; j<Nj; j++) {
+          deriv[kdx+i][0] += Rij[k][j] * interpolation(deriv_coeffs_x, qj_list[k][j]) * dq;
+          deriv[kdx+i][1] += Rij[k][j] * interpolation(deriv_coeffs_y, qj_list[k][j]) * dq;
+          deriv[kdx+i][2] += Rij[k][j] * interpolation(deriv_coeffs_z, qj_list[k][j]) * dq;
+        }
+      }
+    }
+
+    if(!serial) {
+      comm.Sum(&deriv[0][0], 3*deriv.size());
+    }
+
+    // compute the smeared spectra using the resolution function
+    #pragma omp parallel for num_threads(nt)
+    for (unsigned i=0; i<numq; i++) {
+      sum[i] = 0.;
+      double dq = qj_list[i][1] - qj_list[i][0];
+      for (unsigned j=0; j<Nj; j++) {
+        sum[i] += Rij[i][j] * interpolation(scatt_coeffs, qj_list[i][j]) * dq;
+      }
+    }
   }
 
   for (unsigned k=0; k<numq; ++k) {
@@ -6332,6 +6554,7 @@ double SAXS::calculateAFF(const std::vector<AtomNumber> &atoms, std::vector<std:
   } else {
     error("MOLINFO DATA not found\n");
   }
+  if(absolute) Iq0 = 1;
 
   return Iq0;
 }
@@ -6403,6 +6626,7 @@ double SAXS::calculateAFFsans(const std::vector<AtomNumber> &atoms, std::vector<
   } else {
     error("MOLINFO DATA not found\n");
   }
+  if(absolute) Iq0 = 1;
 
   return Iq0;
 }
@@ -7449,6 +7673,91 @@ void SAXS::readLCPOparam(const std::vector<std::vector<std::string> > &AtomResid
     LCPOparam[natoms-1][3] = -1.8683e-03;
     LCPOparam[natoms-1][4] = 4.9372e-04;
   }
+}
+
+void SAXS::resolution_function()
+{
+  const unsigned numq = q_list.size();
+
+  // only OpenMP because numq might be smaller than the number of ranks
+  #pragma omp parallel for num_threads(OpenMP::getNumThreads())
+  for (unsigned i=0; i<numq; i++) {
+    double qi = q_list[i];
+    double dq = 6*sigma_res[i]/(Nj-1);
+    double sigma_sq = sigma_res[i]*sigma_res[i];
+    double qstart = qi - 3*sigma_res[i];
+    for (unsigned j=0; j<Nj; j++) {
+      double qj = qstart + j*dq;
+      double I0 = Tools::bessel0(qj*qi/sigma_sq);
+
+      qj_list[i][j] = qj;
+      Rij[i][j] = (qj/sigma_sq)*std::exp(-0.5*(qj*qj + qi*qi)/sigma_sq)*I0;
+    }
+  }
+}
+
+inline double SAXS::interpolation(std::vector<SplineCoeffs> &coeffs, double x)
+{
+  unsigned s = 0;
+  while ((x >= q_list[s+1]) && (s+1 < q_list.size()-1)) s++;
+
+  double dx = x - coeffs[s].x;
+  return coeffs[s].a + coeffs[s].b*dx + coeffs[s].c*dx*dx + coeffs[s].d*dx*dx*dx;
+}
+
+// natural bc cubic spline implementation from the Wikipedia algorithm
+// modified from https://stackoverflow.com/a/19216702/3254658
+std::vector<SAXS::SplineCoeffs> SAXS::spline_coeffs(std::vector<double> &x, std::vector<double> &y)
+{
+  unsigned n = x.size()-1;
+  std::vector<double> a;
+  a.insert(a.begin(), y.begin(), y.end());
+  std::vector<double> b(n);
+  std::vector<double> d(n);
+  std::vector<double> h;
+
+  for(unsigned i=0; i<n; i++)
+    h.push_back(x[i+1]-x[i]);
+
+  std::vector<double> alpha;
+  alpha.push_back(0);
+  for(unsigned i=1; i<n; i++)
+    alpha.push_back( 3*(a[i+1]-a[i])/h[i] - 3*(a[i]-a[i-1])/h[i-1]  );
+
+  std::vector<double> c(n+1);
+  std::vector<double> l(n+1);
+  std::vector<double> mu(n+1);
+  std::vector<double> z(n+1);
+  l[0] = 1;
+  mu[0] = 0;
+  z[0] = 0;
+
+  for(unsigned i=1; i<n; i++) {
+    l[i] = 2 *(x[i+1]-x[i-1])-h[i-1]*mu[i-1];
+    mu[i] = h[i]/l[i];
+    z[i] = (alpha[i]-h[i-1]*z[i-1])/l[i];
+  }
+
+  l[n] = 1;
+  z[n] = 0;
+  c[n] = 0;
+
+  for(int j=n-1; j>=0; j--) {
+    c[j] = z[j] - mu[j] * c[j+1];
+    b[j] = (a[j+1]-a[j])/h[j]-h[j]*(c[j+1]+2*c[j])/3;
+    d[j] = (c[j+1]-c[j])/3/h[j];
+  }
+
+  std::vector<SplineCoeffs> output_set(n);
+  for(unsigned i=0; i<n; i++) {
+    output_set[i].a = a[i];
+    output_set[i].b = b[i];
+    output_set[i].c = c[i];
+    output_set[i].d = d[i];
+    output_set[i].x = x[i];
+  }
+
+  return output_set;
 }
 
 
