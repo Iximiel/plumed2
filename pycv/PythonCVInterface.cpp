@@ -60,10 +60,10 @@ void PythonCVInterface::registerKeywords( Keywords& keys ) {
   keys.addOutputComponent("py","COMPONENTS","Each of the components output py the Python code, prefixed by py-");
   //python calling
   keys.add("compulsory","IMPORT","the python file to import, containing the function");
-  keys.add("compulsory","CALCULATE","the function to call as calculate method of a CV");
+  keys.add("compulsory","CALCULATE",PYCV_DEFAULTCALCULATE,"the function to call as calculate method of a CV");
+  keys.add("compulsory","INIT",PYCV_DEFAULTINIT,"the function to call during the construction method of the CV");
   // pythonadd other callable methods
   keys.add("optional","PREPARE","the function to call as prepare method of the CV");
-  keys.add("optional","INIT","the function to call during the construction method of the CV");
   keys.add("optional","UPDATE","the function to call as update() method of the CV");
 
   // NOPBC is in Colvar!
@@ -161,15 +161,21 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao):
   // ----------------------------------------
   log.printf("  will import %s and call function %s\n", import.c_str(),
              calculate_function.c_str());
-  if (ncomponents)
+  if (ncomponents){
     log.printf("  it is expected to return dictionaries with %d components\n",
                ncomponents);
-
-  try {// python things in the try/catch block
+  }
+  
     // Initialize the module and function pointers
+    try{
     py_module = py::module::import(import.c_str());
-    py_fcn = py_module.attr(calculate_function.c_str());
-
+      } catch (...) {
+    plumed_merror("problems with importing the module " << import);
+    //vdbg(e.what());
+  }
+    
+try {// python things in the try/catch block
+py_fcn = py_module.attr(calculate_function.c_str());
     if (prepare_function!=PYCV_NOTIMPLEMENTED) {
       has_prepare=true;
       log.printf("  will use %s while calling prepare() before calculate()\n", prepare_function.c_str());
@@ -178,7 +184,15 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao):
       has_update=true;
       log.printf("  will use %s while calling update() after calculate()\n", update_function.c_str());
     }
-    if (init_function!=PYCV_NOTIMPLEMENTED) {
+//check if the name is the default one
+bool useDefaultInit=init_function==PYCV_DEFAULTINIT;
+if (useDefaultInit){
+  //then check if the user has defined the default function
+   useDefaultInit= py::hasattr(py_module,init_function.c_str());
+}
+vdbg(useDefaultInit);
+vdbg(py::hasattr(py_module,init_function.c_str()));
+    if(useDefaultInit||init_function!=PYCV_DEFAULTINIT){
       auto init_fcn = py_module.attr(init_function.c_str());
       log.printf("  will use %s during the initialization\n", init_function.c_str());
       py::dict initDict = init_fcn(this);
@@ -207,13 +221,19 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao):
 
 void PythonCVInterface::valueSettings(py::dict &settings, Value* valPtr) {
   if(settings.contains("period")) {
-    py::tuple t = settings["period"];
-    std::string min=t[0].cast<std::string>();
-    std::string max=t[1].cast<std::string>();
-    valPtr->setDomain(min, max);
+    if (settings["period"].is_none()) {
+      valPtr->setNotPeriodic();
+    } else {
+      py::tuple t = settings["period"];
+      if(t.size()!=2){
+plumed_merror("period must have exactly 2 components");
+      }
+      //the ballad py::str(t[0]).cast<std::string>() is to not care about the type of input of the user
+      std::string min=py::str(t[0]).cast<std::string>();
+      std::string max=py::str(t[1]).cast<std::string>();
+      valPtr->setDomain(min, max);
+    }
   }
-  // setNotPeriodic
-  // setDomain
 }
 
 void PythonCVInterface::prepare() {

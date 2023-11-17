@@ -30,11 +30,13 @@ namespace pycv {
 class PythonCVInterface : public Colvar,
   public PythonPlumedBase {
   static constexpr auto PYCV_NOTIMPLEMENTED="PYCV_NOTIMPLEMENTED";
+  static constexpr auto PYCV_DEFAULTINIT="plumedInit";
+  static constexpr auto PYCV_DEFAULTCALCULATE="plumedCalculate";
   std::string import;
-  std::string calculate_function;
+  std::string calculate_function=PYCV_DEFAULTCALCULATE;
   std::string prepare_function = PYCV_NOTIMPLEMENTED;
   std::string update_function = PYCV_NOTIMPLEMENTED;
-  std::string init_function = PYCV_NOTIMPLEMENTED;
+  std::string init_function = PYCV_DEFAULTINIT;
 
   std::vector<std::string> components;
   std::unique_ptr<NeighborList> nl{nullptr};
