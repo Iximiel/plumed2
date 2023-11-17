@@ -23,8 +23,6 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <pybind11/embed.h> // everything needed for embedding
 #include <pybind11/numpy.h>
 
-namespace py = pybind11;
-
 namespace PLMD {
 namespace pycv {
 
@@ -37,7 +35,7 @@ public:
   ~PlumedScopedPythonInterpreter();
 private:
   static int use_count;
-  static std::unique_ptr<py::scoped_interpreter> interpreterGuard;
+  static std::unique_ptr<::pybind11::scoped_interpreter> interpreterGuard;
   static std::mutex interpreterMutex;
 };
 
@@ -52,8 +50,8 @@ public:
   virtual ~PythonPlumedBase()=default;
 
 protected:
-  py::module_ py_module {};
-  py::object py_fcn{};
+  ::pybind11::module_ py_module {};
+  ::pybind11::object py_fcn{};
 };
 
 } // namespace pycv

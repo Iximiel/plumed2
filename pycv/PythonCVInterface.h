@@ -47,13 +47,13 @@ class PythonCVInterface : public Colvar,
   bool invalidateList = true;
   bool firsttime = true;
 
-  void check_dim(py::array_t<pycv_t>);
-  void calculateSingleComponent(py::object &);
-  void calculateMultiComponent(py::object &);
-  void readReturn(py::object &, Value* );
-
+  void check_dim(pybind11::array_t<pycv_t>);
+  void calculateSingleComponent(pybind11::object &);
+  void calculateMultiComponent(pybind11::object &);
+  void readReturn(const pybind11::object &, Value* );
+  void valueSettings( pybind11::dict &r, Value* valPtr);
 public:
-  py::dict dataContainer= {};
+  ::pybind11::dict dataContainer {};
   explicit PythonCVInterface(const ActionOptions&);
 // active methods:
   void calculate() override;

@@ -1,0 +1,15 @@
+LOAD GLOBAL FILE=../../../../PythonCVInterface.so
+
+cvPY: ...
+PYCVINTERFACE
+ATOMS=1,2
+IMPORT=unitTest
+INIT=init
+CALCULATE=mypytest
+COMPONENTS=nonPeriodic,Periodic,PeriodicPI
+...
+
+PRINT FILE=colvar.out ARG=*
+
+
+

@@ -110,12 +110,12 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try:
       addComponentWithDerivatives(c_pfx);
       componentIsNotPeriodic(c_pfx);
     }
-    log << "  WARNING: components will not have a periodicity set - see "
-        "manual\n";
   } else {
     addValueWithDerivatives();
     setNotPeriodic();
   }
+  log << "  WARNING: by defaults components won't be periodic, and will expetct"
+      " the derivatives - see manual\n";
   if (groupA.size() > 0) {
     // parse the NL things only in the NL case
     bool dopair = false;
@@ -181,11 +181,31 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try:
     auto init_fcn = py_module.attr(init_function.c_str());
     log.printf("  will use %s during the initialization\n", init_function.c_str());
     py::dict initDict = init_fcn(this);
+    if(ncomponents) {
+      for (auto c : components) {
+        if(initDict.contains(c)) {
+          py::dict settingsDict=initDict[c.c_str()];
+          valueSettings(settingsDict,
+                        getPntrToComponent("py-" + c));
+        }
+      }
+    }
   }
   log << "  Bibliography " << plumed.cite(PYTHONCV_CITATION) << "\n";
 } catch (const py::error_already_set &e) {
-  //plumed_merror(e.what());
-  vdbg(e.what());
+  plumed_merror(e.what());
+  //vdbg(e.what());
+}
+
+void PythonCVInterface::valueSettings(py::dict &settings, Value* valPtr) {
+  if(settings.contains("period")) {
+    py::tuple t = settings["period"];
+    std::string min=t[0].cast<std::string>();
+    std::string max=t[1].cast<std::string>();
+    valPtr->setDomain(min, max);
+  }
+  // setNotPeriodic
+  // setDomain
 }
 
 void PythonCVInterface::prepare() {
@@ -262,7 +282,7 @@ void PythonCVInterface::calculateSingleComponent(py::object &r) {
   readReturn(r, getPntrToValue());
 }
 
-void PythonCVInterface::readReturn(py::object &r, Value* valPtr) {
+void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
   // Is there more than 1 return value?
   if (py::isinstance<py::tuple>(r)||py::isinstance<py::list>(r)) {
     // 1st return value: CV
