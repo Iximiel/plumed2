@@ -69,7 +69,7 @@ void PythonCVInterface::registerKeywords( Keywords& keys ) {
   // NOPBC is in Colvar!
 }
 
-PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try:
+PythonCVInterface::PythonCVInterface(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao) {
   std::vector<AtomNumber> atoms;
   parseAtomList("ATOMS",atoms);
@@ -165,36 +165,44 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try:
     log.printf("  it is expected to return dictionaries with %d components\n",
                ncomponents);
 
-  // Initialize the module and function pointers
-  py_module = py::module::import(import.c_str());
-  py_fcn = py_module.attr(calculate_function.c_str());
+  try {// python things in the try/catch block
+    // Initialize the module and function pointers
+    py_module = py::module::import(import.c_str());
+    py_fcn = py_module.attr(calculate_function.c_str());
 
-  if (prepare_function!=PYCV_NOTIMPLEMENTED) {
-    has_prepare=true;
-    log.printf("  will use %s while calling prepare() before calculate()\n", prepare_function.c_str());
-  }
-  if (update_function!=PYCV_NOTIMPLEMENTED) {
-    has_update=true;
-    log.printf("  will use %s while calling update() after calculate()\n", update_function.c_str());
-  }
-  if (init_function!=PYCV_NOTIMPLEMENTED) {
-    auto init_fcn = py_module.attr(init_function.c_str());
-    log.printf("  will use %s during the initialization\n", init_function.c_str());
-    py::dict initDict = init_fcn(this);
-    if(ncomponents) {
-      for (auto c : components) {
-        if(initDict.contains(c)) {
-          py::dict settingsDict=initDict[c.c_str()];
+    if (prepare_function!=PYCV_NOTIMPLEMENTED) {
+      has_prepare=true;
+      log.printf("  will use %s while calling prepare() before calculate()\n", prepare_function.c_str());
+    }
+    if (update_function!=PYCV_NOTIMPLEMENTED) {
+      has_update=true;
+      log.printf("  will use %s while calling update() after calculate()\n", update_function.c_str());
+    }
+    if (init_function!=PYCV_NOTIMPLEMENTED) {
+      auto init_fcn = py_module.attr(init_function.c_str());
+      log.printf("  will use %s during the initialization\n", init_function.c_str());
+      py::dict initDict = init_fcn(this);
+      if(ncomponents) {
+        for (auto c : components) {
+          if(initDict.contains(c)) {
+            py::dict settingsDict=initDict[c.c_str()];
+            valueSettings(settingsDict,
+                          getPntrToComponent("py-" + c));
+          }
+        }
+      } else {
+        if(initDict.contains("Value")) {
+          py::dict settingsDict=initDict["Value"];
           valueSettings(settingsDict,
-                        getPntrToComponent("py-" + c));
+                        getPntrToValue());
         }
       }
     }
+    log << "  Bibliography " << plumed.cite(PYTHONCV_CITATION) << "\n";
+  } catch (const py::error_already_set &e) {
+    plumed_merror(e.what());
+    //vdbg(e.what());
   }
-  log << "  Bibliography " << plumed.cite(PYTHONCV_CITATION) << "\n";
-} catch (const py::error_already_set &e) {
-  plumed_merror(e.what());
-  //vdbg(e.what());
 }
 
 void PythonCVInterface::valueSettings(py::dict &settings, Value* valPtr) {
