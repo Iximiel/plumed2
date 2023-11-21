@@ -7,18 +7,18 @@
 
 import numpy as np
 import plumedCommunications
+from plumedCommunications.defaults import COMPONENT_NODEV
 from sys import stderr as log
 #log = open("pycv.log", "w")
 
 print("Imported pycvPersistentData", file=log)
-
 
 def pyinit(plmdAction: plumedCommunications.PythonCVInterface):
     print("Calling pyinit", file=log)
     print(f"{plmdAction.data=}", file=log)
     plmdAction.data["pycv"]=0
     print(f"{plmdAction.data=}", file=log)
-    return {}
+    return {"Value":COMPONENT_NODEV}
 
 def pydist(plmdAction: plumedCommunications.PythonCVInterface):
     print("Calling pydist", file=log)

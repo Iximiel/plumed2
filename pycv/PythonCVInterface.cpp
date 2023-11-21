@@ -31,7 +31,7 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 
 #define vdbg(...)                                                              \
-  std::cerr << std::setw(4) << __LINE__ << ":" << std::setw(20)                \
+  std::cerr << std::boolalpha<<std::setw(4) << __LINE__ << ":" << std::setw(20)                \
             << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 
 namespace py = pybind11;
@@ -240,7 +240,7 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
         initializeValue(settings);
       } else {
         initializeComponent(std::string(PYCV_COMPONENTPREFIX)
-        +"-"+py::cast<std::string>(comp.first),
+                            +"-"+py::cast<std::string>(comp.first),
                             settings);
       }
     }
@@ -268,23 +268,27 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
 
 void PythonCVInterface::initializeValue(pybind11::dict &settingsDict) {
   log << "  will have a single component";
+  bool withDerivatives=false;
   if(settingsDict.contains("derivative")) {
-    if(settingsDict["derivative"].cast<bool>()) {
-      log << " WITH derivatives\n";
-      addValueWithDerivatives();
-    }
+    withDerivatives=settingsDict["derivative"].cast<bool>();
+  }
+  if(withDerivatives) {
+    addValueWithDerivatives();
+    log << "   WITH derivatives\n";
   } else {
-    log << " WITHOUT derivatives\n";
     addValue();
+    log << "   WITHOUT derivatives\n";
   }
   valueSettings(settingsDict,getPntrToValue());
 }
-void PythonCVInterface::initializeComponent(const std::string&name,pybind11::dict &settingsDict) {
+void PythonCVInterface::initializeComponent(const std::string&name,py::dict &settingsDict) {
+  bool withDerivatives=false;
   if(settingsDict.contains("derivative")) {
-    if(settingsDict["derivative"].cast<bool>()) {
-      addComponentWithDerivatives(name);
-      log << "   WITH derivatives\n";
-    }
+    withDerivatives=settingsDict["derivative"].cast<bool>();
+  }
+  if(withDerivatives) {
+    addComponentWithDerivatives(name);
+    log << "   WITH derivatives\n";
   } else {
     addComponent(name);
     log << "   WITHOUT derivatives\n";
@@ -382,13 +386,13 @@ void PythonCVInterface::calculateSingleComponent(py::object &r) {
 }
 
 void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
-  auto natoms = getPositions().size();
   // Is there more than 1 return value?
   if (py::isinstance<py::tuple>(r)||py::isinstance<py::list>(r)) {
     // 1st return value: CV
     py::list rl=r.cast<py::list>();
     pycvComm_t value = rl[0].cast<pycvComm_t>();
     valPtr->set(value);
+    auto natoms = getPositions().size();
     if (rl.size() > 1) {
       // 2nd return value: gradient: numpy array of (natoms, 3)
       py::array_t<pycvComm_t> grad(rl[1]);
@@ -407,7 +411,9 @@ void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
         Vector3d gi(grad.at(i, 0), grad.at(i, 1), grad.at(i, 2));
         setAtomsDerivatives(valPtr, i, gi);
       }
-    }
+    } else if (valPtr->hasDerivatives())
+      plumed_merror(valPtr->getName()+" was declared with derivatives, but python returned none");
+
     if (rl.size() > 2) {
       py::array_t<pycvComm_t> pyBoxDev(rl[2]);
       // expecting the box derivatives
@@ -430,10 +436,12 @@ void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
         error("Python CV returned wrong box derivatives shape error");
       }
       setBoxDerivatives(valPtr, boxDev);
-    }
+    } else if (valPtr->hasDerivatives())
+      warning(valPtr->getName()+" was declared with derivatives, but python returned no box derivatives");
   } else {
     // Only value returned. Might be an error as well.
-    log.printf(BIASING_DISABLED);
+    if (valPtr->hasDerivatives())
+      warning(BIASING_DISABLED);
     pycvComm_t value = r.cast<pycvComm_t>();
     valPtr->set(value);
   }
