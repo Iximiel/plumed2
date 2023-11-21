@@ -1,4 +1,4 @@
-#This is a not optimzed implementation of the COORDINATION
+# This is a not optimzed implementation of the COORDINATION
 
 import numpy as np
 import plumedCommunications
@@ -17,6 +17,7 @@ DMAX = D0 + R0 * (0.00001 ** (1.0 / (N - M)))
 STRETCH = 1.0
 SHIFT = 0.0
 
+
 @jit
 def jaxSwitch(d):
     rdist = d * INVR0
@@ -27,12 +28,13 @@ def jaxSwitch(d):
     dfunc *= STRETCH * INVR0
     return ret, dfunc
 
+
 def switch(d: np.ndarray) -> np.ndarray:
     ret = np.zeros_like(d)
     dfunc = np.zeros_like(d)
-    WhereToCalc =  d < DMAX# & d > D0
-    #print(f"{dfunc=}", file=log)
-    #not doinf d-D0 for now, so no need for rdist<=0
+    WhereToCalc = d < DMAX  # & d > D0
+    # print(f"{dfunc=}", file=log)
+    # not doinf d-D0 for now, so no need for rdist<=0
     ret[WhereToCalc], dfunc[WhereToCalc] = jaxSwitch(d)
     return ret, dfunc
 
@@ -46,9 +48,9 @@ def stretchSwitch():
 # some juggling for calculationg the stretch
 STRETCH, SHIFT = stretchSwitch()
 print(f"{N=} {M=} {D0=} {R0=} {INVR0=} {DMAX=} {STRETCH=} {SHIFT=}", file=log)
-      
+
+
 def pyCoord(action: plumedCommunications.PythonCVInterface):
-    
     atoms = action.getPositions()
     nat = atoms.shape[0]
     nl = action.getNeighbourList()
@@ -56,25 +58,28 @@ def pyCoord(action: plumedCommunications.PythonCVInterface):
     assert nl.size() == ((nat - 1) * nat) // 2
     pbc = action.getPbc()
     couples = nl.getClosePairs()
-    
+
     d = atoms[couples[:, 0]] - atoms[couples[:, 1]]
-    #print(f"before {d}",file=log)
+    # print(f"before {d}",file=log)
     d = pbc.apply(d)
-    #print(f"after {d}",file=log)
-    #from here we are in "pure python"
+    # print(f"after {d}",file=log)
+    # from here we are in "pure python"
     dist = np.linalg.norm(d, axis=1)
     sw, dfunc = switch(dist)
     dev = np.zeros_like(atoms)
 
-    predev = d * dfunc.reshape((-1,1))
+    predev = d * dfunc.reshape((-1, 1))
     for atomID in range(nat):
         # wherePlus =couples[:, 0]==atomID
         # whereMinus=couples[:, 1]==atomID
         dev[atomID] = np.sum(predev[couples[:, 0] == atomID], axis=0) - np.sum(
             predev[couples[:, 1] == atomID], axis=0
         )
-    virial=np.zeros((3,3))
+    virial = np.zeros((3, 3))
     for i in range(predev.shape[0]):
-        virial-=np.outer(predev[i],d[i])
+        virial -= np.outer(predev[i], d[i])
 
     return np.sum(sw), dev, virial
+
+
+plumedInit = {"Value": plumedCommunications.defaults.COMPONENT}
