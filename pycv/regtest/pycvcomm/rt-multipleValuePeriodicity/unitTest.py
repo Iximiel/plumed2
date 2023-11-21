@@ -5,13 +5,21 @@ log = open("pydist.log", "w")
 
 print("Imported my pydist+.", file=log)
 
-
-def init(action: PLMD.PythonCVInterface):
-    return {"Periodic": {"period": ["0", "1.3"]},
-    "PeriodicPI": {"period": ["0", "pi"]}}
+init = dict(
+    COMPONENTS=dict(
+        nonPeriodic=dict(period=None),
+        Periodic={"period": ["0", "1.3"]},
+        PeriodicPI={"period": ["0", "pi"]},
+    ),
+    ATOMS="1,2",
+)
 
 
 def mypytest(action: PLMD.PythonCVInterface):
-    ret = {"nonPeriodic": action.getStep(), "Periodic": action.getStep(),"PeriodicPI": action.getStep()}
+    ret = {
+        "nonPeriodic": action.getStep(),
+        "Periodic": action.getStep(),
+        "PeriodicPI": action.getStep(),
+    }
 
     return ret

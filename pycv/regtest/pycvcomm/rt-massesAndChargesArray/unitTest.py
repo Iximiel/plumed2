@@ -9,7 +9,7 @@ def myInit(action: PLMD.PythonCVInterface):
     t = np.loadtxt("massCharges.dat")
     action.data["masses"] = t[:, 1]
     action.data["charges"] = t[:, 2]
-
+    return{}
 
 def mypytest(action: PLMD.PythonCVInterface):
     masses = action.masses()

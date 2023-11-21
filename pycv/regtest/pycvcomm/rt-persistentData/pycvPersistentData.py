@@ -18,6 +18,7 @@ def pyinit(plmdAction: plumedCommunications.PythonCVInterface):
     print(f"{plmdAction.data=}", file=log)
     plmdAction.data["pycv"]=0
     print(f"{plmdAction.data=}", file=log)
+    return {}
 
 def pydist(plmdAction: plumedCommunications.PythonCVInterface):
     print("Calling pydist", file=log)

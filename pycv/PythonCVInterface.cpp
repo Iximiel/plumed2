@@ -56,28 +56,98 @@ void PythonCVInterface::registerKeywords( Keywords& keys ) {
   keys.add("optional","NL_CUTOFF","The cutoff for the neighbor list");
   keys.add("optional","NL_STRIDE","The frequency with which we are updating the atoms in the neighbor list");
   //python components
-  keys.add("optional","COMPONENTS","if provided, the function will return multiple components, with the names given");
-  keys.addOutputComponent("py","COMPONENTS","Each of the components output py the Python code, prefixed by py-");
+  keys.add("hidden","COMPONENTS","if provided, the function will return multiple components, with the names given");
+  keys.addOutputComponent(PYCV_COMPONENTPREFIX.data(),"COMPONENTS","Each of the components output py the Python code, prefixed by py-");
   //python calling
   keys.add("compulsory","IMPORT","the python file to import, containing the function");
   keys.add("compulsory","CALCULATE",PYCV_DEFAULTCALCULATE,"the function to call as calculate method of a CV");
   keys.add("compulsory","INIT",PYCV_DEFAULTINIT,"the function to call during the construction method of the CV");
-  // pythonadd other callable methods
-  keys.add("optional","PREPARE","the function to call as prepare method of the CV");
-  keys.add("optional","UPDATE","the function to call as update() method of the CV");
+  // python: add other callable methods
+  keys.add("compulsory","PREPARE",PYCV_NOTIMPLEMENTED,"the function to call as prepare method of the CV");
+  keys.add("compulsory","UPDATE", PYCV_NOTIMPLEMENTED,"the function to call as update() method of the CV");
 
   // NOPBC is in Colvar!
 }
 
-PythonCVInterface::PythonCVInterface(const ActionOptions&ao):
-  PLUMED_COLVAR_INIT(ao) {
-  std::vector<AtomNumber> atoms;
-  parseAtomList("ATOMS",atoms);
 
-  std::vector<AtomNumber> groupA;
-  parseAtomList("GROUPA",groupA);
-  std::vector<AtomNumber> groupB;
-  parseAtomList("GROUPB",groupB);
+
+PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch only applies to pybind11 things
+  PLUMED_COLVAR_INIT(ao) {
+
+  //let's check the python things at first
+  std::string import;
+  parse("IMPORT",import);
+  std::string calculateFunName;
+  parse("CALCULATE",calculateFunName);
+  log.printf("  will import %s and call function %s\n", import.c_str(),
+             calculateFunName.c_str());
+  // Initialize the module and function pointers
+  py_module = py::module::import(import.c_str());
+  if (!py::hasattr(py_module,calculateFunName.c_str())) {
+    error("the function " + calculateFunName + " is not present in "+ import);
+  }
+
+  py_fcn = py_module.attr(calculateFunName.c_str());
+  std::string initFunName;
+  parse("INIT",initFunName);
+  py::dict initDict;
+  if(py::hasattr(py_module,initFunName.c_str())) {
+    log.printf("  will use %s during the initialization\n", initFunName.c_str());
+    auto initFcn = py_module.attr(initFunName.c_str());
+    if (py::isinstance<py::dict>(initFcn)) {
+      initDict = initFcn;
+    } else {
+      initDict = initFcn(this);
+    }
+  } else if(initFunName!=PYCV_DEFAULTINIT) {
+    //If the default INIT is not preset, is not a problem
+    error("the function "+ initFunName + " is not present in "+ import);
+  }
+
+  std::string prepareFunName;
+  parse("PREPARE",prepareFunName);
+  if (prepareFunName!=PYCV_NOTIMPLEMENTED) {
+    if (!py::hasattr(py_module,prepareFunName.c_str())) {
+      error("the function " + prepareFunName + " is not present in "+ import);
+    }
+    hasPrepare=true;
+    pyPrepare=py_module.attr(prepareFunName.c_str());
+    log.printf("  will use %s while calling prepare() before calculate()\n", prepareFunName.c_str());
+  }
+
+  std::string updateFunName;
+  parse("UPDATE",updateFunName);
+  if (updateFunName!=PYCV_NOTIMPLEMENTED) {
+    if (!py::hasattr(py_module,updateFunName.c_str())) {
+      error("the function " + updateFunName + " is not present in " + import);
+    }
+    pyUpdate=py_module.attr(updateFunName.c_str());
+    hasUpdate=true;
+    log.printf("  will use %s while calling update() after calculate()\n", updateFunName.c_str());
+  }
+
+//NB init will be evaluated as first thing: if kewords that are present in the keys are in the init dict
+//these kw will be consumed
+
+
+  // parseAtomList("ATOMS",atoms);
+  auto pyParseAtomList=[this,&initDict](const char*key)->std::vector<AtomNumber> {
+    std::vector<AtomNumber> myatoms;
+    parseAtomList(key,myatoms);
+    if (myatoms.size()>0 && initDict.contains(key))
+      error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
+    if(initDict.contains(key)) {
+      auto atomlist=PLMD::Tools::getWords(
+        py::str(initDict[key]).cast<std::string>(),
+        "\t\n ,");
+      interpretAtomList( atomlist, myatoms );
+    }
+    return myatoms;
+  };
+
+  std::vector<AtomNumber> atoms=pyParseAtomList("ATOMS");
+  std::vector<AtomNumber> groupA=pyParseAtomList("GROUPA");
+  std::vector<AtomNumber> groupB=pyParseAtomList("GROUPB");
 
   if(atoms.size() !=0 && groupA.size()!=0)
     error("you can choose only between using the neigbourlist OR the atoms");
@@ -91,47 +161,39 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao):
   if (atoms.size() == 0 && groupA.size() == 0 && groupB.size() == 0)
     error("At least one atom is required");
 
-  parse("IMPORT",import);
-  parse("CALCULATE",calculate_function);
-  parse("PREPARE",prepare_function);
-  parse("UPDATE",update_function);
-  parse("INIT",init_function);
+  auto pyParseFlag=[this,&initDict](const char*key)->bool {
+    bool toRet;
+    parseFlag(key, toRet);
+    if(initDict.contains(key)) {
+      bool defaultRet;
+      keywords.getLogicalDefault(key,defaultRet);
+      if (toRet!=defaultRet) {
+        error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
+      }
+      toRet = initDict[key].cast<bool>();
+    }
+    return toRet;
+  };
 
-  parseVector("COMPONENTS", components);
-  ncomponents = components.size();
-
-  bool nopbc = !pbc;
-  parseFlag("NOPBC", nopbc);
+  bool nopbc = pyParseFlag("NOPBC");
   pbc = !nopbc;
 
-  if (ncomponents) {
-    for (auto c : components) {
-      auto c_pfx = "py-" + c;
-      addComponentWithDerivatives(c_pfx);
-      componentIsNotPeriodic(c_pfx);
-    }
-  } else {
-    addValueWithDerivatives();
-    setNotPeriodic();
-  }
-  log << "  WARNING: by defaults components won't be periodic, and will expetct"
-      " the derivatives - see manual\n";
+
   if (groupA.size() > 0) {
     // parse the NL things only in the NL case
-    bool dopair = false;
-    parseFlag("PAIR", dopair);
+    bool dopair = pyParseFlag("PAIR");
     // this is a WIP
 
     bool serial = false;
-    bool doneigh = false;
+    bool doneigh = pyParseFlag("NLIST");
     double nl_cut = 0.0;
     int nl_st = 0;
-    parseFlag("NLIST", doneigh);
     if (doneigh) {
-      parse("NL_CUTOFF", nl_cut);
+      //parse("NL_CUTOFF", nl_cut);
+      pyParse("NL_CUTOFF", initDict, nl_cut);
       if (nl_cut <= 0.0)
         error("NL_CUTOFF should be explicitly specified and positive");
-      parse("NL_STRIDE", nl_st);
+      pyParse("NL_STRIDE",initDict, nl_st);
       if (nl_st <= 0)
         error("NL_STRIDE should be explicitly specified and positive");
     }
@@ -152,71 +214,82 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao):
                                               comm);
     }
     requestAtoms(nl->getFullAtomList());
-    natoms = getPositions().size();
   } else {
-    natoms = atoms.size();
     requestAtoms(atoms);
   }
 
-  // ----------------------------------------
-  log.printf("  will import %s and call function %s\n", import.c_str(),
-             calculate_function.c_str());
-  if (ncomponents){
-    log.printf("  it is expected to return dictionaries with %d components\n",
-               ncomponents);
-  }
-  
-    // Initialize the module and function pointers
-    try{
-    py_module = py::module::import(import.c_str());
-      } catch (...) {
-    plumed_merror("problems with importing the module " << import);
-    //vdbg(e.what());
-  }
-    
-try {// python things in the try/catch block
-py_fcn = py_module.attr(calculate_function.c_str());
-    if (prepare_function!=PYCV_NOTIMPLEMENTED) {
-      has_prepare=true;
-      log.printf("  will use %s while calling prepare() before calculate()\n", prepare_function.c_str());
+  {
+    std::vector<std::string> components;
+    parseVector("COMPONENTS", components);
+
+    if (components.size()>1) {
+      error("Please define multiple COMPONENTS from INIT in python.");
     }
-    if (update_function!=PYCV_NOTIMPLEMENTED) {
-      has_update=true;
-      log.printf("  will use %s while calling update() after calculate()\n", update_function.c_str());
+  }
+  if(initDict.contains("COMPONENTS")) {
+    if(initDict.contains("Value")) {
+      error("The initialize dict cannot contain both \"Value\" and \"COMPONENTS\"");
     }
-//check if the name is the default one
-bool useDefaultInit=init_function==PYCV_DEFAULTINIT;
-if (useDefaultInit){
-  //then check if the user has defined the default function
-   useDefaultInit= py::hasattr(py_module,init_function.c_str());
-}
-vdbg(useDefaultInit);
-vdbg(py::hasattr(py_module,init_function.c_str()));
-    if(useDefaultInit||init_function!=PYCV_DEFAULTINIT){
-      auto init_fcn = py_module.attr(init_function.c_str());
-      log.printf("  will use %s during the initialization\n", init_function.c_str());
-      py::dict initDict = init_fcn(this);
-      if(ncomponents) {
-        for (auto c : components) {
-          if(initDict.contains(c)) {
-            py::dict settingsDict=initDict[c.c_str()];
-            valueSettings(settingsDict,
-                          getPntrToComponent("py-" + c));
-          }
-        }
+    if(!py::isinstance<py::dict>(initDict["COMPONENTS"])) {
+      error("COMPONENTS must be a dictionary using with the name of the components as keys");
+    }
+    py::dict components=initDict["COMPONENTS"];
+    for(auto comp: components) {
+      auto settings = py::cast<py::dict>(comp.second);
+      if(components.size()==1) { //a single component
+        initializeValue(settings);
       } else {
-        if(initDict.contains("Value")) {
-          py::dict settingsDict=initDict["Value"];
-          valueSettings(settingsDict,
-                        getPntrToValue());
-        }
+        initializeComponent(std::string(PYCV_COMPONENTPREFIX)
+        +"-"+py::cast<std::string>(comp.first),
+                            settings);
       }
     }
-    log << "  Bibliography " << plumed.cite(PYTHONCV_CITATION) << "\n";
-  } catch (const py::error_already_set &e) {
-    plumed_merror(e.what());
-    //vdbg(e.what());
+
+  } else if(initDict.contains("Value")) {
+    py::dict settingsDict=initDict["Value"];
+    initializeValue(settingsDict);
+  } else {
+    warning("  WARNING: by defaults components periodicity is not set and component is added without derivatives - see manual\n");
+    addValue();
   }
+
+// ----------------------------------------
+
+  if (getNumberOfComponents()>1) {
+    log.printf("  it is expected to return dictionaries with %d components\n",
+               getNumberOfComponents());
+  }
+
+  log << "  Bibliography " << plumed.cite(PYTHONCV_CITATION) << "\n";
+} catch (const py::error_already_set &e) {
+  plumed_merror(e.what());
+  //vdbg(e.what());
+}
+
+void PythonCVInterface::initializeValue(pybind11::dict &settingsDict) {
+  log << "  will have a single component";
+  if(settingsDict.contains("derivative")) {
+    if(settingsDict["derivative"].cast<bool>()) {
+      log << " WITH derivatives\n";
+      addValueWithDerivatives();
+    }
+  } else {
+    log << " WITHOUT derivatives\n";
+    addValue();
+  }
+  valueSettings(settingsDict,getPntrToValue());
+}
+void PythonCVInterface::initializeComponent(const std::string&name,pybind11::dict &settingsDict) {
+  if(settingsDict.contains("derivative")) {
+    if(settingsDict["derivative"].cast<bool>()) {
+      addComponentWithDerivatives(name);
+      log << "   WITH derivatives\n";
+    }
+  } else {
+    addComponent(name);
+    log << "   WITHOUT derivatives\n";
+  }
+  valueSettings(settingsDict,getPntrToComponent(name));
 }
 
 void PythonCVInterface::valueSettings(py::dict &settings, Value* valPtr) {
@@ -225,8 +298,8 @@ void PythonCVInterface::valueSettings(py::dict &settings, Value* valPtr) {
       valPtr->setNotPeriodic();
     } else {
       py::tuple t = settings["period"];
-      if(t.size()!=2){
-plumed_merror("period must have exactly 2 components");
+      if(t.size()!=2) {
+        plumed_merror("period must have exactly 2 components");
       }
       //the ballad py::str(t[0]).cast<std::string>() is to not care about the type of input of the user
       std::string min=py::str(t[0]).cast<std::string>();
@@ -254,9 +327,8 @@ void PythonCVInterface::prepare() {
         firsttime = true;
     }
   }
-  if (has_prepare) {
-    auto prepare_fcn = py_module.attr(prepare_function.c_str());
-    py::dict prepareDict = prepare_fcn(this);
+  if (hasPrepare) {
+    py::dict prepareDict = pyPrepare(this);
     if (prepareDict.contains("setAtomRequest")) {
       //should I use "interpretAtomList"?
       py::tuple t = prepareDict["setAtomRequest"];
@@ -277,9 +349,8 @@ void PythonCVInterface::prepare() {
 }
 
 void PythonCVInterface::update() {
-  if(has_update) {
-    auto update_fcn = py_module.attr(update_function.c_str());
-    py::dict updateDict=update_fcn(this);
+  if(hasUpdate) {
+    py::dict updateDict=pyUpdate(this);
     //See what to do here
   }
 }
@@ -295,7 +366,7 @@ void PythonCVInterface::calculate() {
 
     // Call the function
     py::object r = py_fcn(this);
-    if(ncomponents>0) {		// MULTIPLE NAMED COMPONENTS
+    if(getNumberOfComponents()>1) {		// MULTIPLE NAMED COMPONENTS
       calculateMultiComponent(r);
     } else { // SINGLE COMPONENT
       calculateSingleComponent(r);
@@ -311,6 +382,7 @@ void PythonCVInterface::calculateSingleComponent(py::object &r) {
 }
 
 void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
+  auto natoms = getPositions().size();
   // Is there more than 1 return value?
   if (py::isinstance<py::tuple>(r)||py::isinstance<py::list>(r)) {
     // 1st return value: CV
@@ -320,11 +392,18 @@ void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
     if (rl.size() > 1) {
       // 2nd return value: gradient: numpy array of (natoms, 3)
       py::array_t<pycvComm_t> grad(rl[1]);
-      check_dim(grad);
+
+      // Assert correct gradient shape
+      if (grad.ndim() != 2 || grad.shape(0) != natoms || grad.shape(1) != 3) {
+        log.printf("Error: wrong shape for the gradient return argument: should be "
+                   "(natoms=%d,3), received %ld x %ld\n",
+                   natoms, grad.shape(0), grad.shape(1));
+        error("Python CV returned wrong gradient shape error");
+      }
 
       // To optimize, see "direct access"
       // https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html
-      for (int i = 0; i < natoms; i++) {
+      for (unsigned i = 0; i < natoms; i++) {
         Vector3d gi(grad.at(i, 0), grad.at(i, 1), grad.at(i, 2));
         setAtomsDerivatives(valPtr, i, gi);
       }
@@ -365,13 +444,20 @@ void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
 
 
 void PythonCVInterface::calculateMultiComponent(py::object &r) {
-  bool dictstyle = py::isinstance<py::dict>(r);
 
-  if (dictstyle) {
+  const auto nc = getNumberOfComponents();
+  if (py::isinstance<py::dict>(r)) {
     py::dict dataDict = r.cast<py::dict>(); // values
-    for (auto c : components) {
-      py::object componentData = dataDict[c.c_str()];//.cast<py::tuple>();
-      readReturn(componentData, getPntrToComponent("py-" + c));
+    for(int i=0; i < nc; ++i) {
+      auto component=getPntrToComponent(i);
+      //get the without "label.prefix-"
+      std::string key=component->getName().substr(
+                        2 + getLabel().size()
+                        +PYCV_COMPONENTPREFIX.size());
+      if (dataDict.contains(key.c_str()))
+        readReturn(dataDict[key.c_str()], component);
+      else
+        plumed_merror( "python did not returned " << key );
     }
   } else {
     // In principle one could handle a "list" return case.
@@ -379,15 +465,8 @@ void PythonCVInterface::calculateMultiComponent(py::object &r) {
   }
 }
 
-// Assert correct gradient shape
-void PythonCVInterface::check_dim(py::array_t<pycv_t> grad) {
-  if (grad.ndim() != 2 || grad.shape(0) != natoms || grad.shape(1) != 3) {
-    log.printf("Error: wrong shape for the gradient return argument: should be "
-               "(natoms=%d,3), received %ld x %ld\n",
-               natoms, grad.shape(0), grad.shape(1));
-    error("Python CV returned wrong gradient shape error");
-  }
-}
+
+
 NeighborList &PythonCVInterface::getNL() { return *nl; }
 } // namespace pycvs
 } // namespace PLMD

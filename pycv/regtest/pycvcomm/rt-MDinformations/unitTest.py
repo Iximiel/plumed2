@@ -7,6 +7,7 @@ def myPrint(*args,**kwargs): print(*args,**kwargs, file=log)
 
 def myInit(action: PLMD.PythonCVInterface):
     myPrint(f"action label: {action.label}")
+    return{}
 
 def myPrepare(action: PLMD.PythonCVInterface):
     myPrint(f"@step {action.getStep()}")

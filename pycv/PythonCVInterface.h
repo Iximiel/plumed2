@@ -32,29 +32,29 @@ class PythonCVInterface : public Colvar,
   static constexpr auto PYCV_NOTIMPLEMENTED="PYCV_NOTIMPLEMENTED";
   static constexpr auto PYCV_DEFAULTINIT="plumedInit";
   static constexpr auto PYCV_DEFAULTCALCULATE="plumedCalculate";
-  std::string import;
-  std::string calculate_function=PYCV_DEFAULTCALCULATE;
-  std::string prepare_function = PYCV_NOTIMPLEMENTED;
-  std::string update_function = PYCV_NOTIMPLEMENTED;
-  std::string init_function = PYCV_DEFAULTINIT;
+  static constexpr std::string_view PYCV_COMPONENTPREFIX="py";
 
-  std::vector<std::string> components;
   std::unique_ptr<NeighborList> nl{nullptr};
+  ::pybind11::object pyPrepare;
+  ::pybind11::object pyUpdate;
 
-  int ncomponents;
-  int natoms;
   bool pbc=false;
-  bool has_prepare = false;
-  bool has_update = false;
+  bool hasPrepare = false;
+  bool hasUpdate = false;
   bool invalidateList = true;
   bool firsttime = true;
 
-  void check_dim(pybind11::array_t<pycv_t>);
   void calculateSingleComponent(pybind11::object &);
   void calculateMultiComponent(pybind11::object &);
   void readReturn(const pybind11::object &, Value* );
+  void initializeValue(pybind11::dict &);
+  void initializeComponent(const std::string&,pybind11::dict &);
   void valueSettings( pybind11::dict &r, Value* valPtr);
 public:
+//Wraps parse to avoid duplicated kewords
+  template<typename T>
+  void pyParse(
+    const char* key, const ::pybind11::dict &initDict, T& returnValue);
   ::pybind11::dict dataContainer {};
   explicit PythonCVInterface(const ActionOptions&);
 // active methods:
@@ -65,6 +65,20 @@ public:
   NeighborList& getNL();
   static void registerKeywords( Keywords& keys );
 };
+
+template<typename T>
+void PythonCVInterface::pyParse(
+  const char* key, const ::pybind11::dict &initDict, T& returnValue) {
+  T initVal(returnValue);
+  parse(key,returnValue);
+  //this is not robust, but with no access to Action::line we cannot use Tools::findKeyword
+  if(initDict.contains(key)) {
+    if (returnValue != initVal) {
+      error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
+    }
+    returnValue = initDict[key].cast<T>();
+  }
+}
 
 } // namespace pycv
 } // namespace PLMD
