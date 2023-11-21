@@ -37,8 +37,8 @@ PYBIND11_MAKE_OPAQUE(std::vector<PLMD::AtomNumber>);
 
 PYBIND11_EMBEDDED_MODULE(plumedCommunications, m) {
   py::module_ defaults = m.def_submodule("defaults", "Submodule with the default definitions");
-   defaults.attr("COMPONENT") = py::dict(py::arg("period")=py::none(),py::arg("derivatives")=true);
-   defaults.attr("COMPONENT_NODEV") = py::dict(py::arg("period")=py::none(),py::arg("derivatives")=false);
+   defaults.attr("COMPONENT") = py::dict(py::arg("period")=py::none(),py::arg("derivative")=true);
+   defaults.attr("COMPONENT_NODEV") = py::dict(py::arg("period")=py::none(),py::arg("derivative")=false);
   py::bind_vector<std::vector<PLMD::AtomNumber>>(m, "VectorAtomNumber");
   py::class_<PLMD::pycv::PythonCVInterface>(m, "PythonCVInterface")
   .def_readwrite("data",&PLMD::pycv::PythonCVInterface::dataContainer,"Return an accessible dictionary that persist along all the simulation")

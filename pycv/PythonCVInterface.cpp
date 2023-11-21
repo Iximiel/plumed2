@@ -126,11 +126,43 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
     log.printf("  will use %s while calling update() after calculate()\n", updateFunName.c_str());
   }
 
-//NB init will be evaluated as first thing: if kewords that are present in the keys are in the init dict
-//these kw will be consumed
+  {
+    std::vector<std::string> components;
+    parseVector("COMPONENTS", components);
 
+    if (components.size()>1) {
+      error("Please define multiple COMPONENTS from INIT in python.");
+    }
+  }
+  if(initDict.contains("COMPONENTS")) {
+    if(initDict.contains("Value")) {
+      error("The initialize dict cannot contain both \"Value\" and \"COMPONENTS\"");
+    }
+    if(!py::isinstance<py::dict>(initDict["COMPONENTS"])) {
+      error("COMPONENTS must be a dictionary using with the name of the components as keys");
+    }
+    py::dict components=initDict["COMPONENTS"];
+    for(auto comp: components) {
+      auto settings = py::cast<py::dict>(comp.second);
+      if(components.size()==1) { //a single component
+        initializeValue(settings);
+      } else {
+        initializeComponent(std::string(PYCV_COMPONENTPREFIX)
+                            +"-"+py::cast<std::string>(comp.first),
+                            settings);
+      }
+    }
 
-  // parseAtomList("ATOMS",atoms);
+  } else if(initDict.contains("Value")) {
+    py::dict settingsDict=initDict["Value"];
+    initializeValue(settingsDict);
+  } else {
+    warning("  WARNING: by defaults components periodicity is not set and component is added without derivatives - see manual\n");
+    addValue();
+  }
+
+// ----------------------------------------
+
   auto pyParseAtomList=[this,&initDict](const char*key)->std::vector<AtomNumber> {
     std::vector<AtomNumber> myatoms;
     parseAtomList(key,myatoms);
@@ -218,43 +250,6 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
     requestAtoms(atoms);
   }
 
-  {
-    std::vector<std::string> components;
-    parseVector("COMPONENTS", components);
-
-    if (components.size()>1) {
-      error("Please define multiple COMPONENTS from INIT in python.");
-    }
-  }
-  if(initDict.contains("COMPONENTS")) {
-    if(initDict.contains("Value")) {
-      error("The initialize dict cannot contain both \"Value\" and \"COMPONENTS\"");
-    }
-    if(!py::isinstance<py::dict>(initDict["COMPONENTS"])) {
-      error("COMPONENTS must be a dictionary using with the name of the components as keys");
-    }
-    py::dict components=initDict["COMPONENTS"];
-    for(auto comp: components) {
-      auto settings = py::cast<py::dict>(comp.second);
-      if(components.size()==1) { //a single component
-        initializeValue(settings);
-      } else {
-        initializeComponent(std::string(PYCV_COMPONENTPREFIX)
-                            +"-"+py::cast<std::string>(comp.first),
-                            settings);
-      }
-    }
-
-  } else if(initDict.contains("Value")) {
-    py::dict settingsDict=initDict["Value"];
-    initializeValue(settingsDict);
-  } else {
-    warning("  WARNING: by defaults components periodicity is not set and component is added without derivatives - see manual\n");
-    addValue();
-  }
-
-// ----------------------------------------
-
   if (getNumberOfComponents()>1) {
     log.printf("  it is expected to return dictionaries with %d components\n",
                getNumberOfComponents());
@@ -286,6 +281,7 @@ void PythonCVInterface::initializeComponent(const std::string&name,py::dict &set
   if(settingsDict.contains("derivative")) {
     withDerivatives=settingsDict["derivative"].cast<bool>();
   }
+
   if(withDerivatives) {
     addComponentWithDerivatives(name);
     log << "   WITH derivatives\n";
@@ -367,7 +363,6 @@ void PythonCVInterface::calculate() {
         nl->update(getPositions());
       }
     }
-
     // Call the function
     py::object r = py_fcn(this);
     if(getNumberOfComponents()>1) {		// MULTIPLE NAMED COMPONENTS
@@ -375,10 +370,10 @@ void PythonCVInterface::calculate() {
     } else { // SINGLE COMPONENT
       calculateSingleComponent(r);
     }
-  } catch (std::exception &e) {
-    std::cerr << e.what() << "\n";
-    throw "failure";
-  }
+
+} catch (const py::error_already_set &e) {
+  plumed_merror(e.what());
+}
 }
 
 void PythonCVInterface::calculateSingleComponent(py::object &r) {
@@ -394,17 +389,17 @@ void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
     valPtr->set(value);
     auto natoms = getPositions().size();
     if (rl.size() > 1) {
+      if(!valPtr->hasDerivatives())
+        plumed_merror(valPtr->getName()+" was declared without derivatives, but python returned with derivatives");
       // 2nd return value: gradient: numpy array of (natoms, 3)
       py::array_t<pycvComm_t> grad(rl[1]);
-
       // Assert correct gradient shape
       if (grad.ndim() != 2 || grad.shape(0) != natoms || grad.shape(1) != 3) {
         log.printf("Error: wrong shape for the gradient return argument: should be "
                    "(natoms=%d,3), received %ld x %ld\n",
                    natoms, grad.shape(0), grad.shape(1));
-        error("Python CV returned wrong gradient shape error");
+        plumed_merror("Python CV returned wrong gradient shape error");
       }
-
       // To optimize, see "direct access"
       // https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html
       for (unsigned i = 0; i < natoms; i++) {
@@ -415,6 +410,8 @@ void PythonCVInterface::readReturn(const py::object &r, Value* valPtr) {
       plumed_merror(valPtr->getName()+" was declared with derivatives, but python returned none");
 
     if (rl.size() > 2) {
+      if(!valPtr->hasDerivatives())
+        plumed_merror(valPtr->getName()+" was declared without derivatives, but python returned with box derivatives");
       py::array_t<pycvComm_t> pyBoxDev(rl[2]);
       // expecting the box derivatives
       Tensor boxDev;
