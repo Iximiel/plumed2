@@ -16,7 +16,6 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
 #include "PythonPlumedBase.h"
-#include "tools/Log.h"
 
 #include <pybind11/embed.h> // everything needed for embedding
 #include <pybind11/numpy.h>
@@ -74,5 +73,19 @@ PlumedScopedPythonInterpreter::~PlumedScopedPythonInterpreter() {
   }
 }
 
+ActionWithPython::ActionWithPython (const ActionOptions&ao)
+  :Action(ao),guard(log) {}
+
+void ActionWithPython::pyParseFlag(const char* key, const ::pybind11::dict &initDict, bool& returnValue) {
+  parseFlag(key, returnValue);
+  if(initDict.contains(key)) {
+    bool defaultRet;
+    keywords.getLogicalDefault(key,defaultRet);
+    if (returnValue!=defaultRet) {
+      error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
+    }
+    returnValue = initDict[key].cast<bool>();
+  }
+}
 } // namespace pycv
 } // namespace PLMD

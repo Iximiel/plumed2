@@ -71,7 +71,7 @@ void PythonCVInterface::registerKeywords( Keywords& keys ) {
 
 PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch only applies to pybind11 things
   PLUMED_COLVAR_INIT(ao),
-  interpreterGuard(log) {
+  ActionWithPython(ao) {
   //let's check the python things at first
   std::string import;
   parse("IMPORT",import);
@@ -80,18 +80,18 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
   log.printf("  will import %s and call function %s\n", import.c_str(),
              calculateFunName.c_str());
   // Initialize the module and function pointers
-  py_module = py::module::import(import.c_str());
-  if (!py::hasattr(py_module,calculateFunName.c_str())) {
+  pyModule = py::module::import(import.c_str());
+  if (!py::hasattr(pyModule,calculateFunName.c_str())) {
     error("the function " + calculateFunName + " is not present in "+ import);
   }
 
-  py_fcn = py_module.attr(calculateFunName.c_str());
+  pyCalculate = pyModule.attr(calculateFunName.c_str());
   std::string initFunName;
   parse("INIT",initFunName);
   py::dict initDict;
-  if(py::hasattr(py_module,initFunName.c_str())) {
+  if(py::hasattr(pyModule,initFunName.c_str())) {
     log.printf("  will use %s during the initialization\n", initFunName.c_str());
-    auto initFcn = py_module.attr(initFunName.c_str());
+    auto initFcn = pyModule.attr(initFunName.c_str());
     if (py::isinstance<py::dict>(initFcn)) {
       initDict = initFcn;
     } else {
@@ -105,21 +105,21 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
   std::string prepareFunName;
   parse("PREPARE",prepareFunName);
   if (prepareFunName!=PYCV_NOTIMPLEMENTED) {
-    if (!py::hasattr(py_module,prepareFunName.c_str())) {
+    if (!py::hasattr(pyModule,prepareFunName.c_str())) {
       error("the function " + prepareFunName + " is not present in "+ import);
     }
     hasPrepare=true;
-    pyPrepare=py_module.attr(prepareFunName.c_str());
+    pyPrepare=pyModule.attr(prepareFunName.c_str());
     log.printf("  will use %s while calling prepare() before calculate()\n", prepareFunName.c_str());
   }
 
   std::string updateFunName;
   parse("UPDATE",updateFunName);
   if (updateFunName!=PYCV_NOTIMPLEMENTED) {
-    if (!py::hasattr(py_module,updateFunName.c_str())) {
+    if (!py::hasattr(pyModule,updateFunName.c_str())) {
       error("the function " + updateFunName + " is not present in " + import);
     }
-    pyUpdate=py_module.attr(updateFunName.c_str());
+    pyUpdate=pyModule.attr(updateFunName.c_str());
     hasUpdate=true;
     log.printf("  will use %s while calling update() after calculate()\n", updateFunName.c_str());
   }
@@ -156,28 +156,16 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
     initializeValue(settingsDict);
   } else {
     warning("  WARNING: by defaults components periodicity is not set and component is added without derivatives - see manual\n");
+    //this will crash with an error, beacuse periodicity is not explicitly set
     addValue();
   }
 
-// ----------------------------------------
-
-  auto pyParseAtomList=[this,&initDict](const char*key)->std::vector<AtomNumber> {
-    std::vector<AtomNumber> myatoms;
-    parseAtomList(key,myatoms);
-    if (myatoms.size()>0 && initDict.contains(key))
-      error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
-    if(initDict.contains(key)) {
-      auto atomlist=PLMD::Tools::getWords(
-        py::str(initDict[key]).cast<std::string>(),
-        "\t\n ,");
-      interpretAtomList( atomlist, myatoms );
-    }
-    return myatoms;
-  };
-
-  std::vector<AtomNumber> atoms=pyParseAtomList("ATOMS");
-  std::vector<AtomNumber> groupA=pyParseAtomList("GROUPA");
-  std::vector<AtomNumber> groupB=pyParseAtomList("GROUPB");
+  std::vector<AtomNumber> atoms;
+  pyParseAtomList("ATOMS",initDict,atoms);
+  std::vector<AtomNumber> groupA;
+  pyParseAtomList("GROUPA",initDict,groupA);
+  std::vector<AtomNumber> groupB;
+  pyParseAtomList("GROUPB",initDict,groupB);
 
   if(atoms.size() !=0 && groupA.size()!=0)
     error("you can choose only between using the neigbourlist OR the atoms");
@@ -191,31 +179,19 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
   if (atoms.size() == 0 && groupA.size() == 0 && groupB.size() == 0)
     error("At least one atom is required");
 
-  auto pyParseFlag=[this,&initDict](const char*key)->bool {
-    bool toRet;
-    parseFlag(key, toRet);
-    if(initDict.contains(key)) {
-      bool defaultRet;
-      keywords.getLogicalDefault(key,defaultRet);
-      if (toRet!=defaultRet) {
-        error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
-      }
-      toRet = initDict[key].cast<bool>();
-    }
-    return toRet;
-  };
-
-  bool nopbc = pyParseFlag("NOPBC");
+  bool nopbc;
+  pyParseFlag("NOPBC",initDict, nopbc);
   pbc = !nopbc;
-
 
   if (groupA.size() > 0) {
     // parse the NL things only in the NL case
-    bool dopair = pyParseFlag("PAIR");
+    bool dopair;
+    pyParseFlag("PAIR",initDict, dopair);
     // this is a WIP
 
     bool serial = false;
-    bool doneigh = pyParseFlag("NLIST");
+    bool doneigh;
+    pyParseFlag("NLIST",initDict,doneigh);
     double nl_cut = 0.0;
     int nl_st = 0;
     if (doneigh) {
@@ -362,7 +338,7 @@ void PythonCVInterface::calculate() {
       }
     }
     // Call the function
-    py::object r = py_fcn(this);
+    py::object r = pyCalculate(this);
     if(getNumberOfComponents()>1) {		// MULTIPLE NAMED COMPONENTS
       calculateMultiComponent(r);
     } else { // SINGLE COMPONENT
@@ -468,7 +444,17 @@ void PythonCVInterface::calculateMultiComponent(py::object &r) {
   }
 }
 
-
+void PythonCVInterface::pyParseAtomList(const char* key, const ::pybind11::dict &initDict, std::vector<AtomNumber> &myatoms) {
+  parseAtomList(key,myatoms);
+  if (myatoms.size()>0 && initDict.contains(key))
+    error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
+  if(initDict.contains(key)) {
+    auto atomlist=PLMD::Tools::getWords(
+                    py::str(initDict[key]).cast<std::string>(),
+                    "\t\n ,");
+    interpretAtomList( atomlist, myatoms );
+  }
+}
 
 NeighborList &PythonCVInterface::getNL() { return *nl; }
 } // namespace pycvs

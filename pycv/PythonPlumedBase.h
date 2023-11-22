@@ -20,10 +20,11 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <mutex>
 #include <string>
 
+#include "core/ActionAtomistic.h"
+
 #include <pybind11/embed.h> // everything needed for embedding
 
 namespace PLMD {
-class Log;
 namespace pycv {
 
 using pycv_t = float;		// May need to adapt to the build precision?
@@ -42,6 +43,33 @@ private:
   static std::unique_ptr<::pybind11::scoped_interpreter> interpreterGuard;
   static std::mutex interpreterMutex;
 };
+
+class ActionWithPython: public virtual ::PLMD::Action {
+  //the guard MUST be set up before the python objects
+  // (so that it can be destroyed after them)
+  PlumedScopedPythonInterpreter guard;
+public:
+  explicit ActionWithPython (const ActionOptions&);
+  ///redefinition of parse to avoid confict between plumed.dat and python options
+  template<typename T>
+  void pyParse(const char* key, const ::pybind11::dict &initDict, T& returnValue);
+///redefinition of parseFlag to avoid confict between plumed.dat and python options
+  void pyParseFlag(const char* key, const ::pybind11::dict &initDict, bool& returnValue);
+};
+
+template<typename T>
+void ActionWithPython::pyParse(
+  const char* key, const ::pybind11::dict &initDict, T& returnValue) {
+  T initVal(returnValue);
+  parse(key,returnValue);
+  //this is not robust, but with no access to Action::line we cannot use Tools::findKeyword
+  if(initDict.contains(key)) {
+    if (returnValue != initVal) {
+      error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
+    }
+    returnValue = initDict[key].cast<T>();
+  }
+}
 
 } // namespace pycv
 } // namespace PLMD
