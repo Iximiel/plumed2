@@ -17,6 +17,7 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <pybind11/embed.h> // everything needed for embedding
 #include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
 #include <pybind11/operators.h>
 #include <pybind11/stl_bind.h>
 
@@ -24,12 +25,11 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include "tools/NeighborList.h"
 
 #include "PythonCVInterface.h"
-#include "PythonPlumedBase.h"
 
 namespace py=pybind11;
 using PLMD::pycv::pycv_t;
 
-PYBIND11_MAKE_OPAQUE(std::vector<PLMD::AtomNumber>);
+PYBIND11_MAKE_OPAQUE(std::vector<PLMD::AtomNumber>)
 
 #define defGetter(pyfun, cppfun, type, description) \
   def(pyfun, [](PLMD::pycv::PythonCVInterface* self) -> type{ \
@@ -37,8 +37,8 @@ PYBIND11_MAKE_OPAQUE(std::vector<PLMD::AtomNumber>);
 
 PYBIND11_EMBEDDED_MODULE(plumedCommunications, m) {
   py::module_ defaults = m.def_submodule("defaults", "Submodule with the default definitions");
-   defaults.attr("COMPONENT") = py::dict(py::arg("period")=py::none(),py::arg("derivative")=true);
-   defaults.attr("COMPONENT_NODEV") = py::dict(py::arg("period")=py::none(),py::arg("derivative")=false);
+  defaults.attr("COMPONENT") = py::dict(py::arg("period")=py::none(),py::arg("derivative")=true);
+  defaults.attr("COMPONENT_NODEV") = py::dict(py::arg("period")=py::none(),py::arg("derivative")=false);
   py::bind_vector<std::vector<PLMD::AtomNumber>>(m, "VectorAtomNumber");
   py::class_<PLMD::pycv::PythonCVInterface>(m, "PythonCVInterface")
   .def_readwrite("data",&PLMD::pycv::PythonCVInterface::dataContainer,"Return an accessible dictionary that persist along all the simulation")

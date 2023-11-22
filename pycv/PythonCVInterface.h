@@ -27,14 +27,17 @@ namespace pycv {
 ///TODO: manual "you have to specify ATOMS=something for default atoms"
 ///TODO: add interface to pbc
 ///TODO: the topology can be assumed fixed and done on the go at each run by loading the pdb in the python code
-class PythonCVInterface : public Colvar,
-  public PythonPlumedBase {
+class PythonCVInterface : public Colvar {
   static constexpr auto PYCV_NOTIMPLEMENTED="PYCV_NOTIMPLEMENTED";
   static constexpr auto PYCV_DEFAULTINIT="plumedInit";
   static constexpr auto PYCV_DEFAULTCALCULATE="plumedCalculate";
   static constexpr std::string_view PYCV_COMPONENTPREFIX="py";
 
   std::unique_ptr<NeighborList> nl{nullptr};
+  //the guard MUST be set up before the python objects
+  PlumedScopedPythonInterpreter interpreterGuard;
+  ::pybind11::module_ py_module {};
+  ::pybind11::object py_fcn{};
   ::pybind11::object pyPrepare;
   ::pybind11::object pyUpdate;
 
@@ -43,7 +46,6 @@ class PythonCVInterface : public Colvar,
   bool hasUpdate = false;
   bool invalidateList = true;
   bool firsttime = true;
-
   void calculateSingleComponent(pybind11::object &);
   void calculateMultiComponent(pybind11::object &);
   void readReturn(const pybind11::object &, Value* );

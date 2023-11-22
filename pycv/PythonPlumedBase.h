@@ -21,37 +21,26 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 
 #include <pybind11/embed.h> // everything needed for embedding
-#include <pybind11/numpy.h>
 
 namespace PLMD {
+class Log;
 namespace pycv {
 
 using pycv_t = float;		// May need to adapt to the build precision?
+static constexpr auto PYTHONCV_CITATION = "Giorgino, (2019). PYCV: a PLUMED 2 Module Enabling the Rapid Prototyping of Collective Variables in Python. Journal of Open Source Software, 4(42), 1773. doi:10.21105/joss.01773";
+static constexpr auto BIASING_DISABLED = "PYCV: Gradient was expected as a second return value but is missing. Biasing won't work\n";
+
 
 ///This class act both as a guard for the interpreter and a a case container for the python module and functions
 class PlumedScopedPythonInterpreter final {
 public:
-  PlumedScopedPythonInterpreter();
+  PlumedScopedPythonInterpreter(::PLMD::Log&);
   ~PlumedScopedPythonInterpreter();
 private:
-  static int use_count;
+  ::PLMD::Log& log;
+  static unsigned use_count;
   static std::unique_ptr<::pybind11::scoped_interpreter> interpreterGuard;
   static std::mutex interpreterMutex;
-};
-
-class PythonPlumedBase {
-private:
-  //this must be the first object, since two python objects are instantiated here
-  PlumedScopedPythonInterpreter guard{};
-public:
-  const std::string PYTHONCV_CITATION = "Giorgino, (2019). PYCV: a PLUMED 2 Module Enabling the Rapid Prototyping of Collective Variables in Python. Journal of Open Source Software, 4(42), 1773. doi:10.21105/joss.01773";
-  static constexpr char * BIASING_DISABLED = "PYCV: Gradient was expected as a second return value but is missing. Biasing won't work\n";
-  PythonPlumedBase()=default;
-  virtual ~PythonPlumedBase()=default;
-
-protected:
-  ::pybind11::module_ py_module {};
-  ::pybind11::object py_fcn{};
 };
 
 } // namespace pycv

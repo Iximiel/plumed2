@@ -69,11 +69,9 @@ void PythonCVInterface::registerKeywords( Keywords& keys ) {
   // NOPBC is in Colvar!
 }
 
-
-
 PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch only applies to pybind11 things
-  PLUMED_COLVAR_INIT(ao) {
-
+  PLUMED_COLVAR_INIT(ao),
+  interpreterGuard(log) {
   //let's check the python things at first
   std::string import;
   parse("IMPORT",import);
@@ -269,10 +267,10 @@ void PythonCVInterface::initializeValue(pybind11::dict &settingsDict) {
   }
   if(withDerivatives) {
     addValueWithDerivatives();
-    log << "   WITH derivatives\n";
+    log << " WITH derivatives\n";
   } else {
     addValue();
-    log << "   WITHOUT derivatives\n";
+    log << " WITHOUT derivatives\n";
   }
   valueSettings(settingsDict,getPntrToValue());
 }
@@ -284,10 +282,10 @@ void PythonCVInterface::initializeComponent(const std::string&name,py::dict &set
 
   if(withDerivatives) {
     addComponentWithDerivatives(name);
-    log << "   WITH derivatives\n";
+    log << " WITH derivatives\n";
   } else {
     addComponent(name);
-    log << "   WITHOUT derivatives\n";
+    log << " WITHOUT derivatives\n";
   }
   valueSettings(settingsDict,getPntrToComponent(name));
 }
@@ -371,9 +369,9 @@ void PythonCVInterface::calculate() {
       calculateSingleComponent(r);
     }
 
-} catch (const py::error_already_set &e) {
-  plumed_merror(e.what());
-}
+  } catch (const py::error_already_set &e) {
+    plumed_merror(e.what());
+  }
 }
 
 void PythonCVInterface::calculateSingleComponent(py::object &r) {
