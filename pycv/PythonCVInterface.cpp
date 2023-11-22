@@ -30,6 +30,246 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <string>
 
+//+PLUMEDOC COLVAR PYCVINTERFACE
+/*
+Define collective variables in the Python language.
+
+Plumed will import the module chosen wiht the `IMPORT` keyword.
+The module can be a simple py file or a directory with the standard module
+configuration (a directory that contains at least an __init__.py, see the
+rt-persistentData test for an example).
+
+In the module there must be a function that will be used in caclulation and the
+definition of the component(s) (meaning period and if derivatives will be returned)
+of your cv.
+
+PYCVINTERFACE will call two or more elements from the module.
+Each element or function can be selected with its dedicated keyword:
+ - `CALCULATE` will select the function to be called at each step (defaults to plumedCalculate)
+ - `INIT` will select the function (or the dict, see down) to be called during the initilization (defaults to plumedInit)
+ - `UPDATE` will select the function to be called at each step, during the update() invocation
+ - `PREPARE` will select the function to be called at each step, during the prepare() invocation
+
+\par Getting started
+
+The minimal plumed input is:
+\plumedfile
+cv1: PYTHONCV IMPORT=hello ATOMS=1
+PRINT FILE=colvar.out ARG=*
+\endplumedfile
+
+this should be paired with the `hello.py` file:
+@code{.py}
+import plumedCommunications as PLMD
+
+plumedInit={"Value":PLMD.defaults.COMPONENT_NODEV}
+
+def plumedCompute(action: PLMD.PythonCVInterface):
+    action.log("Hello, world, from calculate!")
+    return 0.0
+@endcode
+
+If `INIT` is not specified, plumed will search for an object "plumedInit",
+that can be either a function that returns a dict or a dict
+This dict MUST contain at least the informations about the presence of the 
+derivatives and on the periodicity of the variable.
+We will refer to this dict as "the init dict" from now.
+
+If `CALCULATE` is not specified, plumed will search for a function named 
+"plumedCalculate" plumed will read the variable returned accordingly to what it
+was specified in the initialization dict.
+
+The init dict will tell plumed how many components the calculate function will returns
+and how they shall behave.
+Along this the dict can contain all the keyword that are compatible with PYCVINTERFACE.
+Mind that if the same keyword is specified both in the init dict and in the plumed
+file the calculation will be aborted to avoid unwated settings confict.
+
+The only keyword that can only be specified in python is `COMPONENTS`.
+The `COMPONENTS` key must point to a dict that has as keys the names of the componensts.
+Each component dictionary must have two keys:
+ - `"period"`: `None` of a list of two values, min and max (like `[0,1]` or also strings like `["0.5*pi","2*pi"]`)
+ - `"derivative"`: `True` or `False`
+If you want to use a single component you can create the `"COMPONENTS"` dict with as single key, the name will be ignored
+In the previous example the key `"Value"` is used instead of `"COMPONENTS"`:
+it is a shorter form for `"COMPONENTS":{"any":{...}}`
+
+@code{.py}
+#this make python aware of plumed
+import plumedCommunications as PLMD
+
+#PLMD.defaults.COMPONENT_NODEV has the same meaning as
+#{"period":None, "derivative":False}
+#PLMD.defaults.COMPONENT has the same meaning as
+#{"period":None, "derivative":True}
+
+def plumedInit(action: PLMD.PythonCVInterface):
+    action.log("Hello, world, from init!")
+    #this tells plumed that there is only a component and that componed has the default settings
+    return {"Value":PLMD.defaults.COMPONENT_NODEV}
+
+#note that if you do not to calculate anything you can simply write the dict that will be returned:
+#plumedInit={"Value":PLMD.defaults.COMPONENT_NODEV}
+
+def plumedCompute(action: PLMD.PythonCVInterface):
+    action.log("Hello, world, from calculate!")
+    #since we do not have derivatives we can simply return a number
+    return 0.0
+@endcode
+
+In the scalar case (`COMPONENTS` keyword not given), the function
+sho return two values: a scalar (the CV value), and its gradient
+with respect to each coordinate (an array of the same shape as the
+input). Not returning the gradient will prevent biasing from working
+(with warnings).
+
+If a list of `COMPONENTS` is given, multiple components can be
+computed at once, as described in the section *Multiple components*.
+
+Automatic differentiation and transparent compilation (including to
+GPU) can be performed via Google's [JAX
+library](https://github.com/google/jax): see the example below.
+
+
+\par Examples
+
+The following input tells PLUMED to print the distance between atoms 1
+and 4.
+
+\plumedfile
+cv1: PYTHONCV ATOMS=1,4 IMPORT=distcv FUNCTION=cv
+PRINT FILE=colvar.out ARG=*
+\endplumedfile
+
+
+The file `distcv.py` should contain something as follows.
+
+@code{.py}
+import numpy as np
+
+# Define the distance function
+def dist_f(x):
+    r = x[0,:]-x[1,:]
+    d2 = np.dot(r,r)
+    return np.sqrt(d2)
+
+def grad_dist(x):
+    d = dist(x)
+    r = x[0,:]-x[1,:]
+    g = r/d
+    return np.array([g,-g])
+
+# The CV function actually called
+def cv(x):
+    return dist_f(x), grad_dist(x)
+
+@endcode
+
+
+\par JAX for automatic differentiation and compilation
+
+Automatic differentiation and transparent compilation (including to
+GPU) can be performed via Google's [JAX
+library](https://github.com/google/jax). In a nutshell, it's sufficient
+to replace `numpy` with `jax.numpy`. See the following example.
+
+
+\plumedfile
+cv1: PYTHONCV ATOMS=1,2,3 IMPORT=jaxcv FUNCTION=angle
+PRINT FILE=colvar.out ARG=*
+
+\endplumedfile
+
+
+And, in `jaxcv.py`...
+
+@code{.py}
+# Import the JAX library
+import jax.numpy as np
+from jax import grad, jit, vmap
+
+# Implementation of the angle function
+def angle_f(x):
+    r1 = x[0,:]-x[1,:]
+    r2 = x[2,:]-x[1,:]
+
+    costheta = np.dot(r1,r2) / np.linalg.norm(r1) / np.linalg.norm(r2)
+    theta = np.arccos(costheta)
+    return theta
+
+# Use JAX to auto-gradient it
+angle_grad = grad(angle)
+
+# The CV function actually called
+def angle(x):
+    return angle_f(x), angle_grad(x)
+@endcode
+
+
+There are however
+[limitations](https://github.com/google/jax#current-gotchas), the most
+notable of which is that indexed assignments such as `x[i]=y` are not
+allowed, and should instead be replaced by functional equivalents such
+as `x=jax.ops.index_update(x, jax.ops.index[i], y)`.
+
+
+\par Multiple components
+
+It is possible to return multiple components at a time. This may be
+useful e.g. if they reuse part of the computation. To do so, pass the
+`COMPONENTS=comp1,comp2,...` keyword. In this case, the function is
+expected to provide two return values: (a) a dictionary of values; and
+(b) a dictionary of gradients. Dictionary keys must be the same names
+indicated in the `COMPONENTS` keyword. Inside PLUMED, component names
+will be prefixed by `py-`.
+
+Note that you can use JAX's Jacobian function `jax.jacrev()` to
+conveniently compute the gradients all at once (see regtests). For
+example:
+
+\plumedfile
+cv1:  PYTHONCV ATOMS=1,3,4 IMPORT=distcv FUNCTION=cv COMPONENTS=d12,d13
+\endplumedfile
+
+@code{.py}
+import jax.numpy as np
+from jax import grad, jacrev, jit
+
+# Define the distance function
+@jit
+def cv_f(X):
+    return {
+     'd12': np.linalg.norm( X[0,:]-X[1,:] ),
+     'd13': np.linalg.norm( X[0,:]-X[2,:] )
+     }
+
+cv_j=jacrev(cv_f)
+
+def cv(X):
+    return cv_f(X), cv_j(X)
+@endcode
+
+
+
+\par Installation
+
+Make sure you have Python 3 installed. It currently does not seem to
+work well with Conda under OSX (Homebrew's Python 3 is ok).  If you
+are feeling lucky, this may work:
+
+\verbatim
+pip3 install numpy jax jaxlib
+./configure --enable-modules=+pycv
+\endverbatim
+
+At run time, you may need to set the `PYTHONHOME` or other
+environment libraries.
+
+
+*/
+//+ENDPLUMEDOC
+
+
 #define vdbg(...)                                                              \
   std::cerr << std::boolalpha<<std::setw(4) << __LINE__ << ":" << std::setw(20)                \
             << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
@@ -68,6 +308,8 @@ void PythonCVInterface::registerKeywords( Keywords& keys ) {
 
   // NOPBC is in Colvar!
 }
+
+//TODO: add callable checks!!!
 
 PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch only applies to pybind11 things
   PLUMED_COLVAR_INIT(ao),
