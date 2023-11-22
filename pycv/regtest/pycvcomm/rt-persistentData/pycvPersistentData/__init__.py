@@ -15,12 +15,16 @@ print("Imported pycvPersistentData", file=log)
 
 def pyinit(plmdAction: plumedCommunications.PythonCVInterface):
     print("Calling pyinit", file=log)
+    plmdAction.log("---Calling pyinit---")
+    plmdAction.lognl("Logging from Python :)")
     print(f"{plmdAction.data=}", file=log)
     plmdAction.data["pycv"]=0
     print(f"{plmdAction.data=}", file=log)
     return {"Value":COMPONENT_NODEV}
 
 def pydist(plmdAction: plumedCommunications.PythonCVInterface):
+    plmdAction.log("Calling pydist: ")
+    plmdAction.lognl(plmdAction.getStep())
     print("Calling pydist", file=log)
     print(f"{plmdAction.data=}, {plmdAction.getStep()=}", file=log)
     
