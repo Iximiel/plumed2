@@ -230,6 +230,8 @@ PythonCVInterface::PythonCVInterface(const ActionOptions&ao)try ://the catch onl
   }
 
   log << "  Bibliography " << plumed.cite(PYTHONCV_CITATION) << "\n";
+  // NB: the NL kewywords will be counted as error when using ATOMS
+  checkRead();
 } catch (const py::error_already_set &e) {
   plumed_merror(e.what());
   //vdbg(e.what());
@@ -283,7 +285,7 @@ void PythonCVInterface::valueSettings(py::dict &settings, Value* valPtr) {
   }
 }
 
-void PythonCVInterface::prepare() {
+void PythonCVInterface::prepare() try {
   if (nl) {
     if (nl->getStride() > 0) {
       if (firsttime || (getStep() % nl->getStride() == 0)) {
@@ -318,36 +320,36 @@ void PythonCVInterface::prepare() {
       requestAtoms(myatoms);
     }
   }
-  // NB: the NL kewywords will be counted as error when using ATOMS
-  checkRead();
+} catch (const py::error_already_set &e) {
+  plumed_merror(e.what());
 }
 
-void PythonCVInterface::update() {
+void PythonCVInterface::update() try {
   if(hasUpdate) {
     py::dict updateDict=pyUpdate(this);
     //See what to do here
   }
+} catch (const py::error_already_set &e) {
+  plumed_merror(e.what());
 }
 
 // calculator
-void PythonCVInterface::calculate() {
-  try {
-    if (nl) {
-      if (nl->getStride() > 0 && invalidateList) {
-        nl->update(getPositions());
-      }
+void PythonCVInterface::calculate() try {
+  if (nl) {
+    if (nl->getStride() > 0 && invalidateList) {
+      nl->update(getPositions());
     }
-    // Call the function
-    py::object r = pyCalculate(this);
-    if(getNumberOfComponents()>1) {		// MULTIPLE NAMED COMPONENTS
-      calculateMultiComponent(r);
-    } else { // SINGLE COMPONENT
-      calculateSingleComponent(r);
-    }
-
-  } catch (const py::error_already_set &e) {
-    plumed_merror(e.what());
   }
+  // Call the function
+  py::object r = pyCalculate(this);
+  if(getNumberOfComponents()>1) {		// MULTIPLE NAMED COMPONENTS
+    calculateMultiComponent(r);
+  } else { // SINGLE COMPONENT
+    calculateSingleComponent(r);
+  }
+
+} catch (const py::error_already_set &e) {
+  plumed_merror(e.what());
 }
 
 void PythonCVInterface::calculateSingleComponent(py::object &r) {
