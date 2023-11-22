@@ -49,6 +49,8 @@ Each element or function can be selected with its dedicated keyword:
  - `INIT` will select the function (or the dict, see down) to be called during the initilization (defaults to plumedInit)
  - `UPDATE` will select the function to be called at each step, during the update() invocation
  - `PREPARE` will select the function to be called at each step, during the prepare() invocation
+All the function called will need a single argument of type `plumedCommunications.PythonCVInterface`
+
 
 \par Getting started
 
@@ -90,18 +92,21 @@ The `COMPONENTS` key must point to a dict that has as keys the names of the comp
 Each component dictionary must have two keys:
  - `"period"`: `None` of a list of two values, min and max (like `[0,1]` or also strings like `["0.5*pi","2*pi"]`)
  - `"derivative"`: `True` or `False`
-If you want to use a single component you can create the `"COMPONENTS"` dict with as single key, the name will be ignored
+If you want to use a single component you can create the `"COMPONENTS"` dict with as single key, the name will be ignored.
 In the previous example the key `"Value"` is used instead of `"COMPONENTS"`:
-it is a shorter form for `"COMPONENTS":{"any":{...}}`
+it is a shorter form for `"COMPONENTS":{"any":{...}}`.
+To avoid confusion you cannot specify both `"COMPONENTS"` and `"Value"` in the same dict.
+
+To speed up the declaration the `plumedCommunications` module contains a 
+submodule `defaults` with the default dictionaries already set up for you:
+ - plumedCommunications.defaults.COMPONENT={"period":None, "derivative":True}
+ - plumedCommunications.defaults.COMPONENT_NODEV={"period":None, "derivative":False}
 
 @code{.py}
 #this make python aware of plumed
 import plumedCommunications as PLMD
 
-#PLMD.defaults.COMPONENT_NODEV has the same meaning as
-#{"period":None, "derivative":False}
-#PLMD.defaults.COMPONENT has the same meaning as
-#{"period":None, "derivative":True}
+
 
 def plumedInit(action: PLMD.PythonCVInterface):
     action.log("Hello, world, from init!")
