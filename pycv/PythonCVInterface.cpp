@@ -40,16 +40,21 @@ configuration (a directory that contains at least an __init__.py, see the
 rt-persistentData test for an example).
 
 In the module there must be a function that will be used in caclulation and the
-definition of the component(s) (meaning period and if derivatives will be returned)
-of your cv.
+definition of the component(s) (meaning period and if derivatives will be
+returned) of your cv.
 
 PYCVINTERFACE will call two or more elements from the module.
 Each element or function can be selected with its dedicated keyword:
- - `CALCULATE` will select the function to be called at each step (defaults to plumedCalculate)
- - `INIT` will select the function (or the dict, see down) to be called during the initilization (defaults to plumedInit)
- - `UPDATE` will select the function to be called at each step, during the update() invocation
- - `PREPARE` will select the function to be called at each step, during the prepare() invocation
-All the function called will need a single argument of type `plumedCommunications.PythonCVInterface`
+ - `CALCULATE` will select the function to be called at each step (defaults to
+    `"plumedCalculate"`)
+ - `INIT` will select the function (or the dict, see down) to be called during
+    the initilization (defaults to `"plumedInit"`)
+ - `UPDATE` will select the function to be called at each step, during the
+    update() invocation
+ - `PREPARE` will select the function to be called at each step, during the
+    prepare() invocation
+All the function called will need a single argument of type 
+  `plumedCommunications.PythonCVInterface`
 
 
 \par Getting started
@@ -81,26 +86,76 @@ If `CALCULATE` is not specified, plumed will search for a function named
 "plumedCalculate" plumed will read the variable returned accordingly to what it
 was specified in the initialization dict.
 
-The init dict will tell plumed how many components the calculate function will returns
-and how they shall behave.
-Along this the dict can contain all the keyword that are compatible with PYCVINTERFACE.
-Mind that if the same keyword is specified both in the init dict and in the plumed
-file the calculation will be aborted to avoid unwated settings confict.
+The init dict will tell plumed how many components the calculate function will 
+return and how they shall behave.
+Along this the dict can contain all the keyword that are compatible with
+PYCVINTERFACE.
+Mind that if the same keyword is specified both in the init dict and in the
+plumed file the calculation will be aborted to avoid unwated settings confict.
+In case of flags the dict entry must be a bool, differently from the standard plumed input.
 
 The only keyword that can only be specified in python is `COMPONENTS`.
-The `COMPONENTS` key must point to a dict that has as keys the names of the componensts.
+The `COMPONENTS` key must point to a dict that has as keys the names of the
+componensts.
 Each component dictionary must have two keys:
- - `"period"`: `None` of a list of two values, min and max (like `[0,1]` or also strings like `["0.5*pi","2*pi"]`)
+ - `"period"`: `None` of a list of two values, min and max (like `[0,1]` or also
+ strings like `["0.5*pi","2*pi"]`)
  - `"derivative"`: `True` or `False`
-If you want to use a single component you can create the `"COMPONENTS"` dict with as single key, the name will be ignored.
+If you want to use a single component you can create the `"COMPONENTS"` dict
+with as single key, the name will be ignored.
 In the previous example the key `"Value"` is used instead of `"COMPONENTS"`:
 it is a shorter form for `"COMPONENTS":{"any":{...}}`.
-To avoid confusion you cannot specify both `"COMPONENTS"` and `"Value"` in the same dict.
+To avoid confusion you cannot specify both `"COMPONENTS"` and `"Value"` in the
+ same dict.
 
-To speed up the declaration the `plumedCommunications` module contains a 
-submodule `defaults` with the default dictionaries already set up for you:
+To speed up the declarations of the components the `plumedCommunications` module
+contains a submodule `defaults` with the default dictionaries already set up:
  - plumedCommunications.defaults.COMPONENT={"period":None, "derivative":True}
  - plumedCommunications.defaults.COMPONENT_NODEV={"period":None, "derivative":False}
+
+\par The calculate function
+
+The calculate funtion must, as all the other functions accept a 
+PLMD.PythonCVInterface object as only input.
+
+The calculate function must either return a float or a tuple or, in the case of multiple components, a dict whose keys are the name of the components, whose elements are either float or tuple.
+
+Plumed will assign automatically assign the result to the CV (to the ket named element), if the name of the component is missing the calculation will be interrupted with an error message.
+If derivatives are disabled it will expect a float(or a double).
+In case of activated derivatives it will interrupt the calculation if the return value would not be a tuple.
+The tuple should be (float, ndArray(nat,3),ndArray(3,3)) with the first elements the value, the second the atomic derivatives and the third the box derivative (that can also have shape(9), with format (x_x,x_y,x_z,y_x,y_y,y_z,z_x,z_y,z_z)), if the box derivative are not present a WARNING will be raised, but the calculation won't be interrupted.
+
+\par The prepare and update functions
+
+
+\par Getting the manual
+You can obtain the manual of the module (and of its components)
+by running plumed driver with this plumed file
+\plumedfile
+LOAD GLOBAL FILE=PythonCVInterface.so
+cvdist: PYCVINTERFACE IMPORT=pyhelp
+PRINT FILE=colvar.out ARG=*
+\endplumedfile
+and this py module
+@code{.py}
+import plumedCommunications
+import pydoc
+
+def plumedInit(_):
+    with open('PythonCVInterface.help.txt', 'w') as f:
+        h = pydoc.Helper(output=f)
+        h(plumedCommunications.PythonCVInterface)
+    with open('plumedCommunications.help.txt', 'w') as f:
+        h = pydoc.Helper(output=f)
+        h(plumedCommunications)
+    with open('plumedCommunications.defaults.help.txt', 'w') as f:
+        h = pydoc.Helper(output=f)
+        h(plumedCommunications.defaults)
+    return {"Value":plumedCommunications.defaults.COMPONENT_NODEV, "ATOMS":"1"}
+
+def plumedCalculate(_):
+    return 0
+@endcode
 
 @code{.py}
 #this make python aware of plumed
