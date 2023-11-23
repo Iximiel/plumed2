@@ -128,9 +128,47 @@ The tuple should be (float, ndArray(nat,3),ndArray(3,3)) with the first elements
 \par The prepare and update functions and the "data" attribute
 
 If the `PREPARE` keyword is used, the defined function will be called at prepare time, before calculate.
+The prepare dictionary can contain a `"setAtomRequest"` key with a parseable ATOM string, like in the input (or a list of indexes, 0 based).
+@code{.py}
+#this , with "PREPARE=changeAtom" in the plumed file will select a new atom at each new step
+def changeAtom(plmdAction: plumedCommunications.PythonCVInterface):
+    toret = {"setAtomRequest": f"1, {int(plmdAction.getStep()) + 2}"}
+    if plmdAction.getStep() == 3:
+        toret["setAtomRequest"] = "1,2"
+    return toret
+@endcode
 
-If the `UPDATE` keyword is used, the defined function will be called at update time, after calculate
+If the `UPDATE` keyword is used, the defined function will be called at update time, after calculate. As now plumed will ignore the return of this function (but it stills need to return a dict) and it is intended to accumulate things or post process data afer calculate
 
+In the example `plmdAction.data["pycv"]=0` is intialized in `pyinit` and its value is updated in calculate.
+
+\plumedfile
+cv1: PYCVINTERFACE  ...
+  ATOMS=@mdatoms
+  IMPORT=pycvPersistentData
+  CALCULATE=pydist
+  INIT=pyinit
+...
+
+PRINT FILE=colvar.out ARG=*
+\endplumedfile
+
+@code{.py}
+import plumedCommunications as PLMD
+from plumedCommunications.defaults import COMPONENT_NODEV
+
+def pyinit(plmdAction: PLMD.PythonCVInterface):
+    plmdAction.data["pycv"]=0
+    print(f"{plmdAction.data=}", file=log)
+    return {"Value":COMPONENT_NODEV}
+
+def pydist(plmdAction: PLMD.PythonCVInterface):
+    plmdAction.data["pycv"]+=plmdAction.getStep()
+    d=plmdAction.data["pycv"]
+    return d
+@endcode
+
+The plumedCommunications.PythonCVInterface has a `data` attribute that is a dictionary and can be used to store data during the calculations
 
 
 \par Getting the manual
@@ -163,29 +201,28 @@ def plumedCalculate(_):
 @endcode
 
 
-/par Tips and tricks
+\par Tips and tricks and examples
 
 Automatic differentiation and transparent compilation (including to
 GPU) can be performed via Google's [JAX
 library](https://github.com/google/jax): see the example below.
 
 
-\par Examples
-
 The following input tells PLUMED to print the distance between atoms 1
 and 4.
 
 \plumedfile
-cv1: PYTHONCV ATOMS=1,4 IMPORT=distcv FUNCTION=cv
+cv1: PYTHONCV ATOMS=1,4 IMPORT=distcv CALCULATE=cv
 PRINT FILE=colvar.out ARG=*
 \endplumedfile
-
 
 The file `distcv.py` should contain something as follows.
 
 @code{.py}
 import numpy as np
+import plumedCommunications as PLMD
 
+plumedInit={"Value":PLMD.defaults.COMPONENT}
 # Define the distance function
 def dist_f(x):
     r = x[0,:]-x[1,:]
@@ -193,14 +230,14 @@ def dist_f(x):
     return np.sqrt(d2)
 
 def grad_dist(x):
-    d = dist(x)
+    d = dist_f(x)
     r = x[0,:]-x[1,:]
     g = r/d
     return np.array([g,-g])
 
 # The CV function actually called
-def cv(x):
-    return dist_f(x), grad_dist(x)
+def cv(action:PLMD.PythonCVInterface):
+    return dist_f(action.getPositions()), grad_dist(action.getPositions())
 
 @endcode
 
@@ -214,7 +251,7 @@ to replace `numpy` with `jax.numpy`. See the following example.
 
 
 \plumedfile
-cv1: PYTHONCV ATOMS=1,2,3 IMPORT=jaxcv FUNCTION=angle
+cv1: PYTHONCV ATOMS=1,2,3 IMPORT=jaxcv CALCULATE=angle
 PRINT FILE=colvar.out ARG=*
 
 \endplumedfile
@@ -226,6 +263,9 @@ And, in `jaxcv.py`...
 # Import the JAX library
 import jax.numpy as np
 from jax import grad, jit, vmap
+import plumedCommunications as PLMD
+
+plumedInit={"Value":PLMD.defaults.COMPONENT}
 
 # Implementation of the angle function
 def angle_f(x):
@@ -237,11 +277,10 @@ def angle_f(x):
     return theta
 
 # Use JAX to auto-gradient it
-angle_grad = grad(angle)
+angle_grad = grad(angle_f)
 
-# The CV function actually called
-def angle(x):
-    return angle_f(x), angle_grad(x)
+def cv(action:PLMD.PythonCVInterface):
+    return angle_f(action.getPositions()), angle_grad(action.getPositions())
 @endcode
 
 
@@ -272,20 +311,30 @@ cv1:  PYTHONCV ATOMS=1,3,4 IMPORT=distcv FUNCTION=cv COMPONENTS=d12,d13
 
 @code{.py}
 import jax.numpy as np
-from jax import grad, jacrev, jit
+from jax import jacrev, jit
+import plumedCommunications as PLMD
+
+plumedInit = dict(
+    COMPONENTS=dict(d12=PLMD.defaults.COMPONENT, d13=PLMD.defaults.COMPONENT)
+)
 
 # Define the distance function
 @jit
-def cv_f(X):
+def dist_f(X):
     return {
      'd12': np.linalg.norm( X[0,:]-X[1,:] ),
      'd13': np.linalg.norm( X[0,:]-X[2,:] )
      }
 
-cv_j=jacrev(cv_f)
+dist_grad=jacrev(dist_f)
 
-def cv(X):
-    return cv_f(X), cv_j(X)
+def cv(action: PLMD.PythonCVInterface):
+    toret = {}
+    d=dist_f(action.getPositions())
+    g=dist_grad(action.getPositions())
+    for key in ["d12","d13"]:
+        toret[key] = (d[key],g[key])
+    return  toret
 @endcode
 
 
