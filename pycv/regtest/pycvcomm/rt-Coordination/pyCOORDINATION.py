@@ -11,7 +11,7 @@ print("Imported pyCoord.", file=log)
 N: int = 6
 M: int = 12
 D0: float = 0.0
-R0: float = 1.0
+R0: float = 0.4
 INVR0: float = 1.0 / R0
 DMAX = D0 + R0 * (0.00001 ** (1.0 / (N - M)))
 STRETCH = 1.0
@@ -35,7 +35,7 @@ def switch(d: np.ndarray) -> np.ndarray:
     WhereToCalc = d < DMAX  # & d > D0
     # print(f"{dfunc=}", file=log)
     # not doinf d-D0 for now, so no need for rdist<=0
-    ret[WhereToCalc], dfunc[WhereToCalc] = jaxSwitch(d)
+    ret[WhereToCalc], dfunc[WhereToCalc] = jaxSwitch(d[WhereToCalc])
     return ret, dfunc
 
 
@@ -58,13 +58,20 @@ def pyCoord(action: plumedCommunications.PythonCVInterface):
     assert nl.size() == ((nat - 1) * nat) // 2
     pbc = action.getPbc()
     couples = nl.getClosePairs()
-
+    absoluteIndexes=[]
+    #not so fast, but speed here is not important
+    for i in action.absoluteIndexes:
+        absoluteIndexes.append(i.index)
+    absoluteIndexes=np.array(absoluteIndexes)
+    #sameIndex = np.where(absoluteIndexes[couples[:, 0]]==absoluteIndexes[couples[:, 1]])
+    sameIndex = absoluteIndexes[couples[:, 0]]==absoluteIndexes[couples[:, 1]]
     d = atoms[couples[:, 0]] - atoms[couples[:, 1]]
-    # print(f"before {d}",file=log)
     d = pbc.apply(d)
-    # print(f"after {d}",file=log)
     # from here we are in "pure python"
     dist = np.linalg.norm(d, axis=1)
+    
+    dist[sameIndex] += DMAX*2.0
+    
     sw, dfunc = switch(dist)
     dev = np.zeros_like(atoms)
 
@@ -81,5 +88,8 @@ def pyCoord(action: plumedCommunications.PythonCVInterface):
 
     return np.sum(sw), dev, virial
 
-
-plumedInit = {"Value": plumedCommunications.defaults.COMPONENT}
+#this tests also the concatenating special keywords
+plumedInit = {
+    "Value": plumedCommunications.defaults.COMPONENT,
+    "GROUPA": "@mdatoms,@mdatoms",
+}
