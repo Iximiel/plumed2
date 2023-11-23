@@ -14,8 +14,8 @@ GNU Lesser General Public License for more details.
 You should have received a copy of the GNU Lesser General Public License
 along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#ifndef __PLUMED_pycv_PythonPlumedBase_h //{
-#define __PLUMED_pycv_PythonPlumedBase_h
+#ifndef __PLUMED_pycv_ActionWithPython_h //{
+#define __PLUMED_pycv_ActionWithPython_h
 
 #include <mutex>
 #include <string>
@@ -73,4 +73,4 @@ void ActionWithPython::pyParse(
 
 } // namespace pycv
 } // namespace PLMD
-#endif //__PLUMED_pycv_PythonPlumedBase_h //}
+#endif //__PLUMED_pycv_ActionWithPython_h //}

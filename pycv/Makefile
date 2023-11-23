@@ -5,7 +5,7 @@ include Make.inc
 DEPDIR := .deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
-OBJS = PythonCVInterface.o PythonPlumedBase.o PlumedPythonEmbeddedModule.o
+OBJS = PythonCVInterface.o ActionWithPython.o PlumedPythonEmbeddedModule.o
 
 ADDCPPFLAGS=$(shell python3-config --cflags --embed) $(shell python -m pybind11 --includes) $(PLUMED_INCLUDE)
 ADDCLDFLAGS=$(shell python3-config --ldflags --embed) 

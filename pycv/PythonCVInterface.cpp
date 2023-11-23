@@ -92,7 +92,8 @@ Along this the dict can contain all the keyword that are compatible with
 PYCVINTERFACE.
 Mind that if the same keyword is specified both in the init dict and in the
 plumed file the calculation will be aborted to avoid unwated settings confict.
-In case of flags the dict entry must be a bool, differently from the standard plumed input.
+In case of flags the dict entry must be a bool, differently from the standard
+plumed input.
 
 The only keyword that can only be specified in python is `COMPONENTS`.
 The `COMPONENTS` key must point to a dict that has as keys the names of the
@@ -118,17 +119,28 @@ contains a submodule `defaults` with the default dictionaries already set up:
 The calculate funtion must, as all the other functions accept a
 PLMD.PythonCVInterface object as only input.
 
-The calculate function must either return a float or a tuple or, in the case of multiple components, a dict whose keys are the name of the components, whose elements are either float or tuple.
+The calculate function must either return a float or a tuple or, in the case of
+multiple components, a dict whose keys are the name of the components, whose
+elements are either float or tuple.
 
-Plumed will assign automatically assign the result to the CV (to the ket named element), if the name of the component is missing the calculation will be interrupted with an error message.
+Plumed will assign automatically assign the result to the CV (to the key named
+element), if the name of the component is missing the calculation will be
+interrupted with an error message.
 If derivatives are disabled it will expect a float(or a double).
-In case of activated derivatives it will interrupt the calculation if the return value would not be a tuple.
-The tuple should be (float, ndArray(nat,3),ndArray(3,3)) with the first elements the value, the second the atomic derivatives and the third the box derivative (that can also have shape(9), with format (x_x,x_y,x_z,y_x,y_y,y_z,z_x,z_y,z_z)), if the box derivative are not present a WARNING will be raised, but the calculation won't be interrupted.
+In case of activated derivatives it will interrupt the calculation if the
+return value would not be a tuple.
+The tuple should be (float, ndArray(nat,3),ndArray(3,3)) with the first
+elements the value, the second the atomic derivatives and the third the box
+derivative (that can also have shape(9), with format (x_x, x_y, x_z, y_x, y_y,
+y_z, z_x, z_y, z_z)), if the box derivative are not present a WARNING will be
+raised, but the calculation won't be interrupted.
 
 \par The prepare and update functions and the "data" attribute
 
-If the `PREPARE` keyword is used, the defined function will be called at prepare time, before calculate.
-The prepare dictionary can contain a `"setAtomRequest"` key with a parseable ATOM string, like in the input (or a list of indexes, 0 based).
+If the `PREPARE` keyword is used, the defined function will be called at
+prepare time, before calculate.
+The prepare dictionary can contain a `"setAtomRequest"` key with a parseable
+ATOM string, like in the input (or a list of indexes, 0 based).
 @code{.py}
 #this , with "PREPARE=changeAtom" in the plumed file will select a new atom at each new step
 def changeAtom(plmdAction: plumedCommunications.PythonCVInterface):
@@ -138,9 +150,13 @@ def changeAtom(plmdAction: plumedCommunications.PythonCVInterface):
     return toret
 @endcode
 
-If the `UPDATE` keyword is used, the defined function will be called at update time, after calculate. As now plumed will ignore the return of this function (but it stills need to return a dict) and it is intended to accumulate things or post process data afer calculate
+If the `UPDATE` keyword is used, the defined function will be called at update
+time, after calculate. As now plumed will ignore the return of this function
+(but it stills need to return a dict) and it is intended to accumulate things
+or post process data afer calculate
 
-In the example `plmdAction.data["pycv"]=0` is intialized in `pyinit` and its value is updated in calculate.
+In the example `plmdAction.data["pycv"]=0` is intialized in `pyinit` and its
+value is updated in calculate.
 
 \plumedfile
 cv1: PYCVINTERFACE  ...
@@ -168,7 +184,8 @@ def pydist(plmdAction: PLMD.PythonCVInterface):
     return d
 @endcode
 
-The plumedCommunications.PythonCVInterface has a `data` attribute that is a dictionary and can be used to store data during the calculations
+The plumedCommunications.PythonCVInterface has a `data` attribute that is a
+dictionary and can be used to store data during the calculations
 
 
 \par Getting the manual
@@ -337,22 +354,24 @@ def cv(action: PLMD.PythonCVInterface):
     return  toret
 @endcode
 
-
-
 \par Installation
 
-Make sure you have Python 3 installed. It currently does not seem to
-work well with Conda under OSX (Homebrew's Python 3 is ok).  If you
-are feeling lucky, this may work:
+A use of an virtual environment or equivalent is recomended.
+To compile pycv you just need numpy and pybind11, jax is not necessary for
+compilation and installation.
 
+To compile the shared object library you need also plumed in your path.
+You need to export the following  environmental variables:
 \verbatim
-pip3 install numpy jax jaxlib
-./configure --enable-modules=+pycv
+export PLUMED_MKLIB_CFLAGS="$(python3-config --cflags --embed) $(python -m pybind11 --includes)"
+export PLUMED_MKLIB_LDFLAGS="$(python3-config --ldflags --embed)"
+\endverbatim
+and then compile the shared object:
+\verbatim
+plumed mklib PythonCVInterface.cpp ActionWithPython.cpp PlumedPythonEmbeddedModule.cpp
 \endverbatim
 
-At run time, you may need to set the `PYTHONHOME` or other
-environment libraries.
-
+If you are on linux you can use pycv only with a plumed version that is compatible with the `GLOBAL` keyword for the action `LOAD`
 
 */
 //+ENDPLUMEDOC
