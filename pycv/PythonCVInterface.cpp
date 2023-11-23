@@ -53,7 +53,7 @@ Each element or function can be selected with its dedicated keyword:
     update() invocation
  - `PREPARE` will select the function to be called at each step, during the
     prepare() invocation
-All the function called will need a single argument of type 
+All the function called will need a single argument of type
   `plumedCommunications.PythonCVInterface`
 
 
@@ -78,15 +78,15 @@ def plumedCompute(action: PLMD.PythonCVInterface):
 
 If `INIT` is not specified, plumed will search for an object "plumedInit",
 that can be either a function that returns a dict or a dict
-This dict MUST contain at least the informations about the presence of the 
+This dict MUST contain at least the informations about the presence of the
 derivatives and on the periodicity of the variable.
 We will refer to this dict as "the init dict" from now.
 
-If `CALCULATE` is not specified, plumed will search for a function named 
+If `CALCULATE` is not specified, plumed will search for a function named
 "plumedCalculate" plumed will read the variable returned accordingly to what it
 was specified in the initialization dict.
 
-The init dict will tell plumed how many components the calculate function will 
+The init dict will tell plumed how many components the calculate function will
 return and how they shall behave.
 Along this the dict can contain all the keyword that are compatible with
 PYCVINTERFACE.
@@ -115,7 +115,7 @@ contains a submodule `defaults` with the default dictionaries already set up:
 
 \par The calculate function
 
-The calculate funtion must, as all the other functions accept a 
+The calculate funtion must, as all the other functions accept a
 PLMD.PythonCVInterface object as only input.
 
 The calculate function must either return a float or a tuple or, in the case of multiple components, a dict whose keys are the name of the components, whose elements are either float or tuple.
@@ -125,7 +125,12 @@ If derivatives are disabled it will expect a float(or a double).
 In case of activated derivatives it will interrupt the calculation if the return value would not be a tuple.
 The tuple should be (float, ndArray(nat,3),ndArray(3,3)) with the first elements the value, the second the atomic derivatives and the third the box derivative (that can also have shape(9), with format (x_x,x_y,x_z,y_x,y_y,y_z,z_x,z_y,z_z)), if the box derivative are not present a WARNING will be raised, but the calculation won't be interrupted.
 
-\par The prepare and update functions
+\par The prepare and update functions and the "data" attribute
+
+If the `PREPARE` keyword is used, the defined function will be called at prepare time, before calculate.
+
+If the `UPDATE` keyword is used, the defined function will be called at update time, after calculate
+
 
 
 \par Getting the manual
@@ -157,34 +162,8 @@ def plumedCalculate(_):
     return 0
 @endcode
 
-@code{.py}
-#this make python aware of plumed
-import plumedCommunications as PLMD
 
-
-
-def plumedInit(action: PLMD.PythonCVInterface):
-    action.log("Hello, world, from init!")
-    #this tells plumed that there is only a component and that componed has the default settings
-    return {"Value":PLMD.defaults.COMPONENT_NODEV}
-
-#note that if you do not to calculate anything you can simply write the dict that will be returned:
-#plumedInit={"Value":PLMD.defaults.COMPONENT_NODEV}
-
-def plumedCompute(action: PLMD.PythonCVInterface):
-    action.log("Hello, world, from calculate!")
-    #since we do not have derivatives we can simply return a number
-    return 0.0
-@endcode
-
-In the scalar case (`COMPONENTS` keyword not given), the function
-sho return two values: a scalar (the CV value), and its gradient
-with respect to each coordinate (an array of the same shape as the
-input). Not returning the gradient will prevent biasing from working
-(with warnings).
-
-If a list of `COMPONENTS` is given, multiple components can be
-computed at once, as described in the section *Multiple components*.
+/par Tips and tricks
 
 Automatic differentiation and transparent compilation (including to
 GPU) can be performed via Google's [JAX
@@ -609,16 +588,21 @@ void PythonCVInterface::prepare() try {
     py::dict prepareDict = pyPrepare(this);
     if (prepareDict.contains("setAtomRequest")) {
       //should I use "interpretAtomList"?
-      py::tuple t = prepareDict["setAtomRequest"];
       std::vector<PLMD::AtomNumber> myatoms;
-      for (const auto &i : t) {
-        auto at = PLMD::AtomNumber::index(i.cast<unsigned>());
-        myatoms.push_back(at);
+      if(py::isinstance<py::tuple>(prepareDict["setAtomRequest"])||
+          py::isinstance<py::list>(prepareDict["setAtomRequest"])) {
+        py::tuple t = prepareDict["setAtomRequest"];
+
+        for (const auto &i : t) {
+          auto at = PLMD::AtomNumber::index(i.cast<unsigned>());
+          myatoms.push_back(at);
+        }
+      } else {
+        auto atomlist=PLMD::Tools::getWords(
+                        py::str(prepareDict["setAtomRequest"]).cast<std::string>(),
+                        "\t\n ,");
+        interpretAtomList( atomlist, myatoms );
       }
-      for (const auto &i : myatoms) {
-        std::cout << i.index() << " ";
-      }
-      std::cout << "\n";
       requestAtoms(myatoms);
     }
   }
@@ -750,9 +734,10 @@ void PythonCVInterface::calculateMultiComponent(py::object &r) {
 
 void PythonCVInterface::pyParseAtomList(const char* key, const ::pybind11::dict &initDict, std::vector<AtomNumber> &myatoms) {
   parseAtomList(key,myatoms);
-  if (myatoms.size()>0 && initDict.contains(key))
-    error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
+
   if(initDict.contains(key)) {
+    if (myatoms.size()>0)
+      error(std::string("you specified the same keyword ").append(key)+ " both in python and in the settings file");
     auto atomlist=PLMD::Tools::getWords(
                     py::str(initDict[key]).cast<std::string>(),
                     "\t\n ,");

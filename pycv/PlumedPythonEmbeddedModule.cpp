@@ -78,7 +78,7 @@ PYBIND11_EMBEDDED_MODULE(plumedCommunications, m) {
                                 );
     return atomList;
   },
-  "Returns a numpy.array that contaisn the atomic positions of the atoms requested by the action")
+  "Returns a numpy.array that contains the atomic positions of the atoms requested by the action")
   .def("log",[](PLMD::pycv::PythonCVInterface* self, py::object data) {
     self->log << py::str(data).cast<std::string>();
   },
