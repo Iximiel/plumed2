@@ -51,11 +51,19 @@ jobs:
       run: |
         sudo port -N -d test plumed ${{ matrix.variant }}
     - name: Run python tests
+      id: pytests
       run: |
         for p in $PYVERS ; do
-          sudo port select --set pytest pytest${p#py}
           sudo port test $p-plumed
         done
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: ${{ failure() && steps.pytests.conclusion == 'failure' }}
+#Error: See /opt/local/var/macports/logs/_Users_runner_work_plumed2_plumed2_macports_python_py-plumed/py37-plumed/main.log for details.
+      with:
+          name: pytestLog
+          path: |
+            /opt/local/var/macports/logs
 
   macsimple:
     runs-on: macos-11
