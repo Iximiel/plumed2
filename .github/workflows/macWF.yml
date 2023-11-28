@@ -53,6 +53,7 @@ jobs:
     - name: Run python tests
       run: |
         for p in $PYVERS ; do
+          sudo port select --set pytest pytest${p#py}
           sudo port test $p-plumed
         done
 
