@@ -13,17 +13,38 @@ env:
   CXX: g++
 
 jobs:
+  linuxCachingPip:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+        cache: pip #this will save some time in getting the requirements
+    - name: Install python packages needed for tests
+      run: |
+          python -m pip install --upgrade pip
+          pip install --user Cython
+          pip install --user numpy
+          pip install --user pytest
+          pip install --user six ;
+          pip install --user pandas ;
+          pip install --user mdtraj ;
+          pip install --user MDAnalysis ;
+    
   linux:
+    needs: linuxCachingPip
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
         variant:
-        - -doc-mpi-
+        #commenting the ci for testing
+        #- -doc-mpi-
         - -mpi-
-        - -coverage-mpi-
-        - -debug-
-        - -debug-mpi-
+        #- -coverage-mpi-
+        #- -debug-
+        #- -debug-mpi-
 # temporarily commented out
 # see https://github.com/plumed/plumed2/issues/976
 #        - -intel-
@@ -186,7 +207,7 @@ jobs:
       if:  matrix.variant == '-mpi-' 
       uses: actions/cache/save@v3
       with:
-        path: $HOME/opt
+        path: ~/opt
         key: ccache-plumedInstall-linux${{ matrix.variant }}hash-${{ github.sha }}
               
     
