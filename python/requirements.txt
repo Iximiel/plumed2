@@ -1,0 +1,8 @@
+#requirements for the tests in the CI
+Cython
+numpy
+pytest
+six
+pandas
+mdtraj
+MDAnalysis

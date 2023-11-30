@@ -16,11 +16,13 @@ jobs:
   linuxCachingPip:
     runs-on: ubuntu-22.04
     steps:
+    - uses: actions/checkout@v3
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: 3.9
         cache: pip #this will save some time in getting the requirements
+        cache-dependency-path: ./python/requirements
     - name: Install python packages needed for tests
       run: |
           python -m pip install --upgrade pip
