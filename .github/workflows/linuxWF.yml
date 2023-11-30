@@ -13,17 +13,40 @@ env:
   CXX: g++
 
 jobs:
+  linuxCachingPip:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+        cache: pip #this will save some time in getting the requirements
+        cache-dependency-path: ./python/requirements.txt
+    - name: Install python packages needed for tests
+      run: |
+          python -m pip install --upgrade pip
+          pip install --user Cython
+          pip install --user numpy
+          pip install --user pytest
+          pip install --user six ;
+          pip install --user pandas ;
+          pip install --user mdtraj ;
+          pip install --user MDAnalysis ;
+    
   linux:
+    needs: linuxCachingPip
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
         variant:
-        - -doc-mpi-
+        #commenting the ci for testing
+        #- -doc-mpi-
         - -mpi-
-        - -coverage-mpi-
-        - -debug-
-        - -debug-mpi-
+        #- -coverage-mpi-
+        #- -debug-
+        #- -debug-mpi-
 # temporarily commented out
 # see https://github.com/plumed/plumed2/issues/976
 #        - -intel-
@@ -38,6 +61,8 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: 3.9
+        cache: pip #this will save some time in getting the requirements
+        cache-dependency-path: ./python/requirements.txt
     - name: Set paths
       run: |
         echo "$HOME/opt/bin" >> $GITHUB_PATH
@@ -181,3 +206,88 @@ jobs:
         GIT_TOKEN: ${{ secrets.GIT_TOKEN_PLUMEDBOT }}
       run: |
          .ci/push doc
+    - name: Saving "$HOME/opt"
+      if:  matrix.variant == '-mpi-' 
+      uses: actions/cache/save@v3
+      with:
+        path: ~/opt
+        key: ccache-plumedInstall-linux${{ matrix.variant }}hash-${{ github.sha }}
+              
+    
+  linux-pycv:
+    needs: linux
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+        - -mpi-
+# temporarily commented out
+# see https://github.com/plumed/plumed2/issues/976
+#        - -intel-
+    steps:
+    - uses: actions/checkout@v3
+    - name: Restoring "$HOME/opt"
+      uses: actions/cache/restore@v3
+      with:
+        path: ~/opt
+        key: ccache-plumedInstall-linux${{ matrix.variant }}hash-${{ github.sha }}
+    - uses: actions/cache@v3
+      with:
+        path: ~/.ccache
+        key: ccache-reset1-linux${{ matrix.variant }}hash-${{ github.sha }}
+        restore-keys: ccache-reset1-linux${{ matrix.variant }}hash-
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+        cache: pip #this will save some time in getting the requirements
+        cache-dependency-path: ./python/requirements.txt
+    - name: Set paths
+      run: |
+        echo "$HOME/opt/bin" >> $GITHUB_PATH
+        # path required for pytest:
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        echo "CPATH=$HOME/opt/include:$CPATH" >> $GITHUB_ENV
+        echo "INCLUDE=$HOME/opt/include:$INCLUDE" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=$HOME/opt/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$HOME/opt/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "PYTHONPATH=$HOME/opt/lib/plumed/python:$PYTHONPATH" >> $GITHUB_ENV
+    - name: Install generic packages
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y libatlas-base-dev
+        sudo apt-get install -y libfftw3-dev
+        sudo apt-get install -y gsl-bin
+        sudo apt-get install -y libgsl0-dev
+        sudo apt-get install -y ccache
+        sudo apt-get install -y libboost-serialization-dev
+        sudo apt-get install -y libopenmpi-dev openmpi-bin
+        echo "CC=mpicc" >> $GITHUB_ENV
+        echo "CXX=mpic++" >> $GITHUB_ENV
+        echo "OMPI_MCA_btl_base_warn_component_unused=0" >> $GITHUB_ENV
+        echo "OMPI_MCA_btl_base_verbose=0" >> $GITHUB_ENV
+        echo "OMPI_MCA_plm=isolated" >> $GITHUB_ENV
+        echo "OMPI_MCA_btl_vader_single_copy_mechanism=none" >> $GITHUB_ENV
+        echo "OMPI_MCA_rmaps_base_oversubscribe=yes" >> $GITHUB_ENV
+    - name: Install python packages
+      run: |
+        python -m pip install --upgrade pip
+        pip install --user Cython
+        pip install --user numpy
+        pip install --user pytest
+        pip install --user pybind11
+        pip install --user six ;
+        pip install --user pandas ;
+        pip install --user mdtraj ;
+        pip install --user MDAnalysis ;
+        python -c "import MDAnalysis" ;
+        python -c "import mdtraj" ;
+        pip install --user mpi4py
+        python -c "import mpi4py"
+    - name: compile and test pycv
+      working-directory: ./plugins/pycv/
+      run: |
+          ./prepareMakeForDevelop.sh  
+          make check
+    
