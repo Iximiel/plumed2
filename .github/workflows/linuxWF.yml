@@ -228,10 +228,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Restoring "$HOME/opt"
-      if:  matrix.variant == '-mpi-' 
       uses: actions/cache/restore@v3
       with:
-        path: $HOME/opt
+        path: ~/opt
         key: ccache-plumedInstall-linux${{ matrix.variant }}hash-${{ github.sha }}
     - uses: actions/cache@v3
       with:
