@@ -7,7 +7,7 @@ if [[ -z $PLUMED_KERNEL ]]; then
 fi
 
 {
-  plumed config makefile_conf
-  echo "PLUMED_INCLUDE=-I$(plumed info --include-dir)/plumed"
+  plumed --no-mpi config makefile_conf
+  echo "PLUMED_INCLUDE=-I$(plumed --no-mpi info --include-dir)/plumed"
   echo "PLUMED_KERNEL=-L${PLUMED_KERNEL}"
 } > Make.inc
