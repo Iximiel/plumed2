@@ -3,6 +3,7 @@
 if [[ -z $PLUMED_KERNEL ]]; then
   echo "$(basename $0) can work only if \"PLUMED_KERNEL\" is defined"
   echo "either via module load or sourceme.sh"
+  exit 1
 fi
 
 {

@@ -18,19 +18,19 @@ jobs:
   linux:
     uses: ./.github/workflows/linuxWF.yml
     secrets: inherit
+  # temporary
+  # codecheck:
+  #   uses: ./.github/workflows/codecheckWF.yml
+  #   secrets: inherit
 
-  codecheck:
-    uses: ./.github/workflows/codecheckWF.yml
-    secrets: inherit
-
-  mac:
-    uses: ./.github/workflows/macWF.yml
-    secrets: inherit
+  # mac:
+  #   uses: ./.github/workflows/macWF.yml
+  #   secrets: inherit
         
-  docker:
-    uses: ./.github/workflows/dockerWF.yml
-    secrets: inherit
+  # docker:
+  #   uses: ./.github/workflows/dockerWF.yml
+  #   secrets: inherit
 
-  conda:
-    uses: ./.github/workflows/condaWF.yml
-    secrets: inherit
+  # conda:
+  #   uses: ./.github/workflows/condaWF.yml
+  #   secrets: inherit

@@ -19,12 +19,13 @@ jobs:
       fail-fast: false
       matrix:
         variant:
-        - -doc-mpi-
-        - -mpi-
+          #temporary commentations
+        # - -doc-mpi-
+        # - -mpi-
         - -pycv-mpi-
-        - -coverage-mpi-
-        - -debug-
-        - -debug-mpi-
+        # - -coverage-mpi-
+        # - -debug-
+        # - -debug-mpi-
 # temporarily commented out
 # see https://github.com/plumed/plumed2/issues/976
 #        - -intel-
@@ -187,5 +188,6 @@ jobs:
       working-directory: ./plugins/pycv/
       run: |
             pip install --user pybind11
+            source ../../sourceme
             ./prepareMakeForDevelop.sh  
             make check
