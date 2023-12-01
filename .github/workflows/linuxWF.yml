@@ -188,6 +188,6 @@ jobs:
       working-directory: ./plugins/pycv/
       run: |
             pip install --user pybind11
-            source ../../sourceme
+            source ../../sourceme.sh
             ./prepareMakeForDevelop.sh  
             make check
