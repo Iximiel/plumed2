@@ -44,9 +44,12 @@ RUN . /etc/bashrc \
  && make -j 4 \
  && make check
  
-RUN cd plumed2 \
+RUN source /etc/bashrc \
+ && module load mpi \
+ && cd plumed2 \
  && source ./sourceme.sh \
  && cd plugins/pycv \
+ && pip3 install pybind11 \
  && ln -s $(realpath ../../regtest/scripts) ./regtest/scripts \
  && ./prepareMakeForDevelop.sh \
  && make checkfail
