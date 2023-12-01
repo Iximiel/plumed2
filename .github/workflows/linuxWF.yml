@@ -186,8 +186,10 @@ jobs:
     - name: compile and test pycv
       if: contains( matrix.variant, '-pycv-' )
       working-directory: ./plugins/pycv/
+      #jax is needed for one single test
       run: |
             pip install --user pybind11
+            pip install --user jax
             source ../../sourceme.sh
             ln -s $(realpath ../../regtest/scripts) ./regtest/scripts
             ./prepareMakeForDevelop.sh  
