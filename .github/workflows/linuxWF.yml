@@ -189,6 +189,6 @@ jobs:
       run: |
             pip install --user pybind11
             source ../../sourceme.sh
-            ln -s $(realapath ../../regtest/scripts) ./regtest/scripts
+            ln -s $(realpath ../../regtest/scripts) ./regtest/scripts
             ./prepareMakeForDevelop.sh  
             make check
