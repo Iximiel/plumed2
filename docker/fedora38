@@ -43,9 +43,8 @@ RUN . /etc/bashrc \
  && ./configure --enable-modules=all --enable-boost_serialization \
  && make -j 4 \
  && make check \
- && .sourceme.sh \
+ && source ./sourceme.sh \
  && cd plugins/pycv \
  && ln -s $(realpath ../../regtest/scripts) ./regtest/scripts \
  && ./prepareMakeForDevelop.sh \
- && make checkfail \
- && .sourceme.sh
+ && make checkfail
