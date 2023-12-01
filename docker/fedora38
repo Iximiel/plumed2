@@ -42,7 +42,9 @@ RUN . /etc/bashrc \
  && export PYTHON_BIN=python3 \
  && ./configure --enable-modules=all --enable-boost_serialization \
  && make -j 4 \
- && make check \
+ && make check
+ 
+RUN cd plumed2 \
  && source ./sourceme.sh \
  && cd plugins/pycv \
  && ln -s $(realpath ../../regtest/scripts) ./regtest/scripts \
