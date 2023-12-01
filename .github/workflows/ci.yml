@@ -15,9 +15,9 @@ env:
 
 jobs:
 
-  linux:
-    uses: ./.github/workflows/linuxWF.yml
-    secrets: inherit
+  # linux:
+    # uses: ./.github/workflows/linuxWF.yml
+    # secrets: inherit
   # temporary
   # codecheck:
   #   uses: ./.github/workflows/codecheckWF.yml
@@ -27,9 +27,9 @@ jobs:
   #   uses: ./.github/workflows/macWF.yml
   #   secrets: inherit
         
-  # docker:
-  #   uses: ./.github/workflows/dockerWF.yml
-  #   secrets: inherit
+  docker:
+    uses: ./.github/workflows/dockerWF.yml
+    secrets: inherit
 
   # conda:
   #   uses: ./.github/workflows/condaWF.yml
