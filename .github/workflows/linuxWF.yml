@@ -191,4 +191,4 @@ jobs:
             source ../../sourceme.sh
             ln -s $(realpath ../../regtest/scripts) ./regtest/scripts
             ./prepareMakeForDevelop.sh  
-            make check
+            make checkfail
