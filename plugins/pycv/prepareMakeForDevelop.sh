@@ -13,6 +13,7 @@ fi
 
 {
   plumed --no-mpi config makefile_conf
-  echo "PLUMED_INCLUDE=-I$(plumed --no-mpi info --include-dir)/plumed"
   echo "PLUMED_KERNEL=-L${PLUMED_KERNEL}"
+  echo "ADDCPPFLAGS=$(python3-config --cflags --embed) $(python3 -m pybind11 --includes) -I$(plumed --no-mpi info --include-dir)/plumed"
+  echo "ADDCLDFLAGS=$(python3-config --ldflags --embed)"
 } > Make.inc

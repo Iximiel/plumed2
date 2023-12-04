@@ -7,9 +7,6 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
 OBJS = ActionWithPython.o PythonCVInterface.o PythonFunction.o PlumedPythonEmbeddedModule.o
 
-ADDCPPFLAGS=$(shell python3-config --cflags --embed) $(shell python3 -m pybind11 --includes) $(PLUMED_INCLUDE)
-ADDCLDFLAGS=$(shell python3-config --ldflags --embed) 
-
 ifeq ($(SOEXT),dylib)
   SONAME_OPTION:=-Wl,-install_name
 else
