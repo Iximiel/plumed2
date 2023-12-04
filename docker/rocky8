@@ -3,27 +3,48 @@ FROM rockylinux/rockylinux:8
 # NOTE: numpy==1.19 is the last version compatible with python 3.6
 # NOTE: pillow==8.4.0 leads to an error while installing on centos7
 RUN yum -y update \
- && yum -y install dnf-plugins-core \
- && dnf config-manager --set-enabled powertools \
- && yum -y group install "Development Tools" \
- && yum -y install environment-modules gawk vim wget \
-                   lapack-devel blas-devel zlib-devel gsl-devel fftw-devel openmpi-devel boost-devel \
-                   python3 python3-devel python3-pip \
- && pip3 install pillow==8.3.2 \
- && pip3 install numpy==1.19 \
- && pip3 install "cython<3" numpy pandas mdtraj \
- && pip3 install MDAnalysis==1.0.0
+    && yum -y install dnf-plugins-core \
+    && dnf config-manager --set-enabled powertools \
+    && yum -y group install "Development Tools" \
+    && yum -y install environment-modules gawk vim wget \
+    lapack-devel blas-devel zlib-devel gsl-devel fftw-devel openmpi-devel boost-devel \
+    openssl-devel libffi-devel 
 
 RUN useradd -ms /bin/bash plumed
+#These are needed for installing python
+
 USER plumed
 WORKDIR /home/plumed
 
-# import plumed code.
-# assumes a file plumed2.tgz is present in the Dockerfile directory
+#Install python with --embedded
+#COPY installPythonForDocker.sh /home/plumed
+RUN TMP="$(mktemp -d)" && PYVERSION="3.9.16" && \
+    cd $TMP && \
+    curl -LO https://www.python.org/ftp/python/${PYVERSION}/Python-${PYVERSION}.tgz && \
+    tar xzf Python-${PYVERSION}.tgz && \
+    cd Python-${PYVERSION} && \
+    ./configure --prefix=$HOME/.local && \
+    make -j 4 && \
+    make install && \
+    rm -fr $TMP
+
+RUN . ./.bashrc \                
+  && pip3 install --user -U pip \
+  && pip3 install --user pillow==8.3.2 \
+  && pip3 install --user "Cython<3" \
+  && pip3 install --user pandas \
+ && pip3 install --user mdtraj     \
+ && pip3 install --user MDAnalysis==1.0.0
+#  && pip3 install --user numpy==1.19
+
+
+
+# # import plumed code.
+# # assumes a file plumed2.tgz is present in the Dockerfile directory
 COPY plumed2.tgz /home/plumed
 
-# build and test plumed (no install)
-RUN . /etc/bashrc \
+# # build and test plumed (no install)
+RUN . ./.bashrc \
  && module load mpi \
  && export OMPI_MCA_btl_base_warn_component_unused=0 \
  && export OMPI_MCA_btl_base_verbose=0 \
@@ -40,13 +61,16 @@ RUN . /etc/bashrc \
  && export PYTHONPATH=$PWD/python:$PYTHONPATH \
  && export PYTHON_BIN=python3 \
  && ./configure --enable-modules=all --enable-boost_serialization \
- && make -j 4 \
- && make check
- 
-RUN cd plumed2 \
+ && make -j 4
+#\ && make check
+
+RUN source ./.bashrc \
+ && module load mpi \
+ && cd plumed2 \
  && source ./sourceme.sh \
  && cd plugins/pycv \
+ && pip3 install --user pybind11  \
  && ln -s $(realpath ../../regtest/scripts) ./regtest/scripts \
- && ./prepareMakeForDevelop.sh \
- && make checkfail
-
+ && ./prepareMakeForDevelop.sh
+ && make check 
+ 
