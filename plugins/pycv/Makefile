@@ -34,8 +34,5 @@ clean:
 	rm -f $(OBJS) PythonCVInterface.$(SOEXT)
 
 check: all
-	$(MAKE) -C regtest
-
-checkfail: all
 	$(MAKE) -C regtest testclean
 	$(MAKE) -C regtest checkfail

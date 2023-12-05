@@ -72,4 +72,4 @@ RUN source ./.bashrc \
  && pip3 install --user pybind11  \
  && ln -s $(realpath ../../regtest/scripts) ./regtest/scripts \
  && ./prepareMakeForDevelop.sh \
- && make check 
+ && make check
