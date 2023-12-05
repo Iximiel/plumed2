@@ -23,7 +23,7 @@ RUN TMP="$(mktemp -d)" && PYVERSION="3.9.16" && \
     curl -LO https://www.python.org/ftp/python/${PYVERSION}/Python-${PYVERSION}.tgz && \
     tar xzf Python-${PYVERSION}.tgz && \
     cd Python-${PYVERSION} && \
-    ./configure --prefix=$HOME/.local && \
+    ./configure --enable-shared --prefix=$HOME/.local && \
     make -j 4 && \
     make install && \
     rm -fr $TMP
