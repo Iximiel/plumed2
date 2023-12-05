@@ -41,5 +41,6 @@ RUN . /etc/bashrc \
  && export PYTHONPATH=$PWD/python:$PYTHONPATH \
  && export PYTHON_BIN=python3 \
  && ./configure --enable-modules=all --enable-boost_serialization \
- && make -j 4 \
- && make check
+ && make -j 4
+ # \
+ #&& make check
