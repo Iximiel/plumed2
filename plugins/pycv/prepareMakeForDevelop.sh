@@ -7,7 +7,9 @@ if [[ -z $PLUMED_KERNEL ]]; then
 fi
 
 if ! python3-config --embed >/dev/null 2>/dev/null; then
+#TODO: verify that this does not give problems with conda
   echo "PyCV needs python to be built to be embedable"
+  echo "(compiling python with --enable-shared should be enough)"
   exit 1
 fi
 
