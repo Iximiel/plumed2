@@ -319,6 +319,7 @@ PLUMED_CONFIG_ENABLE([boost_graph],[search for boost graph],[no])
 PLUMED_CONFIG_ENABLE([boost_serialization],[search for boost serialization],[no])
 PLUMED_CONFIG_ENABLE([fftw],[search for fftw],[yes])
 PLUMED_CONFIG_ENABLE([python],[search for python],[yes])
+PLUMED_CONFIG_ENABLE([pycv],[set up the pycv plugin],[yes])
 PLUMED_CONFIG_ENABLE([af_ocl],[search for arrayfire_ocl],[no])
 PLUMED_CONFIG_ENABLE([af_cuda],[search for arrayfire_cuda],[no])
 PLUMED_CONFIG_ENABLE([af_cpu],[search for arrayfire_cpu],[no])
@@ -331,6 +332,10 @@ AC_ARG_VAR(PYTHON_BIN,[python executable (e.g. python2.7 or /opt/local/bin/pytho
 AC_ARG_VAR(BASH_COMPLETION_DIR,[path where bash completion will be installed - default: search with pkg-config])
 AC_ARG_VAR(MPIEXEC,[command to run mpi programs in tests - default not specified, which means use PLUMED_MPIRUN env var at runtime for backward compatibility])
 
+AC_SUBST(PLUMED_CAN_PYCV)
+AC_SUBST(PYBIND11_CFLAGS)
+AC_SUBST(PYTHON_LDFLAGS)
+AC_SUBST(PYTHON_CFLAGS)
 
 # by default use -O flag
 # we override the autoconf default (-g) because in release build we do not want to
@@ -836,6 +841,34 @@ fi
 
 if test $fftw = true ; then
   PLUMED_CHECK_PACKAGE([fftw3.h],[fftw_execute],[__PLUMED_HAS_FFTW],[fftw3])
+fi
+
+if test $pycv = true  ; then
+  if test -n "$PYTHON_BIN"
+  then
+    AC_MSG_NOTICE([Python executable is $PYTHON_BIN])
+    AC_MSG_CHECKING([pycv: support for required python modules (python3, pybind11, numpy)])
+testimport="
+import numpy
+import pybind11
+#no need to check for python3, if you have python2, you don't have pybind11 (and vice-versa)
+"
+    if echo "$testimport" | "$PYTHON_BIN" 1>/dev/null 2>/dev/null;  then
+       AC_MSG_RESULT([yes])
+       pyver=$($PYTHON_BIN -c "import sysconfig;print(sysconfig.get_config_var('VERSION'))")
+       python_config=python${pyver}-config
+       PYBIND11_CFLAGS="$($PYTHON_BIN -m pybind11 --includes) -fvisibility=hidden"
+       PYTHON_CFLAGS=$(${python_config} --cflags --embed)
+       PYTHON_LDFLAGS=$(${python_config} --ldflags --embed)
+       #TODO: conda_fixup
+       PLUMED_CAN_PYCV=yes
+    else
+       AC_MSG_RESULT([no])
+       AC_MSG_WARN([cannot enable pycv])
+    fi
+  else
+    AC_MSG_WARN([cannot enable pycv])
+  fi
 fi
 
 if test $python = true  ; then
