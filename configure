@@ -8990,7 +8990,7 @@ import pybind11
 $as_echo "yes" >&6; }
        pyver=$($PYTHON_BIN -c "import sysconfig;print(sysconfig.get_config_var('VERSION'))")
        python_config=python${pyver}-config
-       PYBIND11_CFLAGS="$pyver $($PYTHON_BIN -m pybind11 --includes) -fvisibility=hidden"
+       PYBIND11_CFLAGS="$($PYTHON_BIN -m pybind11 --includes) -fvisibility=hidden"
        PYTHON_CFLAGS=$(${python_config} --cflags --embed)
        PYTHON_LDFLAGS=$(${python_config} --ldflags --embed)
        #TODO: conda_fixup
