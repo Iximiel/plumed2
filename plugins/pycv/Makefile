@@ -6,7 +6,8 @@ include Make.inc
 DEPDIR := .deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 PYBIND11FLAG = 
-
+ADDCPPFLAGS:=$(python_cf_embedded) $(pybind11_cflags) $(ADDCPPFLAGS)
+ADDCLDFLAGS:=$(ADDCLDFLAGS) $(python_ld_embedded)
 OBJS = ActionWithPython.o PythonCVInterface.o PythonFunction.o PlumedPythonEmbeddedModule.o
 
 ifeq ($(SOEXT),dylib)
@@ -35,7 +36,7 @@ include $(wildcard $(DEPFILES))
 #TODO: seems that $PLUMED_KERNEL is not needed, check
 PythonCVInterface.$(SOEXT): $(OBJS)
 	@echo Linking $@
-	$(LDSHARED) $(SONAME_OPTION),"$(notdir $@)" $(DYNAMIC_LIBS) $(PLUMED_KERNEL) $(ADDCLDFLAGS)  $^ -o $@ 
+	$(LDSHARED) $(SONAME_OPTION),"$(notdir $@)" $(DYNAMIC_LIBS) $(PLUMED_KERNEL) $(ADDCLDFLAGS) $^ -o $@ 
 
 clean:
 	rm -f $(OBJS) PythonCVInterface.$(SOEXT)
