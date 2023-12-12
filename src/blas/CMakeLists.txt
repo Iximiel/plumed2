@@ -17,6 +17,32 @@ if (useExternal_BLAS)
     find_package(BLAS)
 endif (useExternal_BLAS)
 
+################################################################################
+AC_DEFUN([PLUMED_TEST_SDOT],[
+#if ! defined(F77_NO_UNDERSCORE)
+#define sdot sdot_
+#endif
+extern "C"{
+$1 sdot(int *n, float *dx, int *incx, float *dy, int *incy);
+}
+
+int main(){
+  int size=5;
+// notice that [[]] is required to cheat autoconf
+  float af[[5]],bf[[5]];
+  for(unsigned i=0;i<size;i++){
+    af[[i]]=size;
+    bf[[i]]=size-i;
+  }
+  int inca=1;
+  int incb=1;
+  $1 f=sdot(&size,af,&inca,bf,&incb)-75;
+  if(f*f<1e-10) return 0;
+  else return 1;
+}
+])
+################################################################################
+
 if (BLAS_FOUND)
     target_compile_definitions(${module_name}
         PUBLIC
