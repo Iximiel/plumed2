@@ -196,7 +196,16 @@ run_make() {
   filesf90=$(ls ./*.f90 2>/dev/null)
   files=$(ls ./*.cpp ./*.f90 ./*.c 2>/dev/null)
   if [[ -n ${filesf90} ]]; then
-    otherLang="${otherLang}enable_language (Fortran)\n"
+    otherLang=$(cat << EOF
+${otherLang}
+include(CheckLanguage)
+check_language(Fortran)
+if(NOT CMAKE_Fortran_COMPILER)
+  message (FATAL_ERROR "NOT_APPLICABLE (Fortran compiler not found)")
+endif()
+enable_language (Fortran)  
+EOF
+)
     if [[ $compiler_language = "fortran08" ]]; then
       otherLang=$(
         cat <<EOF
@@ -286,6 +295,7 @@ EOF
   cat <<EOF >CMakeLists.txt
 cmake_minimum_required(VERSION 3.20)
 project(exe-test CXX)
+set (CMAKE_CXX_STANDARD 11)
 $(echo -e "$otherLang")
 find_package(Plumed2 REQUIRED)
 $(echo -e "$compileLibs")
@@ -341,7 +351,7 @@ check() {
         # ASCII and diff will be shown in the log
         test "$(head -c 10 "$file")" = "#! FIELDS " && DIFFOPT="-a"
         out="$(diff $DIFFOPT "$file" "$new.zfix")"
-        diff $DIFFOPT "$file" "$new.zfix"
+        
         test -n "$out" && {
           echo FAILURE
           echo "Diff for ${file%.reference}:"
@@ -360,9 +370,8 @@ check() {
   return $exitcode
 }
 
-#this settings make the pipe exit with failure code of any command
-#so the program exits with the exit state of the scripta and not the
-#one of tee
+#this settings make the pipe exit with failure code of any command so the 
+#program exits with the exit state of the script and not the one of tee
 set -o pipefail
 {
   if test -n "$PLUMED_PREPEND_PATH"; then
@@ -411,12 +420,13 @@ set -o pipefail
   # this is the executable used for getting the configuration:
   plumed_nompi="$plumed --no-mpi"
   cat <<EOF
-  ++ plumed: $plumed
-  ++ dir:  $dir
-  ++ Test type: $type
-  ++ Arguments: "$args"
-  ++ Processors: $mpiprocs
-  ++ Extra files: ${extra_files[@]}
+  ++ plumed:       $plumed
+  ++ dir:          $dir
+  ++ wdir:         $PWD
+  ++ Test type:    $type
+  ++ Arguments:    "$args"
+  ++ Processors:   $mpiprocs
+  ++ Extra files:  ${extra_files[@]}
   ++ Plumed needs: $plumed_needs
 EOF
   #export options to be avaiable to subcalled scripts

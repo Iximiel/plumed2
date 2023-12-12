@@ -56,6 +56,7 @@ add_subdirectory(src)
 add_subdirectory(scripts)
 add_subdirectory(fortran)
 add_subdirectory(vim)
+add_subdirectory(macports)
 
 install(DIRECTORY patches
         DESTINATION ${DIRS_EXTRA_INSTALL})

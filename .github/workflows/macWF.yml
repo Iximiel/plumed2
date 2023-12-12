@@ -14,68 +14,94 @@ env:
 
 jobs:
 
-  macports:
-    runs-on: macos-11
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [ "" , "+allmodules" ]
-        # see https://github.community/t/how-to-conditionally-include-exclude-items-in-matrix-eg-based-on-branch/16853/6 for possible exclusions
-    env:
-      PYVERS: "py37 py38 py39 py310"
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/cache@v3
-      with:
-        path: ~/.macports-ci-ccache
-        key: ccache-macports-${{ matrix.variant }}-${{ github.sha }}
-        restore-keys: ccache-macports-${{ matrix.variant }}-
-    - name: Install MacPorts
-      run: |
-        wget https://raw.githubusercontent.com/GiovanniBussi/macports-ci/master/macports-ci
-        source ./macports-ci install
-        source ./macports-ci ccache
-    - name: Build local Portfile
-      run: |
-        make macports
-        source ./macports-ci localports macports
-    - name: Build PLUMED
-      run: |
-        sudo port -N -k install plumed ${{ matrix.variant }}
-        plumed config show
-        for p in $PYVERS ; do
-          sudo port -N install $p-plumed
-        done
-        source ./macports-ci ccache --save
-    - name: Run tests
-      run: |
-        sudo port -N -d test plumed ${{ matrix.variant }}
-    - name: Run python tests
-      run: |
-        for p in $PYVERS ; do
-          sudo port test $p-plumed
-        done
+  # macports:
+  #   runs-on: macos-11
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       variant: [ "" , "+allmodules" ]
+  #       # see https://github.community/t/how-to-conditionally-include-exclude-items-in-matrix-eg-based-on-branch/16853/6 for possible exclusions
+  #   env:
+  #     PYVERS: "py37 py38 py39 py310"
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - uses: actions/cache@v3
+  #     with:
+  #       path: ~/.macports-ci-ccache
+  #       key: ccache-macports-${{ matrix.variant }}-${{ github.sha }}
+  #       restore-keys: ccache-macports-${{ matrix.variant }}-
+  #   - name: Install MacPorts
+  #     run: |
+  #       wget https://raw.githubusercontent.com/GiovanniBussi/macports-ci/master/macports-ci
+  #       source ./macports-ci install
+  #       source ./macports-ci ccache
+  #   - name: Build local Portfile
+  #     run: |
+  #       make macports
+  #       source ./macports-ci localports macports
+  #   - name: Build PLUMED
+  #     run: |
+  #       sudo port -N -k install plumed ${{ matrix.variant }}
+  #       plumed config show
+  #       for p in $PYVERS ; do
+  #         sudo port -N install $p-plumed
+  #       done
+  #       source ./macports-ci ccache --save
+  #   - name: Run tests
+  #     run: |
+  #       sudo port -N -d test plumed ${{ matrix.variant }}
+  #   - name: Run python tests
+  #     run: |
+  #       for p in $PYVERS ; do
+  #         sudo port test $p-plumed
+  #       done
 
   macsimple:
     runs-on: macos-11
+    env:
+        # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+        BUILD_TYPE: Release
     steps:
     - uses: actions/checkout@v3
     - name: Set paths
       run: |
-        echo "$HOME/opt/bin" >> $GITHUB_PATH
-        echo "CPATH=$HOME/opt/include:$CPATH" >> $GITHUB_ENV
-        echo "INCLUDE=$HOME/opt/include:$INCLUDE" >> $GITHUB_ENV
-        echo "LIBRARY_PATH=$HOME/opt/lib:$LIBRARY_PATH" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=$HOME/opt/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-    - name: Build PLUMED
+        echo "$HOME/opt/bin:${{github.workspace}}/install/bin" >> $GITHUB_PATH
+        echo "CPATH=$HOME/opt/include:${{github.workspace}}/install/include:$CPATH" >> $GITHUB_ENV
+        echo "INCLUDE=$HOME/opt/include:${{github.workspace}}/install/include:$INCLUDE" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=$HOME/opt/lib:${{github.workspace}}/install/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$HOME/opt/lib:${{github.workspace}}/install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+    - name: Update the environment
       run: |
         brew update > /dev/null
         brew install gawk
-        ./configure --disable-dependency-tracking --prefix="$HOME/opt"
-        make -j 4
-        make install
-    - name: Run tests
-      run: |
-         make --no-print-directory -C regtest
-         # these can fail for numerical reasons
-         make -C regtest checkfail
+
+    - name: Configure CMake
+        # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+        # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+        #set up without warnings
+      run: > 
+          cmake -B ${{github.workspace}}/build 
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
+          -Doption_relaxed_dependencies=ON 
+          -DCMAKE_INSTALL_LIBDIR=lib
+          -Denable_warnings_basic=OFF 
+          
+
+    - name: Build
+      working-directory: ${{github.workspace}}/build
+      # Build your program with the given configuration
+      run: cmake --build . --config ${{env.BUILD_TYPE}} --parallel 4
+          
+    - name: Checking the tests
+      working-directory: ${{github.workspace}}/build
+      #does only the tests marked with the label "testIntegrity".
+      #These checks ensure that the test suite works as intended,
+      #if these do not pass there is something very wrong!
+      run: ctest --output-on-failure -L testIntegrity 
+
+    - name: Test
+      id: tests
+      working-directory: ${{github.workspace}}/build
+      
+      run: ctest -j4 --output-on-failure

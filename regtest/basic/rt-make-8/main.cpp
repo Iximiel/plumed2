@@ -24,9 +24,9 @@ int main(){
   }
   int inca=1;
   int incb=1;
-  ofs<<plumed_blas_ddot(&size,&ad[0],&inca,&bd[0],&incb)<<"\n";
-  ofs<<plumed_blas_sdot(&size,&af[0],&inca,&bf[0],&incb)<<"\n";
-  ofs<<plumed_lapack_dlapy2(&ad[0],&bd[0])<<"\n";
-  ofs<<plumed_lapack_slapy2(&af[0],&bf[0])<<"\n";
+  ofs<< "plumed_blas_ddot = " <<plumed_blas_ddot(&size,&ad[0],&inca,&bd[0],&incb)<<"\n";
+  ofs<< "plumed_blas_sdot = " <<plumed_blas_sdot(&size,&af[0],&inca,&bf[0],&incb)<<"\n";
+  ofs<< "plumed_lapack_dlapy2 = " <<plumed_lapack_dlapy2(&ad[0],&bd[0])<<"\n";
+  ofs<< "plumed_lapack_slapy2 = " <<plumed_lapack_slapy2(&af[0],&bf[0])<<"\n";
   return 0;
 }

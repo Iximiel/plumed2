@@ -25,6 +25,4 @@ awk -v opt=$1 '
       printf("  {\"%s\",%s}%s\n",string[i],enum[i],comma);
     }
   }
-  }'
-
-
+  }' < "$2" > "$3"
