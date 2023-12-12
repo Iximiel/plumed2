@@ -83,13 +83,13 @@ int main(){
     else return 1;
 }
         ]] )
-    check_cxx_source_runs(${sdot_check_source} sdot_returns_float)
+    check_cxx_source_runs("${sdot_check_source}" sdot_returns_float)
     if(NOT ${sdot_returns_float})
     set(CMAKE_REQUIRED_DEFINITIONS -DSDOTtype=double)
         if(noUnderscodeBlas)
             set(CMAKE_REQUIRED_DEFINITIONS -DF77_NO_UNDERSCORE -DSDOTtype=double)
         endif()
-        check_cxx_source_runs(${sdot_check_source} sdot_returns_double)
+        check_cxx_source_runs("${sdot_check_source}" sdot_returns_double)
     if(sdot_returns_double)
         message([[Setting workaround for blas float functions returning double]])
         target_compile_definitions(${module_name}
