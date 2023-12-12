@@ -336,6 +336,7 @@ AC_SUBST(PLUMED_CAN_PYCV)
 AC_SUBST(PYBIND11_CFLAGS)
 AC_SUBST(PYTHON_LDFLAGS)
 AC_SUBST(PYTHON_CFLAGS)
+AC_SUBST(CYTHON_FOUND)
 
 # by default use -O flag
 # we override the autoconf default (-g) because in release build we do not want to
@@ -892,10 +893,10 @@ if sys.version_info < (3,):
     if echo "$testimport" | "$PYTHON_BIN" 1>/dev/null 2>/dev/null;  then
        AC_MSG_RESULT([yes])
        AC_DEFINE([__PLUMED_HAS_PYTHON])
+       CYTHON_FOUND=yes
     else
        AC_MSG_RESULT([no])
        AC_MSG_WARN([cannot enable python interface])
-       PYTHON_BIN=
     fi
   else
     AC_MSG_WARN([cannot enable python interface])
