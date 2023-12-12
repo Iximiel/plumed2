@@ -844,12 +844,16 @@ if test $fftw = true ; then
   PLUMED_CHECK_PACKAGE([fftw3.h],[fftw_execute],[__PLUMED_HAS_FFTW],[fftw3])
 fi
 
-if test $pycv = true  ; then
-  if test -n "$PYTHON_BIN"
-  then
+# if PYTHON_BIN is defined, it is expected to be the full path to python
+# Otherwise, search from a list of names:  
+if test -z "$PYTHON_BIN" ; then
+    AC_CHECK_PROGS([PYTHON_BIN],[python])
+fi
+if test -n "$PYTHON_BIN" ; then
     AC_MSG_NOTICE([Python executable is $PYTHON_BIN])
+  if test $pycv = true  ; then
     AC_MSG_CHECKING([pycv: support for required python modules (python3, pybind11, numpy)])
-testimport="
+  testimport="
 import numpy
 import pybind11
 #no need to check for python3, if you have python2, you don't have pybind11 (and vice-versa)
@@ -870,19 +874,10 @@ import pybind11
   else
     AC_MSG_WARN([cannot enable pycv])
   fi
-fi
 
-if test $python = true  ; then
-# if PYTHON_BIN is defined, it is expected to be the full path to python
-# Otherwise, search from a list of names:
-  if test -z "$PYTHON_BIN" ; then
-    AC_CHECK_PROGS([PYTHON_BIN],[python])
-  fi
-  if test -n "$PYTHON_BIN"
-  then
-    AC_MSG_NOTICE([Python executable is $PYTHON_BIN])
+  if test $python = true  ; then
     AC_MSG_CHECKING([support for required python modules (python3, setuptools, cython)])
-testimport="
+    testimport="
 from setuptools import setup
 from setuptools import Extension
 from Cython.Build import cythonize
@@ -901,6 +896,11 @@ if sys.version_info < (3,):
   else
     AC_MSG_WARN([cannot enable python interface])
   fi
+fi
+
+if test "${PLUMED_CAN_PYCV}" != yes &&  test "${CYTHON_FOUND}" != yes; then
+  #this deactivate python bin if no package was found
+  PYTHON_BIN=
 fi
 
 if test "$af_ocl" = true ; then
