@@ -65,11 +65,11 @@ jobs:
     - uses: actions/checkout@v3
     - name: Set paths
       run: |
-        echo "$HOME/opt/bin" >> $GITHUB_PATH
-        echo "CPATH=$HOME/opt/include:$CPATH" >> $GITHUB_ENV
-        echo "INCLUDE=$HOME/opt/include:$INCLUDE" >> $GITHUB_ENV
-        echo "LIBRARY_PATH=$HOME/opt/lib:$LIBRARY_PATH" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=$HOME/opt/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "$HOME/opt/bin:${{github.workspace}}/install/bin" >> $GITHUB_PATH
+        echo "CPATH=$HOME/opt/include:${{github.workspace}}/install/include:$CPATH" >> $GITHUB_ENV
+        echo "INCLUDE=$HOME/opt/include:${{github.workspace}}/install/include:$INCLUDE" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=$HOME/opt/lib:${{github.workspace}}/install/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$HOME/opt/lib:${{github.workspace}}/install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
     - name: Update the environment
       run: |
         brew update > /dev/null
@@ -84,6 +84,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install"
           -Doption_relaxed_dependencies=ON 
+          -DCMAKE_INSTALL_LIBDIR=lib
           -Denable_warnings_basic=OFF 
           
 
