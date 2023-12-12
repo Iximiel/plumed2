@@ -17,37 +17,12 @@ if (useExternal_BLAS)
     find_package(BLAS)
 endif (useExternal_BLAS)
 
-################################################################################
-AC_DEFUN([PLUMED_TEST_SDOT],[
-#if ! defined(F77_NO_UNDERSCORE)
-#define sdot sdot_
-#endif
-extern "C"{
-$1 sdot(int *n, float *dx, int *incx, float *dy, int *incy);
-}
-
-int main(){
-  int size=5;
-// notice that [[]] is required to cheat autoconf
-  float af[[5]],bf[[5]];
-  for(unsigned i=0;i<size;i++){
-    af[[i]]=size;
-    bf[[i]]=size-i;
-  }
-  int inca=1;
-  int incb=1;
-  $1 f=sdot(&size,af,&inca,bf,&incb)-75;
-  if(f*f<1e-10) return 0;
-  else return 1;
-}
-])
-################################################################################
-
 if (BLAS_FOUND)
     target_compile_definitions(${module_name}
         PUBLIC
         __PLUMED_HAS_EXTERNAL_BLAS=1)
     include(CheckCXXSourceCompiles)
+    include(CheckCXXSourceRuns)
     #From the manual:The check is only performed once, with the result cached in
     #the variable named by <resultVar>. Every subsequent CMake run will re-use
     #this cached value rather than performing the check again, even if the
@@ -73,18 +48,72 @@ if (BLAS_FOUND)
     ]]
     noUnderscodeBlas
     )
-    unset(CMAKE_REQUIRED_LIBRARIES)
-
+    set(CMAKE_REQUIRED_DEFINITIONS -DSDOTtype=float)
     if(noUnderscodeBlas)
         target_compile_definitions(${module_name}
             PUBLIC
             F77_NO_UNDERSCORE)
+        set(CMAKE_REQUIRED_DEFINITIONS -DF77_NO_UNDERSCORE -DSDOTtype=float)
     elseif(NOT noUnderscodeBlas AND NOT UnderscodeBlas)
         message(WARNING "both srtog_ and srtog are not linkable")
     # elseif(noUnderscodeBlas AND UnderscodeBlas)
-    #     message(WARNING "both srtog_ and srtog are linkable")
-    # if both can be linked, use the underscore version
+        #     message(WARNING "both srtog_ and srtog are linkable")
+        # if both can be linked, use the underscore version
     endif(noUnderscodeBlas)
+    set (sdot_check_source     
+        [[
+#if ! defined(F77_NO_UNDERSCORE)
+#define sdot sdot_
+#endif
+extern "C"{
+    SDOTtype sdot(int *n, float *dx, int *incx, float *dy, int *incy);
+}
+
+int main(){
+    int size=5;
+    float af[5],bf[5];
+    for(unsigned i=0;i<size;i++){
+    af[i]=size;
+    bf[i]=size-i;
+    }
+    int inca=1;
+    int incb=1;
+    SDOTtype f=sdot(&size,af,&inca,bf,&incb)-75;
+    if(f*f<1e-10) return 0;
+    else return 1;
+}
+        ]] )
+    check_cxx_source_runs(${sdot_check_source} sdot_returns_float)
+    if(NOT ${sdot_returns_float})
+    set(CMAKE_REQUIRED_DEFINITIONS -DSDOTtype=double)
+        if(noUnderscodeBlas)
+            set(CMAKE_REQUIRED_DEFINITIONS -DF77_NO_UNDERSCORE -DSDOTtype=double)
+        endif()
+        check_cxx_source_runs(${sdot_check_source} sdot_returns_double)
+    if(sdot_returns_double)
+        message([[Setting workaround for blas float functions returning double]])
+        target_compile_definitions(${module_name}
+            PUBLIC
+            __PLUMED_BLAS_RETURNS_FLOAT=double)
+#   if test -n "$lapack_found" ; then
+    message([[Setting workaround for lapack float functions returning double]])
+    #this will be inherited by lapack
+    target_compile_definitions(${module_name}
+            PUBLIC
+            __PLUMED_LAPACK_RETURNS_FLOAT=double)
+  else()
+  #the check is unnecessary
+#else if test "$sdot_returns_float" = no && test "$sdot_returns_double" = no ;
+
+  message(WARNING [[There is a problem with your blas implementation]])
+endif()
+    endif()
+
+
+        
+    unset(CMAKE_REQUIRED_LIBRARIES)
+    unset(CMAKE_REQUIRED_DEFINITIONS)
+    
 
     target_link_libraries(${module_name}
         PUBLIC
