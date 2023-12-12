@@ -84,24 +84,24 @@ int main(){
 }
         ]] )
     check_cxx_source_runs("${sdot_check_source}" sdot_returns_float)
-    if(NOT ${sdot_returns_float})
-    set(CMAKE_REQUIRED_DEFINITIONS -DSDOTtype=double)
+    if(NOT sdot_returns_float)    
+        set(CMAKE_REQUIRED_DEFINITIONS -DSDOTtype=double)
         if(noUnderscodeBlas)
             set(CMAKE_REQUIRED_DEFINITIONS -DF77_NO_UNDERSCORE -DSDOTtype=double)
         endif()
         check_cxx_source_runs("${sdot_check_source}" sdot_returns_double)
-    if(sdot_returns_double)
-        message([[Setting workaround for blas float functions returning double]])
-        target_compile_definitions(${module_name}
-            PUBLIC
-            __PLUMED_BLAS_RETURNS_FLOAT=double)
-#   if test -n "$lapack_found" ; then
-    message([[Setting workaround for lapack float functions returning double]])
-    #this will be inherited by lapack
-    target_compile_definitions(${module_name}
-            PUBLIC
-            __PLUMED_LAPACK_RETURNS_FLOAT=double)
-  else()
+        if(sdot_returns_double)
+            message([[Setting workaround for blas float functions returning double]])
+            target_compile_definitions(${module_name}
+                PUBLIC
+                __PLUMED_BLAS_RETURNS_FLOAT=double)
+            #   if test -n "$lapack_found" ; then
+            message([[Setting workaround for lapack float functions returning double]])
+            #this will be inherited by lapack
+            target_compile_definitions(${module_name}
+                    PUBLIC
+                    __PLUMED_LAPACK_RETURNS_FLOAT=double)
+        else()
   #the check is unnecessary
 #else if test "$sdot_returns_float" = no && test "$sdot_returns_double" = no ;
 
