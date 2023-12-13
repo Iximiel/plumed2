@@ -381,10 +381,9 @@ public:
 #ifdef NDEBUG
 
 // These are the versions used when compiling with NDEBUG flag.
-// The condition is always true, so that the rest of the statement
-// should be optimized away.
-#define plumed_dbg_assert(test) plumed_assert(true)
-#define plumed_dbg_massert(test,msg) plumed_massert(true,msg)
+// Arguments will be ignored, the compiler will optimize the tests even with -O0
+#define plumed_dbg_assert(test) 
+#define plumed_dbg_massert(test,msg) 
 
 #else
 
