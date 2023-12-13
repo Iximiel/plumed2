@@ -859,14 +859,22 @@ import pybind11
 #no need to check for python3, if you have python2, you don't have pybind11 (and vice-versa)
 "
     if echo "$testimport" | "$PYTHON_BIN" 1>/dev/null 2>/dev/null;  then
-       AC_MSG_RESULT([yes])
+       
        pyver=$($PYTHON_BIN -c "import sysconfig;print(sysconfig.get_config_var('VERSION'))")
        python_config=python${pyver}-config
-       PYBIND11_CFLAGS="$($PYTHON_BIN -m pybind11 --includes) -fvisibility=hidden"
-       PYTHON_CFLAGS=$(${python_config} --cflags --embed)
-       PYTHON_LDFLAGS=$(${python_config} --ldflags --embed)
-       #TODO: conda_fixup
-       PLUMED_CAN_PYCV=yes
+       
+       if ${python_config} --ldflags --embed 1>/dev/null 2>/dev/null ;then
+          AC_MSG_RESULT([yes])
+          PYBIND11_CFLAGS="$($PYTHON_BIN -m pybind11 --includes) -fvisibility=hidden"
+          PYTHON_CFLAGS=$(${python_config} --cflags --embed)
+          PYTHON_LDFLAGS=$(${python_config} --ldflags --embed)
+          #TODO: conda_fixup
+          PLUMED_CAN_PYCV=yes
+        else
+          AC_MSG_RESULT([no])
+          AC_MSG_WARN([cannot enable pycv])
+          AC_MSG_WARN(["PyCV needs python to be embeddable, please rebuild python"])
+       fi
     else
        AC_MSG_RESULT([no])
        AC_MSG_WARN([cannot enable pycv])
