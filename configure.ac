@@ -332,12 +332,6 @@ AC_ARG_VAR(PYTHON_BIN,[python executable (e.g. python2.7 or /opt/local/bin/pytho
 AC_ARG_VAR(BASH_COMPLETION_DIR,[path where bash completion will be installed - default: search with pkg-config])
 AC_ARG_VAR(MPIEXEC,[command to run mpi programs in tests - default not specified, which means use PLUMED_MPIRUN env var at runtime for backward compatibility])
 
-AC_SUBST(PLUMED_CAN_PYCV)
-AC_SUBST(PYBIND11_CFLAGS)
-AC_SUBST(PYTHON_LDFLAGS)
-AC_SUBST(PYTHON_CFLAGS)
-AC_SUBST(CYTHON_FOUND)
-
 # by default use -O flag
 # we override the autoconf default (-g) because in release build we do not want to
 # include symbol information (obj files are huge)
@@ -844,10 +838,21 @@ if test $fftw = true ; then
   PLUMED_CHECK_PACKAGE([fftw3.h],[fftw_execute],[__PLUMED_HAS_FFTW],[fftw3])
 fi
 
+# python executable: if any of CYTHON_FOUND or PLUMED_CAN_PYCV is on will store
+# the python executable
+AC_SUBST(PYTHON_BIN)
+# set if PYTHON_BIN has Cython in its environment
+AC_SUBST(CYTHON_FOUND)
+# definitions and variables related to pycv and in general embedding python
+AC_SUBST(PLUMED_CAN_PYCV)
+AC_SUBST(PYBIND11_CFLAGS)
+AC_SUBST(PYTHON_LDFLAGS)
+AC_SUBST(PYTHON_CFLAGS)
+
 # if PYTHON_BIN is defined, it is expected to be the full path to python
 # Otherwise, search from a list of names:  
 if test -z "$PYTHON_BIN" ; then
-    AC_CHECK_PROGS([PYTHON_BIN],[python])
+    AC_CHECK_PROGS([PYTHON_BIN],[python python3])
 fi
 if test -n "$PYTHON_BIN" ; then
     AC_MSG_NOTICE([Python executable is $PYTHON_BIN])
@@ -884,7 +889,7 @@ import pybind11
   fi
 
   if test $python = true  ; then
-    AC_MSG_CHECKING([support for required python modules (python3, setuptools, cython)])
+    AC_MSG_CHECKING([python wrapper: support for required python modules (python3, setuptools, cython)])
     testimport="
 from setuptools import setup
 from setuptools import Extension
@@ -986,8 +991,6 @@ AC_SUBST(LDSHARED)
 AC_SUBST(LD_MAIN_RUNPATH)
 # these are libraries that should be linked also to MD engines
 AC_SUBST(STATIC_LIBS)
-# python executable
-AC_SUBST(PYTHON_BIN)
 
 AC_SUBST(MPIEXEC)
 
