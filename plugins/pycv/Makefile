@@ -1,4 +1,10 @@
-include Make.inc
+# include the machine dependent configuration
+ifneq ($(MAKECMDGOALS),clean)
+  -include ../../Makefile.conf
+	ifndef canPyCV
+  	include ./Makefile.conf
+	endif
+endif
 
 .PHONY: clean check all
 #Dependency tracking based on https://make.mad-scientist.net/papers/advanced-auto-dependency-generation/#tldr
@@ -19,6 +25,7 @@ endif
 all: PythonCVInterface.$(SOEXT)
 
 #-fvisibility=hidden is needed for pybind11 (to not conflict with different pybind11 versions)
+#I think I enforced this nearly everywhere I set up a flag for the compiler
 ActionWithPython.o PythonCVInterface.o PythonFunction.o PlumedPythonEmbeddedModule.o: PYBIND11FLAG= -fvisibility=hidden
 
 %.o: %.cpp $(DEPDIR)/%.d | $(DEPDIR)
