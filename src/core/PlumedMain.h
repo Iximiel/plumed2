@@ -134,8 +134,9 @@ private:
 /// Forward declaration.
 /// Should be placed after log since its constructor takes a log reference as an argument.
   ForwardDecl<Stopwatch> stopwatch_fwd;
+  public:
   Stopwatch& stopwatch=*stopwatch_fwd;
-
+  private:
 /// Forward declaration.
   ForwardDecl<Citations> citations_fwd;
 /// tools/Citations.holder

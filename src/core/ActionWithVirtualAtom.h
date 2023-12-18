@@ -27,7 +27,8 @@
 #include "tools/AtomNumber.h"
 #include "tools/Vector.h"
 #include "tools/Tensor.h"
-
+#include "PlumedMain.h"
+#include "tools/Stopwatch.h"
 namespace PLMD {
 
 /**
@@ -100,6 +101,7 @@ void ActionWithVirtualAtom::setCharge(double c) {
 
 inline
 void ActionWithVirtualAtom::setAtomsDerivatives(const std::vector<Tensor> &d) {
+   auto sw=plumed.stopwatch.startStop("* Calculating setAtomsDerivatives");
   unsigned jj=0;
   Value* xval=getPntrToComponent(0);
   Value* yval=getPntrToComponent(1);
