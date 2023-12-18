@@ -101,7 +101,7 @@ void ActionWithVirtualAtom::setCharge(double c) {
 
 inline
 void ActionWithVirtualAtom::setAtomsDerivatives(const std::vector<Tensor> &d) {
-   auto sw=plumed.stopwatch.startStop("* Calculating setAtomsDerivatives");
+   auto sw= plumed.stopwatch.startPause("41Calculating setAtomsDerivatives");
   unsigned jj=0;
   Value* xval=getPntrToComponent(0);
   Value* yval=getPntrToComponent(1);
