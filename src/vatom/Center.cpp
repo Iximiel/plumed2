@@ -224,13 +224,13 @@ void Center::calculate() {
     }
     double mass(0.0); 
     for(unsigned i=0; i<getNumberOfAtoms(); i++) mass+=getMass(i);
-    if( chargesWereSet && !isChargeSet_) {
-      double charge(0.0);
-      for(unsigned i=0; i<getNumberOfAtoms(); i++) charge+=getCharge(i);
-      setCharge(charge);
-    } else if( !isChargeSet_ ) {
-      setCharge(0.0);
-    }
+    // if( chargesWereSet && !isChargeSet_) {
+    //   double charge(0.0);
+    //   for(unsigned i=0; i<getNumberOfAtoms(); i++) charge+=getCharge(i);
+    //   setCharge(charge);
+    // } else if( !isChargeSet_ ) {
+    //   setCharge(0.0);
+    // }
     if(!isMassSet_) setMass(mass);
 
     if( weight_mass ) {
