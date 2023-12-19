@@ -233,6 +233,7 @@ PLUMED_CONFIG_ENABLE([static-patch],[allow statically linking plumed],[yes])
 PLUMED_CONFIG_ENABLE([doc],[documentation],[yes])
 PLUMED_CONFIG_ENABLE([pdfdoc],[pdf version of the manual],[no])
 PLUMED_CONFIG_ENABLE([debug],[debugging],[no])
+PLUMED_CONFIG_ENABLE([relwdebug],[add compile option for using perf on linux (-Og -fno-omit-frame-pointer)],[no])
 PLUMED_CONFIG_ENABLE([gcov],[gcov to estimate code coverage],[no])
 AC_ARG_ENABLE([cxx],
   AS_HELP_STRING([--enable-cxx], [11 or 14. To link libraries with headers that need this C++ level. Use --enable-cxx=none to remove -std=c++ flag]),
@@ -369,6 +370,14 @@ fi
 if test $debug = true
 then
   PLUMED_CHECK_CXXFLAG([-g])
+fi
+
+if test $relwdebug = true
+then
+  PLUMED_CHECK_CXXFLAG([-Og])
+  PLUMED_CHECK_CFLAG([-Og])
+  PLUMED_CHECK_CXXFLAG([-fno-omit-frame-pointer])
+  PLUMED_CHECK_CFLAG([-fno-omit-frame-pointer])
 fi
 
 if test $gcov = true
