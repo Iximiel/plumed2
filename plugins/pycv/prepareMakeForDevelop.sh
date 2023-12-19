@@ -1,5 +1,9 @@
 #! /usr/bin/env bash
 
+#formatted with shfmt  https://github.com/mvdan/sh/releases
+#checked with shellcheck
+# the SC2154 warnings are variables present in the sourced file
+
 source compileConfiguration.sh
 
 

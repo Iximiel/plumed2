@@ -1,5 +1,9 @@
 #!/bin/env bash
 
+#formatted with shfmt  https://github.com/mvdan/sh/releases
+#checked with shellcheck
+# shellcheck disable=SC2034  # The unused variables will be used in sourcer files
+
 #please source this file
 
 #for some reason, on the WSL I need to compile with 
