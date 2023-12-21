@@ -258,9 +258,16 @@ void ActionAtomistic::interpretAtomList(std::vector<std::string>& strings, std::
 }
 
 void ActionAtomistic::getValueIndices( const AtomNumber& i, std::size_t& valno, std::size_t& k ) const {
-  valno=0; k = i.index();
+  //valno is the id of the id of the value
+  //is where the atom is in the value
+  //is really necessary to do this at every step?
+  valno=0;
+  k = i.index();
   for(unsigned j=0; j<xpos.size(); ++j) {
-    if( k<xpos[j]->getNumberOfValues() ) { valno=j; break; }
+    if( k<xpos[j]->getNumberOfValues() ){
+       valno=j;
+       break;
+       }
     k = k - xpos[j]->getNumberOfValues();
   }
 }
@@ -284,14 +291,22 @@ void ActionAtomistic::retrieveAtoms() {
 }
 
 void ActionAtomistic::setForcesOnAtoms(const std::vector<double>& forcesToApply, unsigned& ind) {
-  if( donotforce || (indexes.size()==0 && getName()!="FIXEDATOM") ) return;
+  if( donotforce || (indexes.size()==0 && getName()!="FIXEDATOM") )
+    return;
+  std::size_t nn, kk;
+
   for(unsigned i=0; i<indexes.size(); ++i) {
-    Vector ff;
-    for(unsigned k=0; k<3; ++k) {
-      plumed_dbg_massert( ind<forcesToApply.size(), "problem setting forces in " + getLabel() );
-      ff[k]=forcesToApply[ind]; ind++;
-    }
-    addForce( indexes[i], ff );
+    // Vector ff;
+    // for(unsigned k=0; k<3; ++k) {
+    //   plumed_dbg_massert( ind<forcesToApply.size(), "problem setting forces in " + getLabel() );
+    //   ff[k]=forcesToApply[ind]; ind++;
+    // }
+    // addForce( indexes[i], ff );
+
+    getValueIndices( AtomNumber::index(i), nn, kk );
+  xpos[nn]->addForce( kk, forcesToApply[ind++] );
+  ypos[nn]->addForce( kk, forcesToApply[ind++] );
+  zpos[nn]->addForce( kk, forcesToApply[ind++] );
   }
   setForcesOnCell( forcesToApply, ind );
 }
@@ -356,6 +371,7 @@ Vector ActionAtomistic::getForce( const AtomNumber& i ) const {
   return f;
 }
 
+// inline
 void ActionAtomistic::addForce( const AtomNumber& i, const Vector& f ) {
   std::size_t nn, kk; getValueIndices( i, nn, kk );
   xpos[nn]->addForce( kk, f[0] );
