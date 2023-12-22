@@ -70,6 +70,7 @@ ActionAtomistic::ActionAtomistic(const ActionOptions&ao):
       chargev.push_back( vv->copyOutput( vv->getLabel() + ".charge") );
     }
   }
+  //may help aslo th check that the corresponding arrays are the same 
   if( xpos.size()!=ypos.size() || xpos.size()!=zpos.size() || xpos.size()!=masv.size() || xpos.size()!=chargev.size() )
     error("mismatch between value arrays");
 }
@@ -89,20 +90,30 @@ void ActionAtomistic::requestAtoms(const std::vector<AtomNumber> & a, const bool
   charges.resize(nat);
   value_indices.resize( a.size() );
   pos_indices.resize( a.size() );
-  int n=getTotAtoms();
-  if(clearDep) clearDependencies();
-  unique.clear(); std::vector<bool> requirements( xpos.size(), false );
-  if( boxValue ) addDependency( boxValue->getPntrToAction() );
+  int totAtoms=getTotAtoms();
+  if(clearDep)
+    clearDependencies();
+  unique.clear();
+  requirements.clear();
+  if( boxValue )
+    addDependency( boxValue->getPntrToAction() );
   for(unsigned i=0; i<indexes.size(); i++) {
-    if(indexes[i].index()>=n) { std::string num; Tools::convert( indexes[i].serial(),num ); error("atom " + num + " out of range"); }
-    getValueIndices( indexes[i], value_indices[i], pos_indices[i] ); requirements[value_indices[i]] = true;
-    if( value_indices[i]==0 ) unique.push_back(indexes[i]);
-    else if( pos_indices[i]>0 ) error("action atomistic is not set up to deal with multiple vectors in position input");
+    if(indexes[i].index()>=totAtoms) {
+      std::string num;
+      Tools::convert( indexes[i].serial(),num );
+      error("atom " + num + " out of range");
+      }
+    getValueIndices( indexes[i], value_indices[i], pos_indices[i] );
+    requirements.push_back(value_indices[i]);
+    if( value_indices[i]==0 )
+       unique.push_back(indexes[i]);
+    else if( pos_indices[i]>0 )
+     error("action atomistic is not set up to deal with multiple vectors in position input");
   }
   // Add the dependencies to the actions that we require
   Tools::removeDuplicates(unique);
-  for(unsigned i=0; i<requirements.size(); ++i ) {
-    if( !requirements[i] ) continue;
+  Tools::removeDuplicates(requirements);
+  for(const auto& i:requirements) {
     addDependency( xpos[i]->getPntrToAction() );
     addDependency( ypos[i]->getPntrToAction() );
     addDependency( zpos[i]->getPntrToAction() );
@@ -275,13 +286,19 @@ void ActionAtomistic::getValueIndices( const AtomNumber& i, std::size_t& valno, 
 void ActionAtomistic::retrieveAtoms() {
   if( boxValue ) {
     PbcAction* pbca = dynamic_cast<PbcAction*>( boxValue->getPntrToAction() );
-    plumed_assert( pbca ); pbc=pbca->pbc;
+    plumed_assert( pbca ); 
+    pbc=pbca->pbc;
   }
-  if( donotretrieve || indexes.size()==0 ) return;
-  ActionToPutData* cv = dynamic_cast<ActionToPutData*>( chargev[0]->getPntrToAction() );
-  if(cv) chargesWereSet=cv->hasBeenSet();
+  if( donotretrieve || indexes.size()==0 )
+    return;
+  if(ActionToPutData* cv = dynamic_cast<ActionToPutData*>( chargev[0]->getPntrToAction() );cv) {
+    chargesWereSet=cv->hasBeenSet();
+  }
+    std::size_t nn; 
+    std::size_t kk;
   for(unsigned j=0; j<indexes.size(); j++) {
-    std::size_t nn = value_indices[j], kk = pos_indices[j];
+    nn = value_indices[j];
+    kk = pos_indices[j];
     positions[j][0] = xpos[nn]->data[kk];
     positions[j][1] = ypos[nn]->data[kk];
     positions[j][2] = zpos[nn]->data[kk];
@@ -294,19 +311,35 @@ void ActionAtomistic::setForcesOnAtoms(const std::vector<double>& forcesToApply,
   if( donotforce || (indexes.size()==0 && getName()!="FIXEDATOM") )
     return;
   std::size_t nn, kk;
-
+#define _checksort(myv) \
+    log.printf("\tIn %s "#myv" are %ssorted \n",getLabel().c_str(),(std::is_sorted(myv.begin(),myv.end())?"":"not "));
+#define _checksort(myv) 
+  _checksort(value_indices);
+  _checksort(pos_indices);
   for(unsigned i=0; i<indexes.size(); ++i) {
+// for(const auto& i:indexes){
     // Vector ff;
     // for(unsigned k=0; k<3; ++k) {
     //   plumed_dbg_massert( ind<forcesToApply.size(), "problem setting forces in " + getLabel() );
     //   ff[k]=forcesToApply[ind]; ind++;
     // }
     // addForce( indexes[i], ff );
-
-    getValueIndices( AtomNumber::index(i), nn, kk );
-  xpos[nn]->addForce( kk, forcesToApply[ind++] );
-  ypos[nn]->addForce( kk, forcesToApply[ind++] );
-  zpos[nn]->addForce( kk, forcesToApply[ind++] );
+//why here I am not using the same criterion of retrieveAtoms?
+    // getValueIndices( i, nn, kk );
+    nn = value_indices[i];
+    kk = pos_indices[i];
+  // xpos[nn]->addForce( kk, forcesToApply[ind++] );
+  // ypos[nn]->addForce( kk, forcesToApply[ind++] );
+  // zpos[nn]->addForce( kk, forcesToApply[ind++] );
+  xpos[nn]->inputForce[kk]+= forcesToApply[ind++];
+  ypos[nn]->inputForce[kk]+= forcesToApply[ind++];
+  zpos[nn]->inputForce[kk]+= forcesToApply[ind++];
+  }
+  
+    for(const auto& nn:requirements) {
+  xpos[nn]->hasForce=true;
+  ypos[nn]->hasForce=true;
+  zpos[nn]->hasForce=true;
   }
   setForcesOnCell( forcesToApply, ind );
 }
@@ -326,17 +359,22 @@ Tensor ActionAtomistic::getVirial() const {
 void ActionAtomistic::readAtomsFromPDB(const PDB& pdb) {
 
   for(unsigned j=0; j<indexes.size(); j++) {
-    if( indexes[j].index()>pdb.size() ) error("there are not enough atoms in the input pdb file");
-    if( pdb.getAtomNumbers()[j].index()!=indexes[j].index() ) error("there are atoms missing in the pdb file");
+    if( indexes[j].index()>pdb.size() )
+     error("there are not enough atoms in the input pdb file");
+    if( pdb.getAtomNumbers()[j].index()!=indexes[j].index() )
+     error("there are atoms missing in the pdb file");
     positions[j]=pdb.getPositions()[indexes[j].index()];
   }
-  for(unsigned j=0; j<indexes.size(); j++) charges[j]=pdb.getBeta()[indexes[j].index()];
-  for(unsigned j=0; j<indexes.size(); j++) masses[j]=pdb.getOccupancy()[indexes[j].index()];
+  for(unsigned j=0; j<indexes.size(); j++) 
+    charges[j]=pdb.getBeta()[indexes[j].index()];
+  for(unsigned j=0; j<indexes.size(); j++)
+   masses[j]=pdb.getOccupancy()[indexes[j].index()];
 }
 
 unsigned ActionAtomistic::getTotAtoms()const {
   unsigned natoms = 0;
-  for(unsigned i=0; i<xpos.size(); ++i ) natoms += xpos[i]->getNumberOfValues();
+  for(unsigned i=0; i<xpos.size(); ++i )
+    natoms += xpos[i]->getNumberOfValues();
   return natoms;
 }
 

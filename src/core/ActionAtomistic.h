@@ -47,6 +47,8 @@ class ActionAtomistic :
   std::vector<std::size_t>   pos_indices;     // The indexes in the values to get the atoms from
 /// unique should be an ordered set since we later create a vector containing the corresponding indexes
   std::vector<AtomNumber>  unique;
+  ///list of the xyzpos indexes
+  std::vector<std::size_t>  requirements;
 /// unique_local should be an ordered set since we later create a vector containing the corresponding indexes
   bool unique_local_needs_update;
   std::vector<AtomNumber>  unique_local;

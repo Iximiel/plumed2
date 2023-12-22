@@ -69,9 +69,11 @@ private:
 /// The value of the quantity
   std::vector<double> data;
 /// The force acting on this quantity
+public:
   std::vector<double> inputForce;
 /// A flag telling us we have a force acting on this quantity
   bool hasForce;
+private:
 /// This flag is used if the value is a constant
   bool constant;
 /// The derivatives of the quantity stored in value
