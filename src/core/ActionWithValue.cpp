@@ -278,6 +278,9 @@ bool ActionWithValue::checkForForces() {
   }
 
   if(ncp>4*comm.Get_size()) { comm.Sum(&forcesForApply[0],nder); comm.Sum(at_least_one_forced); }
+
+
+
   return at_least_one_forced>0;
 }
 

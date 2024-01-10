@@ -337,7 +337,7 @@ AC_ARG_VAR(MPIEXEC,[command to run mpi programs in tests - default not specified
 # include symbol information (obj files are huge)
 if test -z "$CXXFLAGS"
 then
-  CXXFLAGS=-O3
+  CXXFLAGS="-O3 -gdwarf -fno-omit-frame-pointer"
 fi
 
 # this is a list of common compilers
