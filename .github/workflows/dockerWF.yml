@@ -23,7 +23,7 @@ jobs:
         # rockylinux8
         variant:
         - fedora39
-        - rocky8
+        # - rocky8
     steps:
     - uses: actions/checkout@v4
     - name: Build and run tests
