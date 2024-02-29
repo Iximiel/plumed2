@@ -50,6 +50,26 @@ int getNativeId(int const i) { return i;}
 #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 // #define vdbg(...)
 namespace PLMD {
+//stolen from cuda implementation
+namespace GPU {
+template <typename T> struct invData {
+  T val = 1.0;
+  T inv = 1.0;
+  // this makes the `X = x;` work like "X.val=x;X.inv=1/x;"
+  // and the compiler will do some inline magic for you
+  invData (T const v) : val{v}, inv{T (1.0) / v} {}
+  invData &operator= (T const v) {
+    val = v;
+    inv = T (1.0) / v;
+    return *this;
+  }
+};
+template <typename calculateFloat> struct ortoPBCs {
+  invData<calculateFloat> X{1.0};
+  invData<calculateFloat> Y{1.0};
+  invData<calculateFloat> Z{1.0};
+};
+}
 namespace colvar {
 
 //TODO: this is identical to the plain cuda implementation
@@ -242,7 +262,7 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
     }
     if (mm_ % 2 != 0 || mm_ % 2 != 0)
       error (" this implementation only works with both MM and NN even");
-    constexpr auto d0_ = 0.0;
+    // constexpr auto d0_ = 0.0;
 
 
     switchingParameters.nn = nn_;
@@ -396,6 +416,11 @@ inline void getToHost<double>(const af::array& input,
   input.host(destination.ptr);
 }
 
+template<typename T>
+T pbcClamp(const T& x) {
+  return x-af::floor(x+0.5);
+}
+
 template <typename calculateFloat>
 void FireCoordination<calculateFloat>::calculate () {
   // auto positions = getPositions();
@@ -403,11 +428,25 @@ void FireCoordination<calculateFloat>::calculate () {
   double coordination;
   auto derivativeA = std::vector<Vector> (atomsInA);
   auto derivativeB = std::vector<Vector> (atomsInB);
+  PLMD::GPU::ortoPBCs<calculateFloat> myPBC;
+  if (pbc) {
+    makeWhole();
+    auto box = getBox();
+
+    myPBC.X = box (0, 0);
+    myPBC.Y = box (1, 1);
+    myPBC.Z = box (2, 2);
+  }
   PLMD::Tensor virial;
   { //PAIR
     auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
     auto diff = posB - posA;
+    if(pbc) {
+      diff.row(0) = pbcClamp(diff.row(0) * myPBC.X.inv) * myPBC.X.val;
+      diff.row(1) = pbcClamp(diff.row(1) * myPBC.Y.inv) * myPBC.Y.val;
+      diff.row(2) = pbcClamp(diff.row(2) * myPBC.Z.inv) * myPBC.Z.val;
+    }
 
     auto ddistSQ = af::sum(diff * diff);
     //now we discard the distances that are greater than the limit
