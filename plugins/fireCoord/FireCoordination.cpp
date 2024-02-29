@@ -46,6 +46,7 @@ int getNativeId(int const i) { return i;}
 
 #include <limits>
 #include <iostream>
+#include <functional>
 
 #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 // #define vdbg(...)
@@ -99,6 +100,26 @@ std::pair<af::array,af::array> fastRationalN2M(const af::array& distSquared,
            dfunc);
 }
 
+template <typename calculateFloat>
+std::pair<af::array,af::array> fastRational(const af::array& distSquared,
+    const rationalSwitchParameters<calculateFloat> switchingParameters) {
+  auto NN = switchingParameters.nn / 2;
+  auto MM = switchingParameters.mm / 2;
+  auto rdistSQ = distSquared * switchingParameters.invr0_2;
+  auto rNdist = af::pow(rdistSQ, NN - 1);
+  auto rMdist = af::pow(rdistSQ, MM - 1);
+  auto den = calculateFloat(1.0) / (calculateFloat(1.0) - rdistSQ * rMdist);
+  auto res =  (calculateFloat(1.0) - rdistSQ * rNdist)*den;
+
+  //need to use select
+  auto dfunc = (MM * rMdist * den * res -NN * rNdist * den )
+               * ( 2.0 * switchingParameters.invr0_2 * switchingParameters.stretch);
+
+  return std::make_pair(
+           res * switchingParameters.stretch + switchingParameters.shift,
+           dfunc);
+}
+
 //stolen from my CUDA implementation:
 struct DataInterface {
   // NOT owning pointer
@@ -128,8 +149,8 @@ struct DataInterface {
 
 template <typename calculateFloat> class FireCoordination : public Colvar {
 
-  unsigned atomsInA = 0;
-  unsigned atomsInB = 0;
+  unsigned atomsInA_ = 0;
+  unsigned atomsInB_ = 0;
   int  deviceid=-1;
 
   PLMD::colvar::rationalSwitchParameters<calculateFloat> switchingParameters;
@@ -141,7 +162,9 @@ template <typename calculateFloat> class FireCoordination : public Colvar {
   // size_t doSelf();
   // size_t doDual();
   // size_t doPair();
-
+  std::function<
+  std::pair<af::array,af::array> (const af::array&,
+                                  const rationalSwitchParameters<calculateFloat> )>switching;
 public:
   explicit FireCoordination (const ActionOptions &);
   virtual ~FireCoordination()=default;
@@ -201,11 +224,11 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
 
   if (GroupB.size() == 0) {
     mode = calculationMode::self;
-    atomsInA = GroupA.size();
+    atomsInA_ = GroupA.size();
   } else {
     mode = calculationMode::dual;
-    atomsInA = GroupA.size();
-    atomsInB = GroupB.size();
+    atomsInA_ = GroupA.size();
+    atomsInB_ = GroupB.size();
     bool dopair = false;
     parseFlag ("PAIR", dopair);
     if (dopair) {
@@ -257,14 +280,19 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
 
     parse ("NN", nn_);
     parse ("MM", mm_);
+
     if (mm_ == 0) {
       mm_ = 2 * nn_;
+
     }
     if (mm_ % 2 != 0 || mm_ % 2 != 0)
       error (" this implementation only works with both MM and NN even");
     // constexpr auto d0_ = 0.0;
-
-
+    if(mm_ == 2*nn_) {
+      switching=fastRationalN2M<calculateFloat>;
+    } else {
+      switching=fastRational<calculateFloat>;
+    }
     switchingParameters.nn = nn_;
     switchingParameters.mm = mm_;
     switchingParameters.stretch = 1.0;
@@ -291,7 +319,7 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
       //fastRationalN2M gets the square as input
       inputs[1] *= inputs[1];
       af::array AFinputs(2,1,inputs.data());
-      auto [res, dfunc] = fastRationalN2M(AFinputs,switchingParameters);
+      auto [res, dfunc] = switching(AFinputs,switchingParameters);
       std::array<calculateFloat,2> resZeroMax;
       res.host(resZeroMax.data());
 
@@ -424,11 +452,22 @@ T pbcClamp(const T& x) {
 template <typename calculateFloat>
 void FireCoordination<calculateFloat>::calculate () {
   // auto positions = getPositions();
+  unsigned atomsInA=atomsInA_;
+unsigned atomsInB=atomsInB_;
 
   double coordination;
   auto derivativeA = std::vector<Vector> (atomsInA);
   auto derivativeB = std::vector<Vector> (atomsInB);
   PLMD::GPU::ortoPBCs<calculateFloat> myPBC;
+
+  std::vector<unsigned> trueIndexesA (atomsInA);
+  for (size_t i = 0; i < atomsInA; ++i) {
+    trueIndexesA[i] = getAbsoluteIndex (i).index();
+  }
+  std::vector<unsigned> trueIndexesB (atomsInB);
+  for (size_t i = 0; i < atomsInB; ++i) {
+    trueIndexesB[i] = getAbsoluteIndex (atomsInA+i).index();
+  }
   if (pbc) {
     makeWhole();
     auto box = getBox();
@@ -438,6 +477,127 @@ void FireCoordination<calculateFloat>::calculate () {
     myPBC.Z = box (2, 2);
   }
   PLMD::Tensor virial;
+  switch (mode) {
+  case calculationMode::self:
+   {
+    atomsInB=atomsInA;
+    auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
+    auto posB = setPositions<calculateFloat>(&getPositions()[0][0], atomsInB);
+    posB = af::tile(posB,1,1,atomsInA);
+    posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInB,1);
+    auto diff = posB - posA;
+vdbg(diff.dims());
+    if(pbc) {
+      diff.row(0) = pbcClamp(diff.row(0) * myPBC.X.inv) * myPBC.X.val;
+      diff.row(1) = pbcClamp(diff.row(1) * myPBC.Y.inv) * myPBC.Y.val;
+      diff.row(2) = pbcClamp(diff.row(2) * myPBC.Z.inv) * myPBC.Z.val;
+    }
+    auto ddistSQ = af::sum(diff * diff);
+vdbg(ddistSQ.dims());
+
+    //now we discard the distances that are greater than the limit
+    auto keys = ddistSQ < switchingParameters.dmaxSQ;
+    {
+      //and the atoms that have the same index
+      auto indexesA = af::array(1,1,atomsInA,trueIndexesA.data());
+      auto indexesB = af::array(1,atomsInB,trueIndexesA.data());
+      keys -= af::tile(indexesA,1,atomsInB,1) == af::tile(indexesB,1,1,atomsInA);
+    }
+vdbg(keys.dims());
+    
+    auto [res, dfunc] = switching(ddistSQ, switchingParameters);
+vdbg(res.dims());
+vdbg(dfunc.dims());
+
+    auto AFderiv = af::select(keys, dfunc * diff, 0.0);
+
+    auto AFvirial=af::array(9,atomsInB,atomsInA,getType<calculateFloat>());
+    AFvirial.row(0) = AFderiv.row(0) * diff.row(0);
+    AFvirial.row(1) = AFderiv.row(0) * diff.row(1);
+    AFvirial.row(2) = AFderiv.row(0) * diff.row(2);
+    AFvirial.row(3) = AFderiv.row(1) * diff.row(0);
+    AFvirial.row(4) = AFderiv.row(1) * diff.row(1);
+    AFvirial.row(5) = AFderiv.row(1) * diff.row(2);
+    AFvirial.row(6) = AFderiv.row(2) * diff.row(0);
+    AFvirial.row(7) = AFderiv.row(2) * diff.row(1);
+    AFvirial.row(8) = AFderiv.row(2) * diff.row(2);
+    //we constructed an
+    //dx*dfunc dx*dfunc dx*dfunc dz*dfunc dz*dfunc dz*dfunc dy*dfunc dy*dfunc dy*dfunc
+    //tensor, and we multiply it by the tensor:
+    //dx dy dz dx dy dz dx dy dz
+    //"external product"
+    //no need to lookup/select, already done in  the deriv
+    AFvirial = -0.5*af::sum(af::sum(AFvirial, 2),1);
+    // AFvirial = -af::sum(af::lookup(AFvirial,af::where(keys),1),1);
+    getToHost<calculateFloat>(AFvirial, DataInterface(virial));
+
+    calculateFloat t;
+    //double sum because "[1/4]T sum (const array &in)" is shadowed by
+    //"[3/4]AFAPI array sum (const array &in, const int dim = -1)"
+    af::sum(af::sum(af::select(keys,res,0.0))).host(&t);
+
+    coordination =0.5* t;
+    getToHost<calculateFloat>(-af::sum(AFderiv,1), DataInterface(derivativeA));
+    // getToHost<calculateFloat>( af::sum(AFderiv,2), DataInterface(derivativeB));
+  }
+  break;
+  case calculationMode::dual:
+  {
+    auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
+    auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
+    posB = af::tile(posB,1,1,atomsInA);
+    posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInB,1);
+    auto diff = posB - posA;
+
+    if(pbc) {
+      diff.row(0) = pbcClamp(diff.row(0) * myPBC.X.inv) * myPBC.X.val;
+      diff.row(1) = pbcClamp(diff.row(1) * myPBC.Y.inv) * myPBC.Y.val;
+      diff.row(2) = pbcClamp(diff.row(2) * myPBC.Z.inv) * myPBC.Z.val;
+    }
+    auto ddistSQ = af::sum(diff * diff);
+    //now we discard the distances that are greater than the limit
+    auto keys = ddistSQ < switchingParameters.dmaxSQ;
+    {
+      //and the atoms that have the same index
+      auto indexesA = af::array(1,1,atomsInA,trueIndexesA.data());
+      auto indexesB = af::array(1,atomsInB,trueIndexesB.data());
+      keys -= af::tile(indexesA,1,atomsInB,1) == af::tile(indexesB,1,1,atomsInA);
+    }
+    auto [res, dfunc] = switching(ddistSQ, switchingParameters);
+
+    auto AFderiv = af::select(keys, dfunc * diff, 0.0);
+
+    auto AFvirial=af::array(9,atomsInB,atomsInA,getType<calculateFloat>());
+    AFvirial.row(0) = AFderiv.row(0) * diff.row(0);
+    AFvirial.row(1) = AFderiv.row(0) * diff.row(1);
+    AFvirial.row(2) = AFderiv.row(0) * diff.row(2);
+    AFvirial.row(3) = AFderiv.row(1) * diff.row(0);
+    AFvirial.row(4) = AFderiv.row(1) * diff.row(1);
+    AFvirial.row(5) = AFderiv.row(1) * diff.row(2);
+    AFvirial.row(6) = AFderiv.row(2) * diff.row(0);
+    AFvirial.row(7) = AFderiv.row(2) * diff.row(1);
+    AFvirial.row(8) = AFderiv.row(2) * diff.row(2);
+    //we constructed an
+    //dx*dfunc dx*dfunc dx*dfunc dz*dfunc dz*dfunc dz*dfunc dy*dfunc dy*dfunc dy*dfunc
+    //tensor, and we multiply it by the tensor:
+    //dx dy dz dx dy dz dx dy dz
+    //"external product"
+    //no need to lookup/select, already done in  the deriv
+    AFvirial = -af::sum(af::sum(AFvirial, 2),1);
+    // AFvirial = -af::sum(af::lookup(AFvirial,af::where(keys),1),1);
+    getToHost<calculateFloat>(AFvirial, DataInterface(virial));
+
+    calculateFloat t;
+    //double sum because "[1/4]T sum (const array &in)" is shadowed by
+    //"[3/4]AFAPI array sum (const array &in, const int dim = -1)"
+    af::sum(af::sum(af::select(keys,res,0.0))).host(&t);
+    coordination = t;
+
+    getToHost<calculateFloat>(-af::sum(AFderiv,1), DataInterface(derivativeA));
+    getToHost<calculateFloat>( af::sum(AFderiv,2), DataInterface(derivativeB));
+  }
+  break;
+  case calculationMode::pair:
   { //PAIR
     auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
@@ -451,7 +611,13 @@ void FireCoordination<calculateFloat>::calculate () {
     auto ddistSQ = af::sum(diff * diff);
     //now we discard the distances that are greater than the limit
     auto keys = ddistSQ < switchingParameters.dmaxSQ;
-    auto [res, dfunc] = fastRationalN2M(ddistSQ, switchingParameters);
+    {
+      //and the atoms that have the same index
+      auto indexesA = af::array(1,atomsInA,trueIndexesA.data());
+      auto indexesB = af::array(1,atomsInB,trueIndexesB.data());
+      keys -= indexesA == indexesB;
+    }
+    auto [res, dfunc] = switching(ddistSQ, switchingParameters);
     auto AFderiv = af::select(keys, dfunc * diff, 0.0);
 
     auto AFvirial=af::array(9,atomsInA,getType<calculateFloat>());
@@ -483,22 +649,20 @@ void FireCoordination<calculateFloat>::calculate () {
 
     getToHost<calculateFloat>(-AFderiv, DataInterface(derivativeA));
     getToHost<calculateFloat>( AFderiv, DataInterface(derivativeB));
-
-    // auto tmp =af::where(!keys);
-    // vdbg(tmp.dims());
-    // std::vector<char> tt(keys.dims()[1]);
-    // keys.host(tt.data());
-    // for(auto i=0;i<tt.size();++i){
-    //   std::cerr << i << " " << derivativeA[i] << "\n";
-    // }
-    // vdbg(tmp.type());
+  }
+  break;
+  case calculationMode::none:
+    // throw"this should not have been happened"
+    break;
   }
 
-  for(unsigned i=0u; i < atomsInA ; ++i) {
+
+  // vdbg("frame");
+  for(unsigned i=0u; i < atomsInA_ ; ++i) {
     setAtomsDerivatives (i, derivativeA[i]);
   }
-  for(unsigned i=0u; i < atomsInB; ++i) {
-    setAtomsDerivatives (atomsInA+i, derivativeB[i]);
+  for(unsigned i=0u; i < atomsInB_; ++i) {
+    setAtomsDerivatives (atomsInA_+i, derivativeB[i]);
   }
   setValue (coordination);
   setBoxDerivatives (virial);
