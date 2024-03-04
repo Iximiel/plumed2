@@ -410,18 +410,18 @@ FireCoordination<calculateFloat>::work(af::array& diff,
     diff.row(1) = pbcClamp(diff.row(1) * myPBC.Y.inv) * myPBC.Y.val;
     diff.row(2) = pbcClamp(diff.row(2) * myPBC.Z.inv) * myPBC.Z.val;
   }
-  auto ddistSQ = af::sum(diff * diff);
+  auto ddistSQ = af::sum(diff * diff,0);
 
   //now we discard the distances that are greater than the limit
   //and the atoms that have the same index
-  auto keys = ddistSQ < switchingParameters.dmaxSQ -= trueindexes;
+  auto keys = (ddistSQ < switchingParameters.dmaxSQ) - trueindexes;
   auto [res, dfunc] = switching(ddistSQ, switchingParameters);
 
   auto AFderiv = af::select(keys, dfunc * diff, 0.0);
 
   const unsigned natA = diff.dims()[2];
   const unsigned natB = diff.dims()[1];
-
+  
   auto AFvirial=af::array(9,natB,natA,getType<calculateFloat>());
   AFvirial.row(0) = AFderiv.row(0) * diff.row(0);
   AFvirial.row(1) = AFderiv.row(0) * diff.row(1);
@@ -441,7 +441,7 @@ FireCoordination<calculateFloat>::work(af::array& diff,
   AFvirial = -af::sum(af::sum(AFvirial, 2),1);
 
   calculateFloat coord;
-  af::sum(af::sum(af::select(keys,res,0.0))).host(&coord);
+  af::sum(af::sum(af::select(keys,res,0.0),2),1).host(&coord);
 
   return std::make_tuple(coord,AFderiv,AFvirial);
 }
