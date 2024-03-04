@@ -1,0 +1,4 @@
+SwitchRefactorSimpler for switchig functions
+macports-pytest forthe macport ci
+cudaMasterRebase for trying to rebase cudaCoord on cudaMasterRebase
+We are with c++17, we shall constexpr some more things

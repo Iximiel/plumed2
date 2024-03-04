@@ -1,0 +1,4 @@
+--no-mpi
+gen_json
+--actions
+action_list

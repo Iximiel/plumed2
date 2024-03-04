@@ -20,7 +20,9 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
-//not using #ifdef __PLUMED_HAS_ARRAYFIRE, we assume that af is presetn
+#ifndef __PLUMED_HAS_ARRAYFIRE
+#error "This CV can only be built if the current plumed2 has found arrayfire"
+#endif //__PLUMED_HAS_ARRAYFIRE
 
 #include <arrayfire.h>
 #ifdef __PLUMED_HAS_ARRAYFIRE_CUDA
@@ -208,27 +210,23 @@ std::pair<af::array,af::array> fastRational(const af::array& distSquared,
 }
 
 template <typename calculateFloat> class FireCoordination : public Colvar {
+  std::tuple<calculateFloat,af::array,af::array> work(af::array& diff,
+      af::array& trueindexes,
+      PLMD::GPU::ortoPBCs<calculateFloat> myPBC);
 
   unsigned atomsInA = 0;
   unsigned atomsInB = 0;
   int  deviceid=-1;
 
   PLMD::colvar::rationalSwitchParameters<calculateFloat> switchingParameters;
-  bool pbc{true};
-  // void setUpPermanentGPUMemory();
 
   enum class calculationMode { self, dual, pair, none };
   calculationMode mode = calculationMode::none;
-  // size_t doSelf();
-  // size_t doDual();
-  // size_t doPair();
   std::function<
   std::pair<af::array,af::array> (const af::array&,
-                                  const rationalSwitchParameters<calculateFloat> )>switching;
-
-  std::tuple<calculateFloat,af::array,af::array> work(af::array& diff,
-      af::array& trueindexes,
-      PLMD::GPU::ortoPBCs<calculateFloat> myPBC);
+                                  const rationalSwitchParameters<calculateFloat> )
+  > switching;
+  bool pbc{true};
 public:
   explicit FireCoordination (const ActionOptions &);
   virtual ~FireCoordination()=default;
@@ -236,23 +234,11 @@ public:
   static void registerKeywords (Keywords &keys);
   void calculate() override;
 };
+
 using FireCoordination_d = FireCoordination<double>;
 using FireCoordination_f = FireCoordination<float>;
 PLUMED_REGISTER_ACTION (FireCoordination_d, "FIRECOORDINATION")
 PLUMED_REGISTER_ACTION (FireCoordination_f, "FIRECOORDINATIONFLOAT")
-
-// template <typename calculateFloat>
-// void FireCoordination<calculateFloat>::setUpPermanentGPUMemory() {
-//   auto nat = getPositions().size();
-//   cudaPositions.resize (3 * nat);
-//   cudaDerivatives.resize (3 * nat);
-//   cudaTrueIndexes.resize (nat);
-//   std::vector<unsigned> trueIndexes (nat);
-//   for (size_t i = 0; i < nat; ++i) {
-//     trueIndexes[i] = getAbsoluteIndex (i).index();
-//   }
-//   cudaTrueIndexes = trueIndexes;
-// }
 
 template <typename calculateFloat>
 void FireCoordination<calculateFloat>::registerKeywords (Keywords &keys) {
@@ -347,10 +333,10 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
 
     if (mm_ == 0) {
       mm_ = 2 * nn_;
-
     }
-    if (mm_ % 2 != 0 || mm_ % 2 != 0)
+    if (mm_ % 2 != 0 || mm_ % 2 != 0) {
       error (" this implementation only works with both MM and NN even");
+    }
     // constexpr auto d0_ = 0.0;
     if(mm_ == 2*nn_) {
       switching=fastRationalN2M<calculateFloat>;
@@ -380,7 +366,7 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
     constexpr bool dostretch = true;
     if (dostretch) {
       std::array<calculateFloat,2> inputs = {0.0, dmax};
-      //fastRationalN2M gets the square as input
+      //fastRational* gets the square as input
       inputs[1] *= inputs[1];
       af::array AFinputs(2,1,inputs.data());
       auto [res, dfunc] = switching(AFinputs,switchingParameters);
@@ -393,45 +379,6 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
   }
 
   checkRead();
-
-  // setUpPermanentGPUMemory();
-
-  // maxReductionNumThreads = min (1024, maxNumThreads);
-
-  // cudaFuncAttributes attr;
-  // the kernels are heavy on registers, this adjust the maximum number of
-  // threads accordingly
-  // switch (mode) {
-  // case calculationMode::self:
-  //   if (pbc) {
-  //     cudaFuncGetAttributes (&attr, &getSelfCoord<true, calculateFloat>);
-  //   } else {
-  //     cudaFuncGetAttributes (&attr, &getSelfCoord<false, calculateFloat>);
-  //   }
-  //   break;
-  // case calculationMode::dual:
-  //   if (pbc) {
-  //     cudaFuncGetAttributes (&attr, &getDerivDual<true, calculateFloat>);
-  //     maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
-  //     cudaFuncGetAttributes (&attr, &getCoordDual<true, calculateFloat>);
-  //   } else {
-  //     cudaFuncGetAttributes (&attr, &getDerivDual<false, calculateFloat>);
-  //     maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
-  //     cudaFuncGetAttributes (&attr, &getCoordDual<false, calculateFloat>);
-  //   }
-  //   break;
-  // case calculationMode::pair:
-  //   if (pbc) {
-  //     cudaFuncGetAttributes (&attr, &getCoordPair<true, calculateFloat>);
-  //   } else {
-  //     cudaFuncGetAttributes (&attr, &getCoordPair<false, calculateFloat>);
-  //   }
-  //   break;
-  // case calculationMode::none:
-  //   // throw"this should not have been happened"
-  //   break;
-  // }
-  // maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
 
   log << "  contacts are counted with cutoff (dmax)="
       << sqrt (switchingParameters.dmaxSQ)
@@ -446,12 +393,9 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
     if(deviceid==-1) deviceid=plumed.getGpuDeviceId();
     // if still not set use 0
     if(deviceid==-1) deviceid=0;
-
+    //afdevice will change to the namespace found by plumed, (see the include clauses)
     af::setDevice(afdevice::getNativeId(deviceid));
     af::info();
-//   log << "GPU info:\n"
-//       << "\t max threads per coordination" << maxNumThreads << "\n"
-//       << "\t max threads per reduction" << maxReductionNumThreads << "\n";
   }
 }
 
@@ -534,7 +478,6 @@ void FireCoordination<calculateFloat>::calculate () {
     auto posB = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     posB = af::tile(posB,1,1,atomsInA);
     posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInA,1);
-    // auto diff = posB - posA;
     auto indexesA = af::array(1,1,atomsInA,trueIndexesA.data());
     auto indexesB = af::array(1,atomsInA,trueIndexesA.data());
     auto diff = posB - posA;
@@ -544,12 +487,12 @@ void FireCoordination<calculateFloat>::calculate () {
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes,myPBC);
+    ] = work(diff, trueindexes, myPBC);
 
     getToHost<calculateFloat>(0.5*AFvirial, DataInterface(virial));
 
     coordination =0.5* res;
-    //summing on the second index to not change the sign
+    // summing on the second index to not change the sign
     // getToHost<calculateFloat>(-af::sum(AFderiv,1), DataInterface(derivativeA));
     getToHost<calculateFloat>( af::sum(AFderiv,2), DataInterface(derivativeA));
   }
@@ -570,11 +513,8 @@ void FireCoordination<calculateFloat>::calculate () {
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes,myPBC);
+    ] = work(diff, trueindexes, myPBC);
 
-
-    // AFvirial = -af::sum(af::sum(AFvirial, 2),1);
-    // AFvirial = -af::sum(af::lookup(AFvirial,af::where(keys),1),1);
     getToHost<calculateFloat>(AFvirial, DataInterface(virial));
 
     coordination = res;
@@ -595,12 +535,8 @@ void FireCoordination<calculateFloat>::calculate () {
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes,myPBC);
-    //^work set up the virial as a af::array(9,natB,natA,getType<calculateFloat>())
-    //so we call the reduction on the third dimension:
-    //no need to lookup/select, already done in  the deriv
-    // AFvirial = -af::sum(AFvirial, 2);
-    // AFvirial = -af::sum(af::lookup(AFvirial,af::where(keys),1),1);
+    ] = work(diff, trueindexes, myPBC);
+
     getToHost<calculateFloat>(AFvirial, DataInterface(virial));
 
     coordination = res;
@@ -614,19 +550,16 @@ void FireCoordination<calculateFloat>::calculate () {
     break;
   }
 
-
-  // vdbg("frame");
   for(unsigned i=0u; i < atomsInA ; ++i) {
     setAtomsDerivatives (i, derivativeA[i]);
   }
+
   for(unsigned i=0u; i < atomsInB; ++i) {
     setAtomsDerivatives (atomsInA+i, derivativeB[i]);
   }
+
   setValue (coordination);
   setBoxDerivatives (virial);
 }
-
-
 } // namespace colvar
 } // namespace PLMD
-
