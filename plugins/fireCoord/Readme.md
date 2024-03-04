@@ -1,22 +1,142 @@
-# Coordination in Cuda
+# Coordination with arrayFire
 
-This is the optimized version of the lesson that I presented in the [plumed-school](https://plumed-school.github.io/lessons/23/004/data/NAVIGATION.html) with a step-by-step approach.
+`FIRECOORDINATION` and `FIRECOORDINATIONFLOAT` depend on [CCCL](https://github.com/NVIDIA/cccl) which is automatically fetched by the cuda compiler (if you use nvcc, you have access to the CCCL headers).
 
-`CUDACOORDINATION` and `CUDACOORDINATIONFLOAT` depend on [CCCL](https://github.com/NVIDIA/cccl) which is automatically fetched by the cuda compiler (if you use nvcc, you have access to the CCCL headers).
+The "inspiration" for this new coordination implementation is the already present fire implementation of SAXS.
 
-The files `cudaHelpers.cuh` and `cudaHelpers.cu` contains a few support functions for helping in interfacing `PLMD::Vector` and `PLMD::Tensor` with Cuda's thrust,
-along with the reduction functions baked with Cuda's cub building blocks and their drivers.
+As now I did not prepare a lesson in the [school](https://plumed-school.github.io).
+So her there is a simple tutorial:
+
+## Implementation
+
+For using _ArrayFire_ you must shift your way of reasoning in up to 4D tensors.
+
+The hands on implementation will consist in three different parts:
+ - the data preparation (that depend on the kind of calculation)
+ - the calculation (that is the same procedure for any calculation)
+ - the output preparation  (that depend on the kind of calculation)
+
+With "kind of calcculation" I mean "two groups" "self" or "pair", that depend on the input string of the cv.
+
+For ease of use we will start from the common part of the implementation
+
+## common part of the implementation
+
+The distance can simply calculated by subtracting the two arrays positions array (see below how we got `posA` and `posB`):
+```c++
+auto diff = posB - posA;
+```
+and then we calculate the square of the distance
+```c++
+auto ddistSQ = af::sum(diff * diff,0);
+```
+The second argument will make sure that the distances will be collapsed in a `(1,natB,natA,1)` tensor, because we are reducing on the first dimension.
+and then we can proceed as usual, by passing the squared distance through a switching function with a similar implementation to the non accelerated one (see below)
+```c++
+auto [res, dfunc] = switching(ddistSQ, switchingParameters);
+```
+Here we are using `auto [variablenames]` because `switching` returns a tuple and we want the compiler to demangle it for us, so no need to use first,second etc...
+now we proceed by calculationg the derivatives and the box derivatives:
+```c++
+auto keys = (ddistSQ < switchingParameters.dmaxSQ) - trueindexes;
+auto AFderiv = af::select(keys, dfunc * diff, 0.0);
+
+const unsigned natA = diff.dims()[2];
+const unsigned natB = diff.dims()[1];
+
+auto AFvirial=af::array(9,natB,natA,getType<calculateFloat>());
+AFvirial.row(0) = AFderiv.row(0) * diff.row(0);
+AFvirial.row(1) = AFderiv.row(0) * diff.row(1);
+AFvirial.row(2) = AFderiv.row(0) * diff.row(2);
+AFvirial.row(3) = AFderiv.row(1) * diff.row(0);
+AFvirial.row(4) = AFderiv.row(1) * diff.row(1);
+AFvirial.row(5) = AFderiv.row(1) * diff.row(2);
+AFvirial.row(6) = AFderiv.row(2) * diff.row(0);
+AFvirial.row(7) = AFderiv.row(2) * diff.row(1);
+AFvirial.row(8) = AFderiv.row(2) * diff.row(2);
+```
+See below how we got `trueindexes`, that is used to discard the calculations that are within atoms with the same index. `keys` merge the "discard on indexes" with the" discard on cut off", and it is used with `af::select` to put zeros in those place (because a `+0` does not change a result).
+
+In the previous snippet we are calculating the derivative and the virial with "simple" multiplications.
+
+As before, the first coordinate of the tensor is the "accumulated coordinate", I'm working with this schema becasue it is the way of ho AF is storing the data.
+
+Then we may proceed with the accumulations:
+
+```c++
+AFvirial = -af::sum(af::sum(AFvirial, 2),1);
+
+calculateFloat coord;
+af::sum(af::sum(af::select(keys,res,0.0),2),1).host(&coord);
+
+```
+
+And this concludes the common part. The derivatives shall be accumulated differently for each different implementation.
+
+### Implementation: prepare the data
+
+First of all we want to copy to the atomic positions from the cpu to the arrayfire device
+Take the easier implementation, the pair: for each couple of atoms in the list you calculate the distance and then you apply the switching function and extract the derivatives.
+
+```c++
+auto posA = setPositions<float>(&getPositions()[0][0], atomsInA);
+auto posB = setPositions<float>(&getPositions()[atomsInA][0], atomsInB);
+
+```
+`setPositions` wraps the constructor of `af::array` and a conversion to float (or no conversion if called with the `<double>` arguments), and returns a `(3,nat,1,1)` tensor, where the first dimension is the x/y/z coordinate and the "colums" represent the atom whose coordinate is that.
+
+
+
+### Some caveat
+At time of writing this the ArrayFire API (or at least, the following statement is based on how my compiler interprets the 3.9.0 API) has at least two overloads for `af::sum` that interest to us:
+ - `AFAPI array 	sum (const array &in, const int dim=-1)` C++ Interface to sum array elements over a given dimension. 
+ - `template<typename T > T 	sum (const array &in)` C++ Interface to sum array elements over all dimensions. 
+ The problem is that the first one wiht its default argumens shadows the second one (this will be a "problem" when reducing the coordination)
+
+In the case of not pair interaction but "all the atoms in A against the atoms in B" we'll need to tile a tensor with each of the positions in two different directions, so that the previous operations gives the same result of a couple of nested for loops.
+
+```c++
+posB = af::tile(posB,1,1,atomsInA);
+posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInA,1);
+```
+note that before tiling we change the dimensions of the A array to `(3,1,nat,1)`
+and after the tiling the two position tensors looks like (only for the coordinate 0 of the first dimesntions):
+
+posB:
+```
+x_B0 x_B1 x_B2 ...
+x_B0 x_B1 x_B2 ...
+x_B0 x_B1 x_B2 ...
+...
+```
+posA:
+```
+x_A0 x_A0 x_A0 ...
+x_A1 x_A1 x_A1 ...
+x_A2 x_A2 x_A2 ...
+...
+```
+so that diff will look like:
+```
+x_B0-x_A0 x_B1-x_A0 x_B2-x_A0 ...
+x_B0-x_A1 x_B1-x_A1 x_B2-x_A1 ...
+x_B0-x_A2 x_B1-x_A2 x_B2-x_A2 ...
+...
+```
+
+And the rest of the calculations use the same recipes,
+`ddistSQ` will became a `(1,natB,natA,1)` tensor
+
+apart from
 
 ## Limitations
 
-`CUDACOORDINATION` and `CUDACOORDINATIONFLOAT` work more or less as the standard `COORDINATION`, except from:
+`FIRECOORDINATION` and `FIRECOORDINATIONFLOAT` work more or less as the standard `COORDINATION`, except from:
 
  - work only with orthogonal pbcs or no pbcs at all
  - do not support the SWITCH keyword
    - and use the rational switch only with __even__ `NN` and `MM`
- - new `THREADS` keyword to control the maximum number of threads that can be used by the kernels
 
 ## Current TODO
  
- - The GPU device needs to be explicitly selected
  - Integrate the CI
