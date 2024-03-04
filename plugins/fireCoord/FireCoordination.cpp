@@ -228,9 +228,7 @@ template <typename calculateFloat> class FireCoordination : public Colvar {
 
   std::tuple<calculateFloat,af::array,af::array> work(af::array& diff,
       af::array& trueindexes,
-      PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
-      const unsigned natA,
-      const unsigned natB);
+      PLMD::GPU::ortoPBCs<calculateFloat> myPBC);
 public:
   explicit FireCoordination (const ActionOptions &);
   virtual ~FireCoordination()=default;
@@ -461,9 +459,7 @@ template <typename calculateFloat>
 std::tuple<calculateFloat,af::array,af::array>
 FireCoordination<calculateFloat>::work(af::array& diff,
                                        af::array& trueindexes,
-                                       PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
-                                       const unsigned natA,
-                                       const unsigned natB
+                                       PLMD::GPU::ortoPBCs<calculateFloat> myPBC
                                       ) {
   if(pbc) {
     diff.row(0) = pbcClamp(diff.row(0) * myPBC.X.inv) * myPBC.X.val;
@@ -478,6 +474,9 @@ FireCoordination<calculateFloat>::work(af::array& diff,
   auto [res, dfunc] = switching(ddistSQ, switchingParameters);
 
   auto AFderiv = af::select(keys, dfunc * diff, 0.0);
+
+  const unsigned natA = diff.dims()[2];
+  const unsigned natB = diff.dims()[1];
 
   auto AFvirial=af::array(9,natB,natA,getType<calculateFloat>());
   AFvirial.row(0) = AFderiv.row(0) * diff.row(0);
@@ -545,7 +544,7 @@ void FireCoordination<calculateFloat>::calculate () {
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes,myPBC,atomsInA,atomsInA);
+    ] = work(diff, trueindexes,myPBC);
 
     getToHost<calculateFloat>(0.5*AFvirial, DataInterface(virial));
 
@@ -571,7 +570,7 @@ void FireCoordination<calculateFloat>::calculate () {
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes,myPBC,atomsInA,atomsInB);
+    ] = work(diff, trueindexes,myPBC);
 
 
     // AFvirial = -af::sum(af::sum(AFvirial, 2),1);
@@ -596,7 +595,7 @@ void FireCoordination<calculateFloat>::calculate () {
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes,myPBC,atomsInA,1);
+    ] = work(diff, trueindexes,myPBC);
     //^work set up the virial as a af::array(9,natB,natA,getType<calculateFloat>())
     //so we call the reduction on the third dimension:
     //no need to lookup/select, already done in  the deriv
