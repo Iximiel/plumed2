@@ -20,7 +20,7 @@ With "kind of calcculation" I mean "two groups" "self" or "pair", that depend on
 
 For ease of use we will start from the common part of the implementation
 
-## common part of the implementation
+## Implementation: coordination
 
 The distance can simply calculated by subtracting the two arrays positions array (see below how we got `posA` and `posB`):
 ```c++
@@ -75,41 +75,57 @@ And this concludes the common part. The derivatives shall be accumulated differe
 
 ### Implementation: prepare the data
 
-First of all we want to copy to the atomic positions from the cpu to the arrayfire device
-Take the easier implementation, the pair: for each couple of atoms in the list you calculate the distance and then you apply the switching function and extract the derivatives.
+First of all we want to copy to the atomic positions from the cpu to the arrayfire device.
 
 ```c++
 auto posA = setPositions<float>(&getPositions()[0][0], atomsInA);
 auto posB = setPositions<float>(&getPositions()[atomsInA][0], atomsInB);
-
 ```
-`setPositions` wraps the constructor of `af::array` and a conversion to float (or no conversion if called with the `<double>` arguments), and returns a `(3,nat,1,1)` tensor, where the first dimension is the x/y/z coordinate and the "colums" represent the atom whose coordinate is that.
+`setPositions` wraps the constructor of `af::array` and a conversion to float (or no conversion if called with the `<double>` arguments), and returns a `(3,second_argument,1,1)` tensor, where the first dimension is the x/y/z coordinate and the "colums" represent the atom whose coordinate is that.
 
+The data in the two position container can visualized like this:
 
+posA:
+```
+x_A0 x_A1 x_A2 ...
+y_A0 y_A1 y_A2 ...
+z_A0 z_A1 z_A2 ...
+```
+posB:
+```
+x_B0 x_B1 x_B2 ...
+y_B0 y_B1 y_B2 ...
+z_B0 z_B1 z_B2 ...
+```
+And `diff = posB - posA`  will store the following data:
+```
+x_A0-x_B0 x_A1-x_B1 x_A2-x_B2 ...
+y_A0-y_B0 y_A1-y_B1 y_A2-y_B2 ...
+z_A0-z_B0 z_A1-z_B1 z_A2-z_B2 ...
+```
+This is how the data is passed in "PAIR" mode
 
-### Some caveat
-At time of writing this the ArrayFire API (or at least, the following statement is based on how my compiler interprets the 3.9.0 API) has at least two overloads for `af::sum` that interest to us:
- - `AFAPI array 	sum (const array &in, const int dim=-1)` C++ Interface to sum array elements over a given dimension. 
- - `template<typename T > T 	sum (const array &in)` C++ Interface to sum array elements over all dimensions. 
- The problem is that the first one wiht its default argumens shadows the second one (this will be a "problem" when reducing the coordination)
+Without the `PAIR` keyword, starting from `posA` and `posB` we'll trade some space for speed up the calculations.
 
-In the case of not pair interaction but "all the atoms in A against the atoms in B" we'll need to tile a tensor with each of the positions in two different directions, so that the previous operations gives the same result of a couple of nested for loops.
+So we use `af::tile` to tile the tensor with the data contained in the positions arrays.
 
 ```c++
 posB = af::tile(posB,1,1,atomsInA);
-posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInA,1);
 ```
-note that before tiling we change the dimensions of the A array to `(3,1,nat,1)`
-and after the tiling the two position tensors looks like (only for the coordinate 0 of the first dimesntions):
-
-posB:
+making `posB` a `(3,atomsInB,atomsInA,1)` tensor,
+And the __row 0__ of the first dimension will became:
 ```
 x_B0 x_B1 x_B2 ...
 x_B0 x_B1 x_B2 ...
 x_B0 x_B1 x_B2 ...
 ...
 ```
-posA:
+Whereas for `posA` we change ho AF interprets the tensor with `af::moddims` making it a `(3,1,atomsInA,1)` tensor, and then we tile it to a `(3,atomsInB,atomsInA,1)` tensor
+
+```c++
+posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInB,1);
+```
+And the __row 0__ of the first dimension will became:
 ```
 x_A0 x_A0 x_A0 ...
 x_A1 x_A1 x_A1 ...
@@ -123,11 +139,21 @@ x_B0-x_A1 x_B1-x_A1 x_B2-x_A1 ...
 x_B0-x_A2 x_B1-x_A2 x_B2-x_A2 ...
 ...
 ```
+and will have dimension `(3,atomsInB,atomsInA,1)`, and can be used in the [previous paragraph](#implementation-prepare-the-data), without changing the structure of the code (and in the example impleentation it is coded as a function.)
 
-And the rest of the calculations use the same recipes,
-`ddistSQ` will became a `(1,natB,natA,1)` tensor
+For the non pair implementation with a single group the procedure is the same, except for
 
-apart from
+```c++
+auto posA = setPositions<float>(&getPositions()[0][0], atomsInA);
+auto posB = setPositions<float>(&getPositions()[0][0], atomsInA);
+```
+And using atomsInA in place of atomsInB
+
+### Some caveat
+At time of writing this the ArrayFire API (or at least, the following statement is based on how my compiler interprets the 3.9.0 API) has at least two overloads for `af::sum` that interest to us:
+ - `AFAPI array 	sum (const array &in, const int dim=-1)` C++ Interface to sum array elements over a given dimension. 
+ - `template<typename T > T 	sum (const array &in)` C++ Interface to sum array elements over all dimensions. 
+ The problem is that the first one wiht its default argumens shadows the second one (this will be a "problem" when reducing the coordination)
 
 ## Limitations
 
