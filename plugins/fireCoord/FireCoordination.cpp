@@ -47,11 +47,11 @@ int getNativeId(int const i) { return i;}
 #include "colvar/Colvar.h"
 
 #include <limits>
-#include <iostream>
 #include <functional>
 
+// #include <iostream>
 // #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
-#define vdbg(...)
+// #define vdbg(...)
 namespace PLMD {
 //stolen from cuda implementation
 namespace GPU {
@@ -121,20 +121,20 @@ inline af::array setPositions(const double* const data, const size_t size) {
     posi[3*i+1] = static_cast<float>(data[3*i+1]);
     posi[3*i+2] = static_cast<float>(data[3*i+2]);
   }
-  return af::array(3, size, &posi.front());
+  return af::array(3, size, &posi.front()).T();
 }
 
 template<>
 inline af::array setPositions<double>(const double* const data, const size_t size) {
-  return af::array(3, size, data);
+  return af::array(3, size, data).T();
 }
 
 
 template <typename calculateFloat>
 inline void getToHost(const af::array& input,
                       DataInterface destination) {
-  auto const size = input.elements();
-  if(size >(destination.size) ) {
+  unsigned const size = input.elements();
+  if(size > destination.size ) {
     plumed_merror("PLMD->AF::getToHost(): destination cannot contain all the data ("+
                   std::to_string(size) + " > " + std::to_string(destination.size) +")");
   }
@@ -148,7 +148,7 @@ inline void getToHost(const af::array& input,
 template <>
 inline void getToHost<double>(const af::array& input,
                               DataInterface destination) {
-  auto const size = input.elements();
+  unsigned const size = input.elements();
   if(size >(destination.size) ) {
     plumed_merror("PLMD->AF::getToHost(): destination cannot contain all the data ("+
                   std::to_string(size) + " > " + std::to_string(destination.size) +")");
@@ -158,7 +158,7 @@ inline void getToHost<double>(const af::array& input,
 
 
 template<typename T>
-T pbcClamp(const T& x) {
+inline T pbcClamp(const T& x) {
   return x-af::floor(x+0.5);
 }
 
@@ -180,9 +180,9 @@ std::pair<af::array,af::array> fastRationalN2M(const af::array& distSquared,
   auto rNdist = af::pow(rdistSQ, NN - 1);
   auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
   //need to use select
-  auto dfunc = rNdist * res * res *
-               (-NN * 2.0
-                * switchingParameters.invr0_2 * switchingParameters.stretch);
+  auto dfunc = (-NN * 2.0
+                * switchingParameters.invr0_2 * switchingParameters.stretch)
+               * rNdist * res * res;
 
   return std::make_pair(
            res * switchingParameters.stretch + switchingParameters.shift,
@@ -211,9 +211,9 @@ std::pair<af::array,af::array> fastRational(const af::array& distSquared,
 
 template <typename calculateFloat> class FireCoordination : public Colvar {
   std::tuple<calculateFloat,af::array,af::array> work(af::array& diff,
-      af::array& trueindexes,
-      PLMD::GPU::ortoPBCs<calculateFloat> myPBC);
+      af::array& trueindexes);
 
+  PLMD::GPU::ortoPBCs<calculateFloat> myPBC;
   unsigned atomsInA = 0;
   unsigned atomsInB = 0;
   int  deviceid=-1;
@@ -400,48 +400,48 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
 }
 
 template <typename calculateFloat>
-std::tuple<calculateFloat,af::array,af::array>
+inline std::tuple<calculateFloat,af::array,af::array>
 FireCoordination<calculateFloat>::work(af::array& diff,
-                                       af::array& trueindexes,
-                                       PLMD::GPU::ortoPBCs<calculateFloat> myPBC
+                                       af::array& trueindexes
                                       ) {
-  if(pbc) {
-    diff.row(0) = pbcClamp(diff.row(0) * myPBC.X.inv) * myPBC.X.val;
-    diff.row(1) = pbcClamp(diff.row(1) * myPBC.Y.inv) * myPBC.Y.val;
-    diff.row(2) = pbcClamp(diff.row(2) * myPBC.Z.inv) * myPBC.Z.val;
-  }
-  auto ddistSQ = af::sum(diff * diff,0);
 
+  if(pbc) {
+    diff(af::span,af::span,0) = pbcClamp(diff(af::span,af::span,0) * myPBC.X.inv) * myPBC.X.val;
+    diff(af::span,af::span,1) = pbcClamp(diff(af::span,af::span,1) * myPBC.Y.inv) * myPBC.Y.val;
+    diff(af::span,af::span,2) = pbcClamp(diff(af::span,af::span,2) * myPBC.Z.inv) * myPBC.Z.val;
+  }
+  auto ddistSQ = af::sum(diff * diff,2);
   //now we discard the distances that are greater than the limit
   //and the atoms that have the same index
   auto keys = (ddistSQ < switchingParameters.dmaxSQ) - trueindexes;
+
   auto [res, dfunc] = switching(ddistSQ, switchingParameters);
+  calculateFloat coord;
+  af::sum(af::sum(keys*res)).host(&coord);
 
   auto AFderiv = af::select(keys, dfunc * diff, 0.0);
 
-  const unsigned natA = diff.dims()[2];
-  const unsigned natB = diff.dims()[1];
-  
-  auto AFvirial=af::array(9,natB,natA,getType<calculateFloat>());
-  AFvirial.row(0) = AFderiv.row(0) * diff.row(0);
-  AFvirial.row(1) = AFderiv.row(0) * diff.row(1);
-  AFvirial.row(2) = AFderiv.row(0) * diff.row(2);
-  AFvirial.row(3) = AFderiv.row(1) * diff.row(0);
-  AFvirial.row(4) = AFderiv.row(1) * diff.row(1);
-  AFvirial.row(5) = AFderiv.row(1) * diff.row(2);
-  AFvirial.row(6) = AFderiv.row(2) * diff.row(0);
-  AFvirial.row(7) = AFderiv.row(2) * diff.row(1);
-  AFvirial.row(8) = AFderiv.row(2) * diff.row(2);
+  const unsigned natA = diff.dims()[1];
+  const unsigned natB = diff.dims()[0];
+
+  auto AFvirial=af::array(natB,natA,9,getType<calculateFloat>());
+
+  AFvirial(af::span,af::span,0) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,0);
+  AFvirial(af::span,af::span,1) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,1);
+  AFvirial(af::span,af::span,2) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,2);
+  AFvirial(af::span,af::span,3) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,0);
+  AFvirial(af::span,af::span,4) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,1);
+  AFvirial(af::span,af::span,5) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,2);
+  AFvirial(af::span,af::span,6) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,0);
+  AFvirial(af::span,af::span,7) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,1);
+  AFvirial(af::span,af::span,8) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,2);
   //we constructed an
   //dx*dfunc dx*dfunc dx*dfunc dz*dfunc dz*dfunc dz*dfunc dy*dfunc dy*dfunc dy*dfunc
   //tensor, and we multiply it by the tensor:
   //dx dy dz dx dy dz dx dy dz
   //"external product"
   //no need to lookup/select, already done in  the deriv
-  AFvirial = -af::sum(af::sum(AFvirial, 2),1);
-
-  calculateFloat coord;
-  af::sum(af::sum(af::select(keys,res,0.0),2),1).host(&coord);
+  AFvirial = -af::sum(af::sum(AFvirial, 0),1);
 
   return std::make_tuple(coord,AFderiv,AFvirial);
 }
@@ -452,7 +452,7 @@ void FireCoordination<calculateFloat>::calculate () {
   double coordination;
   auto derivativeA = std::vector<Vector> (atomsInA);
   auto derivativeB = std::vector<Vector> (atomsInB);
-  PLMD::GPU::ortoPBCs<calculateFloat> myPBC;
+
 
   std::vector<unsigned> trueIndexesA (atomsInA);
   for (size_t i = 0; i < atomsInA; ++i) {
@@ -476,73 +476,74 @@ void FireCoordination<calculateFloat>::calculate () {
   {
     auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     auto posB = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
-    posB = af::tile(posB,1,1,atomsInA);
-    posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInA,1);
-    auto indexesA = af::array(1,1,atomsInA,trueIndexesA.data());
-    auto indexesB = af::array(1,atomsInA,trueIndexesA.data());
+    posB = af::tile(af::moddims(posB,atomsInA,1,3),1,atomsInA);
+    posA = af::tile(af::moddims(posA,1,atomsInA,3),atomsInA,1);
+    auto indexesA = af::array(1,atomsInA,trueIndexesA.data());
+    auto indexesB = af::array(atomsInA,trueIndexesA.data());
     auto diff = posB - posA;
-    auto trueindexes = af::tile(indexesA,1,atomsInA,1) == af::tile(indexesB,1,1,atomsInA);
+    auto trueindexes = af::tile(indexesA,atomsInA,1) == af::tile(indexesB,1,atomsInA);
 
     auto [
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes, myPBC);
+    ] = work(diff, trueindexes);
 
     getToHost<calculateFloat>(0.5*AFvirial, DataInterface(virial));
 
     coordination =0.5* res;
     // summing on the second index to not change the sign
-    // getToHost<calculateFloat>(-af::sum(AFderiv,1), DataInterface(derivativeA));
-    getToHost<calculateFloat>( af::sum(AFderiv,2), DataInterface(derivativeA));
+    // getToHost<calculateFloat>(-af::sum(AFderiv,0).T(), DataInterface(derivativeA));
+    getToHost<calculateFloat>( af::moddims(af::sum(AFderiv,1),atomsInA,3).T(), DataInterface(derivativeA));
   }
   break;
   case calculationMode::dual:
   {
     auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
-    posB = af::tile(posB,1,1,atomsInA);
-    posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInB,1);
+    posB = af::tile(af::moddims(posB,atomsInB,1,3),1,atomsInA);
+    posA = af::tile(af::moddims(posA,1,atomsInA,3),atomsInB,1);
     auto diff = posB - posA;
 
-    auto indexesA = af::array(1,1,atomsInA,trueIndexesA.data());
-    auto indexesB = af::array(1,atomsInB,trueIndexesB.data());
-    auto trueindexes = af::tile(indexesA,1,atomsInB,1) == af::tile(indexesB,1,1,atomsInA);
-
+    auto indexesA = af::array(1,atomsInA,trueIndexesA.data());
+    auto indexesB = af::array(atomsInB,trueIndexesB.data());
+    auto trueindexes = af::tile(indexesA,atomsInB,1) == af::tile(indexesB,1,atomsInA);
     auto [
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes, myPBC);
+    ] = work(diff, trueindexes);
 
     getToHost<calculateFloat>(AFvirial, DataInterface(virial));
 
     coordination = res;
 
-    getToHost<calculateFloat>(-af::sum(AFderiv,1), DataInterface(derivativeA));
-    getToHost<calculateFloat>( af::sum(AFderiv,2), DataInterface(derivativeB));
+    getToHost<calculateFloat>(-af::moddims(af::sum(AFderiv,0),atomsInA,3).T(), DataInterface(derivativeA));
+    getToHost<calculateFloat>( af::moddims(af::sum(AFderiv,1),atomsInB,3).T(), DataInterface(derivativeB));
   }
   break;
   case calculationMode::pair:
   { //PAIR
     auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
-    auto diff = posB - posA;
+    posB -= posA;
+    posB=af::moddims(posB,atomsInA,1,3);
     auto trueindexes =
-      af::array(1,atomsInA,trueIndexesA.data())
-      == af::array(1,atomsInB,trueIndexesB.data());
+      af::array(atomsInA,trueIndexesA.data())
+      == af::array(atomsInB,trueIndexesB.data());
+
     auto [
       res,
       AFderiv,
       AFvirial
-    ] = work(diff, trueindexes, myPBC);
+    ] = work(posB, trueindexes);
 
     getToHost<calculateFloat>(AFvirial, DataInterface(virial));
 
     coordination = res;
 
-    getToHost<calculateFloat>(-AFderiv, DataInterface(derivativeA));
-    getToHost<calculateFloat>( AFderiv, DataInterface(derivativeB));
+    getToHost<calculateFloat>(-af::moddims(AFderiv,atomsInA,3).T(), DataInterface(derivativeA));
+    getToHost<calculateFloat>( af::moddims(AFderiv,atomsInB,3).T(), DataInterface(derivativeB));
   }
   break;
   case calculationMode::none:
