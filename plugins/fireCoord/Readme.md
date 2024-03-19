@@ -26,7 +26,7 @@ First of all we want to copy to the atomic positions from the cpu to the arrayfi
 auto posA = setPositions<float>(&getPositions()[0][0], atomsInA);
 auto posB = setPositions<float>(&getPositions()[atomsInA][0], atomsInB);
 ```
-`setPositions` wraps the constructor of `af::array` and a conversion to float (or no conversion if called with the `<double>` arguments), and returns a `(3,second_argument,1,1)` tensor, where the first dimension is the x/y/z coordinate and the "colums" represent the atom whose coordinate is that.
+`setPositions` wraps the constructor of `af::array` and a conversion to float (or no conversion if called with the `<double>` arguments), and returns a `(second_argument,1,3,1)` tensor, where the first dimension is the x/y/z coordinate and the "colums" represent the atom whose coordinate is that.
 
 The data in the two position container can visualized like this:
 
@@ -53,24 +53,20 @@ This is how the data is passed in "PAIR" mode
 Without the `PAIR` keyword, starting from `posA` and `posB` we'll trade some space for speed up the calculations.
 
 So we use `af::tile` to tile the tensor with the data contained in the positions arrays.
-
-```c++
-posB = af::tile(posB,1,1,atomsInA);
-```
-making `posB` a `(3,atomsInB,atomsInA,1)` tensor,
-And the __row 0__ of the first dimension will became:
+making `posB` a `(atomsInB,atomsInA,3,1)` tensor,
+And the __row 0__ of the first dimension will become:
 ```
 x_B0 x_B1 x_B2 ...
 x_B0 x_B1 x_B2 ...
 x_B0 x_B1 x_B2 ...
 ...
 ```
-Whereas for `posA` we change ho AF interprets the tensor with `af::moddims` making it a `(3,1,atomsInA,1)` tensor, and then we tile it to a `(3,atomsInB,atomsInA,1)` tensor
+Whereas for `posA` we change ho AF interprets the tensor with `af::moddims` making it a `(1,atomsInA,3,1)` tensor, and then we tile it to a `(atomsInB,atomsInA,3,1)` tensor
 
 ```c++
-posA = af::tile(af::moddims(posA,3,1,atomsInA),1,atomsInB,1);
+posA = af::tile(af::moddims(posA,1,atomsInA,3),atomsInB,1);
 ```
-And the __row 0__ of the first dimension will became:
+And the __row 0__ of the first dimension will become:
 ```
 x_A0 x_A0 x_A0 ...
 x_A1 x_A1 x_A1 ...
@@ -84,7 +80,7 @@ x_B0-x_A1 x_B1-x_A1 x_B2-x_A1 ...
 x_B0-x_A2 x_B1-x_A2 x_B2-x_A2 ...
 ...
 ```
-and will have dimension `(3,atomsInB,atomsInA,1)`, and can be used in the [next paragraph](#implementation-prepare-the-data), without changing the code.
+and will have dimensions `(atomsInB,atomsInA,3,1)`, and can be used in the [next paragraph](#implementation-prepare-the-data), without changing the code.
 
 For the non pair implementation with a single group the procedure is the same, except for
 
@@ -97,16 +93,16 @@ And using atomsInA in place of atomsInB
 
 ## Implementation: coordination
 
-The distance can simply calculated by subtracting the two arrays positions array (see below how we got `posA` and `posB`):
+The distance can simply be calculated by subtracting the two arrays positions array (see before how we got `posA` and `posB`):
 ```c++
 auto diff = posB - posA;
 ```
-and then we calculate the square of the distance
+and then we calculate the square of the distance, summed on the third dimension,  because diff has dimensions `(atomsInB,atomsInA,3,1)`
 ```c++
-auto ddistSQ = af::sum(diff * diff,0);
+auto ddistSQ = af::sum(diff * diff,2);
 ```
-The second argument will make sure that the distances will be collapsed in a `(1,atomsInB,atomsInA,1)` tensor, because we are reducing on the first dimension.
-and then we can proceed as usual, by passing the squared distance through a switching function with a similar implementation to the non accelerated one (see below)
+The second argument will make sure that the distances will be collapsed in a `(atomsInB,atomsInA,1,1)` tensor, because we are reducing on the first dimension.
+and then we can proceed as usual, by passing the squared distance through a switching function with a similar implementation to the non-accelerated one (see below)
 ```c++
 auto [res, dfunc] = switching(ddistSQ, switchingParameters);
 ```
@@ -116,37 +112,37 @@ now we proceed by calculationg the derivatives and the box derivatives:
 auto keys = (ddistSQ < switchingParameters.dmaxSQ) - trueindexes;
 auto AFderiv = af::select(keys, dfunc * diff, 0.0);
 
-const unsigned natA = diff.dims()[2];
-const unsigned natB = diff.dims()[1];
+const unsigned natA = diff.dims()[1];
+const unsigned natB = diff.dims()[0];
 
-auto AFvirial=af::array(9,natB,natA,getType<calculateFloat>());
-AFvirial.row(0) = AFderiv.row(0) * diff.row(0);
-AFvirial.row(1) = AFderiv.row(0) * diff.row(1);
-AFvirial.row(2) = AFderiv.row(0) * diff.row(2);
-AFvirial.row(3) = AFderiv.row(1) * diff.row(0);
-AFvirial.row(4) = AFderiv.row(1) * diff.row(1);
-AFvirial.row(5) = AFderiv.row(1) * diff.row(2);
-AFvirial.row(6) = AFderiv.row(2) * diff.row(0);
-AFvirial.row(7) = AFderiv.row(2) * diff.row(1);
-AFvirial.row(8) = AFderiv.row(2) * diff.row(2);
+auto AFvirial=af::array(natB,natA,9,getType<calculateFloat>());
+AFvirial(af::span,af::span,0) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,0);
+AFvirial(af::span,af::span,1) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,1);
+AFvirial(af::span,af::span,2) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,2);
+AFvirial(af::span,af::span,3) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,0);
+AFvirial(af::span,af::span,4) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,1);
+AFvirial(af::span,af::span,5) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,2);
+AFvirial(af::span,af::span,6) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,0);
+AFvirial(af::span,af::span,7) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,1);
+AFvirial(af::span,af::span,8) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,2);
 ```
-See below how we got `trueindexes`, that is used to discard the calculations that are within atoms with the same index. `keys` merge the "discard on indexes" with the" discard on cut off", and it is used with `af::select` to put zeros in those place (because a `+0` does not change a result).
+See up how we got `trueindexes`, that is used to discard the calculations that are within atoms with the same index. `keys` merge the "discard on indexes" with the" discard on cut off", and it is used with `af::select` to put zeros in those places (because a `+0` does not change a result).
 
-In the previous snippet we are calculating the derivative and the virial with "simple" multiplications.
+In the previous snippet, we are calculating the derivative and the virial with "simple" multiplications.
 
-As before, the first coordinate of the tensor is the "accumulated coordinate", I'm working with this schema becasue it is the way of ho AF is storing the data.
+As before, the first coordinate of the tensor is the "accumulated coordinate", I'm working with this schema because it is the way of ho AF is storing the data.
 
 Then we may proceed with the accumulations:
 
 ```c++
-AFvirial = -af::sum(af::sum(AFvirial, 2),1);
+AFvirial = -af::sum(af::sum(AFvirial, 1),0);
 
 calculateFloat coord;
-af::sum(af::sum(af::select(keys,res,0.0),2),1).host(&coord);
+af::sum(af::sum(af::select(keys,res,0.0),1),0).host(&coord);
 
 ```
 
-Here we are summing on dimension 2 and 1 so that we cover all the cases (PAIR only needs one dimension, the other two implementations need 2)
+Here we are summing on dimensions 1 and 0 so that we cover all the cases (PAIR only needs one dimension, the other two implementations need 2)
 
 And this concludes the common part. The derivatives shall be accumulated differently for each different implementation.
 
@@ -161,11 +157,13 @@ auto [
     ] = work(diff, trueindexes, myPBC);
 ```
 
- - coordinaton, __alreeady reduced__*
+ - coordinaton, __already reduced__*
  - the virial/box derivative, __already reduced__*
  - the atoms derivatives, __not reduced__
 
-The derivatives need a slightly different recipe for each of the three implementation, and in hte case of the single group coordination we need to slightly massage also the virial and the coordination
+The derivatives need a slightly different recipe for each of the three implementations, and in the case of the single group coordination we need to slightly massage also the virial and the coordination.
+
+We will need to change the derivatives to `(3,nat,1,1)` by transposing them in order to have the data ordered in the way that is in a `std::vector<PLMD::Vector>`
 
 #### PAIR
 
@@ -174,8 +172,8 @@ The derivatives need a slightly different recipe for each of the three implement
 coordinationPlumed=coordination;
 //ad-hoc written helpers functions
 getToHost<float>(AFvirial, DataInterface(virial));
-getToHost<float>(-AFderivative, DataInterface(derivativeA));
-getToHost<float>( AFderivative, DataInterface(derivativeB));
+getToHost<calculateFloat>(-af::moddims(AFderiv,atomsInA,3).T(), DataInterface(derivativeA));
+getToHost<calculateFloat>( af::moddims(AFderiv,atomsInB,3).T(), DataInterface(derivativeB));
 ```
 The derivatives are calculated per single pair and do not need any reduction
 #### GROUPA, GROUPB
@@ -183,28 +181,27 @@ The derivatives are calculated per single pair and do not need any reduction
 ```c++
 coordinationPlumed=coordination;
 getToHost<calculateFloat>(AFvirial, DataInterface(virial));
-getToHost<calculateFloat>(-af::sum(AFderivative,1), DataInterface(derivativeA));
-getToHost<calculateFloat>( af::sum(AFderivative,2), DataInterface(derivativeB));
+getToHost<calculateFloat>(-af::moddims(af::sum(AFderiv,0),atomsInA,3).T(), DataInterface(derivativeA));
+getToHost<calculateFloat>( af::moddims(af::sum(AFderiv,1),atomsInB,3).T(), DataInterface(derivativeB));
 ```
-The derivatives need a reduction on the correct axis, we just have to remember that `AFderivative` has the same shape of `diff`, `(1,atomsInB,atomsInA,1)`.
+The derivatives need a reduction on the correct axis, we just have to remember that `AFderivative` has the same shape of `diff`, `(atomsInB,atomsInA,3)`.
 
 #### GROUPA only
 ```c++
 coordinationPlumed=0.5*coordination;
 getToHost<calculateFloat>(0.5*AFvirial, DataInterface(virial));
-getToHost<calculateFloat>(af::sum(AFderivative,2), DataInterface(derivativeA));
+getToHost<calculateFloat>(af::moddims(af::sum(AFderiv,1),atomsInA,3).T(), DataInterface(derivativeA));
 
 ```
-Here we need to remeber to not count twice everithing, since the common workflow considers each pair as if it belogns to two different groups.
-So we just need to reduce le derivatives only along a single axis, and since we can choose, we reduce them along the axis that give us the possibility of skipping the sign inversion.
-
-
+Here we need to remember to not count twice everything, since the common workflow considers each pair as if it belongs to two different groups.
+So we just need to reduce le derivatives only along a single axis, and since we can choose, we reduce them along the axis which gives us the possibility of skipping the sign inversion.
 
 ## Some caveat
-At time of writing this the ArrayFire API (or at least, the following statement is based on how my compiler interprets the 3.9.0 API) has at least two overloads for `af::sum` that interest to us:
+At the time of writing this, the ArrayFire API (or at least, the following statement is based on how my compiler interprets the ArrayFire 3.9.0 API) has at least two overloads for `af::sum` that interest us:
  - `AFAPI array 	sum (const array &in, const int dim=-1)` C++ Interface to sum array elements over a given dimension. 
  - `template<typename T > T sum (const array &in)` C++ Interface to sum array elements over all dimensions. 
- The problem is that the first one wiht its default argumens shadows the second one (this will be a "problem" when reducing the coordination)
+ The problem is that the first one with its default arguments shadows the second one (this will be a "problem" when reducing the coordination).
+This is the why I used `af::sum(af::sum(keys*res,0),1).host(&coord);` for reductions, instead of a simple `af::sum(keys*res).host(&coord);`
 
 ## Limitations
 

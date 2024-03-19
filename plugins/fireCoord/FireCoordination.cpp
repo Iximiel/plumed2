@@ -121,12 +121,12 @@ inline af::array setPositions(const double* const data, const size_t size) {
     posi[3*i+1] = static_cast<float>(data[3*i+1]);
     posi[3*i+2] = static_cast<float>(data[3*i+2]);
   }
-  return af::array(3, size, &posi.front()).T();
+  return af::moddims(af::array(3, size, &posi.front()).T(),size,1,3);
 }
 
 template<>
 inline af::array setPositions<double>(const double* const data, const size_t size) {
-  return af::array(3, size, data).T();
+  return af::moddims(af::array(3, size, data).T(),size,1,3);
 }
 
 
@@ -476,7 +476,7 @@ void FireCoordination<calculateFloat>::calculate () {
   {
     auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     auto posB = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
-    posB = af::tile(af::moddims(posB,atomsInA,1,3),1,atomsInA);
+    posB = af::tile(posB,1,atomsInA);
     posA = af::tile(af::moddims(posA,1,atomsInA,3),atomsInA,1);
     auto indexesA = af::array(1,atomsInA,trueIndexesA.data());
     auto indexesB = af::array(atomsInA,trueIndexesA.data());
@@ -501,7 +501,7 @@ void FireCoordination<calculateFloat>::calculate () {
   {
     auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
-    posB = af::tile(af::moddims(posB,atomsInB,1,3),1,atomsInA);
+    posB = af::tile(posB,1,atomsInA);
     posA = af::tile(af::moddims(posA,1,atomsInA,3),atomsInB,1);
     auto diff = posB - posA;
 
@@ -527,7 +527,6 @@ void FireCoordination<calculateFloat>::calculate () {
     auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
     auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
     posB -= posA;
-    posB=af::moddims(posB,atomsInA,1,3);
     auto trueindexes =
       af::array(atomsInA,trueIndexesA.data())
       == af::array(atomsInB,trueIndexesB.data());
