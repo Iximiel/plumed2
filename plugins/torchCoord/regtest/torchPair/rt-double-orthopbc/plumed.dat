@@ -1,0 +1,21 @@
+LOAD FILE=../../../../FireCoordination.so
+#R_0=1   means automatic dmax=6.81292 > 3 (half box size)
+#R_0=0.4 means automatic dmax=2.72517 < 3 (half box size)
+#using R_0!=1 also tests that no "1" are accidentally slipped into the various 1/r0
+#MM=14 tests the MM!=2*NN part of the Coordination
+#at time of writing this ONLY even NN and MM work
+#the trajectory here has 3 different dimensions for x,y and z, so it tests also that
+
+fire: FIRECOORDINATION PAIR GROUPA=1-107 GROUPB=2-108 NN=6 MM=14 R_0=0.4
+cpu:  COORDINATION     PAIR GROUPA=1-107 GROUPB=2-108 NN=6 MM=14 R_0=0.4
+
+#if the switch is to be explicitly written, then D_MAX is not automatically set!!!
+#SWITCH={RATIONAL R_0=0.4 D_0=0 NN=6} 
+
+diff: CUSTOM ARG=fire,cpu FUNC=y-x PERIODIC=NO
+
+PRINT ARG=fire,cpu FILE=colvars FMT=%8.4f STRIDE=1
+PRINT ARG=diff FILE=colvar FMT=%8.4f STRIDE=1
+
+DUMPDERIVATIVES ARG=fire,cpu FILE=deriv FMT=%8.5f
+FLUSH STRIDE=1
