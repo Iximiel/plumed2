@@ -20,25 +20,8 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
-#ifndef __PLUMED_HAS_ARRAYFIRE
-#error "This CV can only be built if the current plumed2 has found arrayfire"
-#endif //__PLUMED_HAS_ARRAYFIRE
-
-#include <arrayfire.h>
-#ifdef __PLUMED_HAS_ARRAYFIRE_CUDA
-#include <cuda_runtime.h>
-#include <cublas_v2.h>
-#include <af/cuda.h>
-namespace afdevice=afcu;
-#elif __PLUMED_HAS_ARRAYFIRE_OCL
-#include <af/opencl.h>
-namespace afdevice=afocl;
-#else
-//this is a small workaround to use less #ifdef ;)
-namespace afdevice {
-int getNativeId(int const i) { return i;}
-}
-#endif
+#include <torch/torch.h>
+#include <torch/script.h>
 
 
 #include "core/ActionRegister.h"
@@ -49,8 +32,10 @@ int getNativeId(int const i) { return i;}
 #include <limits>
 #include <functional>
 
-// #include <iostream>
+#include <iostream>
 // #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
+// #define plotsize(name) std::cerr << __LINE__ << #name ": "<< name.sizes()<< '\n';
+
 // #define vdbg(...)
 namespace PLMD {
 //stolen from cuda implementation
@@ -75,87 +60,129 @@ template <typename calculateFloat> struct ortoPBCs {
 } //namespace GPU
 
 namespace colvar {
+/*
+constexpr auto kUInt8 = at::kByte;
+constexpr auto kInt8 = at::kChar;
+constexpr auto kInt16 = at::kShort;
+constexpr auto kInt32 = at::kInt;
+constexpr auto kInt64 = at::kLong;
+constexpr auto kFloat16 = at::kHalf;
+constexpr auto kFloat32 = at::kFloat;
+constexpr auto kFloat64 = at::kDouble;
+*/
 
-//stolen from my CUDA implementation:
+template <typename T>
+inline constexpr torch::Dtype getType() {
+  //torch requires c++17, so I can make this full c++17
+  if constexpr (std::is_same_v<T,float>) {
+    return  torch::kFloat32;
+  } else if constexpr (std::is_same_v<T,std::int32_t>) {
+    return  torch::kInt32;
+  } else if constexpr (std::is_same_v<T,std::int64_t>) {
+    return  torch::kInt64;
+  } else if constexpr (std::is_same_v<T,double>) {
+    return  torch::kFloat64;
+  }
+}
+
+//MEMORY MANAGEMENT//
+template<typename T>
 struct DataInterface {
   // NOT owning pointer
-  double *ptr = nullptr;
+  T *ptr = nullptr;
   size_t size = 0;
   DataInterface() = delete;
 
-  // VectorGeneric is a "memory map" on an n linear array
-  // &vg[0] gets the pointer to the first double in memory
-  // C++ vectors align memory so we can safely use the vector variant of
-  // DataInterface
-  template <unsigned n>
-  explicit DataInterface (PLMD::VectorGeneric<n> &vg)
-    : ptr (&vg[0]), size (n) {}
-  // TensorGeneric is a "memory map" on an n*m linear array
-  // &tg[0][0] gets  the pointer to the first double in memory
-  // C++ vectors align memory so we can safely use the vector variant of
-  // DataInterface
-  template <unsigned n, unsigned m>
-  explicit DataInterface (PLMD::TensorGeneric<n, m> &tg)
-    : ptr (&tg[0][0]), size (n * m) {}
-  template <typename T>
   explicit DataInterface (std::vector<T> &vt) : DataInterface (vt[0]) {
     size *= vt.size();
   }
+  template <size_t N>
+  explicit DataInterface (std::array<T,N> &vt) : DataInterface (vt[0]) {
+    size *= N;
+  }
+  explicit DataInterface (T& v) : ptr(&v),size(1) {};
+
+  explicit DataInterface (T& v, size_t n) : ptr(&v),size(n) {};
 };
 
-template <typename calculateFloat>
-inline constexpr af_dtype getType() { return  af_dtype::f32;}
+template <unsigned n>
+inline DataInterface<double> toDataInterface(
+  std::vector<PLMD::VectorGeneric<n>> &vg) {
+  return DataInterface<double> (vg[0][0], n*vg.size());
+}
 
-template <>
-inline constexpr af_dtype getType<double>() {return  af_dtype::f64;}
+template <unsigned n, unsigned m>
+inline DataInterface<double> toDataInterface(
+  std::vector<TensorGeneric<n, m> > &tg) {
+  return DataInterface<double> (tg[0][0][0], m*n*tg.size());
+}
 
-template <typename calculateFloat>
-inline af::array setPositions(const double* const data, const size_t size) {
-  std::vector<float> posi(3*size);
-  for (unsigned i=0; i<size; ++i) {
-    posi[3*i]   = static_cast<float>(data[3*i] );
-    posi[3*i+1] = static_cast<float>(data[3*i+1]);
-    posi[3*i+2] = static_cast<float>(data[3*i+2]);
+template <unsigned n, unsigned m>
+inline DataInterface<double> toDataInterface(
+  TensorGeneric<n, m> &tg) {
+  return DataInterface<double> (tg[0][0], m*n);
+}
+
+//loads the data, with conversion if necessary,
+//convertFrom is deduced from DataInterface
+template <typename convertTo,typename convertFrom>
+inline torch::Tensor convertToDevice(DataInterface<convertFrom> dataInterface,
+                                     torch::DeviceType device) {
+  if constexpr (std::is_same_v<convertTo,convertFrom>) {
+    //skipping an unuseful  conversion
+    //(I do not kno if the API automagically skips it)
+    return torch::from_blob(dataInterface.ptr, {dataInterface.size},
+                            getType<convertFrom>()).to(device);
+  } else {
+    return torch::from_blob(dataInterface.ptr, {dataInterface.size},
+                            getType<convertFrom>())
+           .to(getType<convertTo>()).to(device);
   }
-  //for our callulation we return a (size,1,3) tensor
-  return af::moddims(af::array(3, size, &posi.front()).T(),size,1,3);
 }
 
-template<>
-inline af::array setPositions<double>(const double* const data, const size_t size) {
-  return af::moddims(af::array(3, size, data).T(),size,1,3);
+//directly loads the data, without conversion
+//works like convertToDevice, but no need to specify explicitly the template
+//T is deduced from DataInterface
+template <typename T>
+inline torch::Tensor loadToDevice(DataInterface<T> dataInterface,
+                                  torch::DeviceType device) {
+  return convertToDevice<T,T>(dataInterface,device);
 }
-
 
 template <typename calculateFloat>
-inline void getToHost(const af::array& input,
-                      DataInterface destination) {
-  unsigned const size = input.elements();
+torch::Tensor setPositions(double* const data, const size_t size,
+                           torch::DeviceType device) {
+  return torch::from_blob(data, {size,3}, torch::kFloat64)
+         .transpose(0,1).to(getType<calculateFloat>()).to(device);
+}
+
+template <typename convertTo>
+inline void convertFromDevice(const torch::Tensor& origin,
+                              DataInterface<convertTo> destination) {
+  unsigned const size = origin.numel();
   if(size > destination.size ) {
     plumed_merror("PLMD->AF::getToHost(): destination cannot contain all the data ("+
                   std::to_string(size) + " > " + std::to_string(destination.size) +")");
   }
-  std::vector<float> buffer(size);
-  input.host(buffer.data());
-  for (unsigned i=0; i<size; ++i) {
-    destination.ptr[i] =  static_cast<double>(buffer[i]);
-  }
-}
+  torch::Tensor buffer;
+  //We need the reshape makes the data in the correct order(!?),
+  //I think transpose do not phisically move the data
+  //in the contained array and that breaks the memcopy
+  if(getType<convertTo>() != buffer.scalar_type()) {
+    buffer = origin.detach().to(torch::kCPU).to(getType<convertTo>())
+             .reshape({size});
+  } else {
+    buffer = origin.detach().to(torch::kCPU).reshape({size});
 
-template <>
-inline void getToHost<double>(const af::array& input,
-                              DataInterface destination) {
-  unsigned const size = input.elements();
-  if(size >(destination.size) ) {
-    plumed_merror("PLMD->AF::getToHost(): destination cannot contain all the data ("+
-                  std::to_string(size) + " > " + std::to_string(destination.size) +")");
   }
-  input.host(destination.ptr);
+  std::copy(buffer.data_ptr<double>(), buffer.data_ptr<double>() + size, destination.ptr);
+  // torch::from_blob(destination.ptr, {destination.size}, getType<double>())  = buffer;
 }
+//END OF MEMORY MANAGEMENT//
 
 template<typename T>
 inline T pbcClamp(const T& x) {
-  return x-af::floor(x+0.5);
+  return x-torch::floor(x+0.5);
 }
 
 //TODO: this is identical to the plain cuda implementation
@@ -170,11 +197,12 @@ template <typename calculateFloat> struct rationalSwitchParameters {
 
 /*****************************Implementation starts here***********************/
 template <typename calculateFloat>
-std::pair<af::array,af::array> fastRationalN2M(const af::array& distSquared,
-    const rationalSwitchParameters<calculateFloat> switchingParameters) {
+std::pair<torch::Tensor,torch::Tensor> fastRationalN2M(
+  const torch::Tensor& distSquared,
+  const rationalSwitchParameters<calculateFloat> switchingParameters) {
   auto NN = switchingParameters.nn / 2;
   auto rdistSQ = distSquared * switchingParameters.invr0_2;
-  auto rNdist = af::pow(rdistSQ, NN - 1);
+  auto rNdist = torch::pow(rdistSQ, NN - 1);
   auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
   //need to use select
   auto dfunc = (-NN * 2.0
@@ -187,13 +215,14 @@ std::pair<af::array,af::array> fastRationalN2M(const af::array& distSquared,
 }
 
 template <typename calculateFloat>
-std::pair<af::array,af::array> fastRational(const af::array& distSquared,
-    const rationalSwitchParameters<calculateFloat> switchingParameters) {
+std::pair<torch::Tensor,torch::Tensor> fastRational(
+  const torch::Tensor& distSquared,
+  const rationalSwitchParameters<calculateFloat> switchingParameters) {
   auto NN = switchingParameters.nn / 2;
   auto MM = switchingParameters.mm / 2;
   auto rdistSQ = distSquared * switchingParameters.invr0_2;
-  auto rNdist = af::pow(rdistSQ, NN - 1);
-  auto rMdist = af::pow(rdistSQ, MM - 1);
+  auto rNdist = torch::pow(rdistSQ, NN - 1);
+  auto rMdist = torch::pow(rdistSQ, MM - 1);
   auto den = calculateFloat(1.0) / (calculateFloat(1.0) - rdistSQ * rMdist);
   auto res =  (calculateFloat(1.0) - rdistSQ * rNdist)*den;
 
@@ -206,9 +235,13 @@ std::pair<af::array,af::array> fastRational(const af::array& distSquared,
            dfunc);
 }
 
-template <typename calculateFloat> class FireCoordination : public Colvar {
-  std::tuple<calculateFloat,af::array,af::array> work(af::array& diff,
-       af::array& trueindexes);
+template <typename calculateFloat> class TorchCoordination : public Colvar {
+  static auto constexpr myDtype=getType<calculateFloat>();
+  // torch::TensorOptions().device(device_t_).dtype(torch::kFloat32);
+  torch::TensorOptions tensorOptions =torch::TensorOptions();
+  torch::DeviceType myDevice;
+  std::tuple<calculateFloat,torch::Tensor,torch::Tensor> work(torch::Tensor& diff,
+      torch::Tensor& trueindexes);
 
   PLMD::GPU::ortoPBCs<calculateFloat> myPBC;
   unsigned atomsInA = 0;
@@ -220,25 +253,25 @@ template <typename calculateFloat> class FireCoordination : public Colvar {
   enum class calculationMode { self, dual, pair, none };
   calculationMode mode = calculationMode::none;
   std::function<
-  std::pair<af::array,af::array> (const af::array&,
-                                  const rationalSwitchParameters<calculateFloat> )
+  std::pair<torch::Tensor,torch::Tensor> (const torch::Tensor&,
+                                          const rationalSwitchParameters<calculateFloat> )
   > switching;
   bool pbc{true};
 public:
-  explicit FireCoordination (const ActionOptions &);
-  virtual ~FireCoordination()=default;
+  explicit TorchCoordination (const ActionOptions &);
+  virtual ~TorchCoordination()=default;
   // active methods:
   static void registerKeywords (Keywords &keys);
   void calculate() override;
 };
 
-using FireCoordination_d = FireCoordination<double>;
-using FireCoordination_f = FireCoordination<float>;
-PLUMED_REGISTER_ACTION (FireCoordination_d, "FIRECOORDINATION")
-PLUMED_REGISTER_ACTION (FireCoordination_f, "FIRECOORDINATIONFLOAT")
+using TorchCoordination_d = TorchCoordination<double>;
+using TorchCoordination_f = TorchCoordination<float>;
+PLUMED_REGISTER_ACTION (TorchCoordination_d, "TORCHCOORDINATION")
+PLUMED_REGISTER_ACTION (TorchCoordination_f, "TORCHCOORDINATIONFLOAT")
 
 template <typename calculateFloat>
-void FireCoordination<calculateFloat>::registerKeywords (Keywords &keys) {
+void TorchCoordination<calculateFloat>::registerKeywords (Keywords &keys) {
   Colvar::registerKeywords (keys);
 
   // keys.add ("optional", "THREADS", "The upper limit of the number of threads");
@@ -263,7 +296,7 @@ void FireCoordination<calculateFloat>::registerKeywords (Keywords &keys) {
 }
 
 template <typename calculateFloat>
-FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
+TorchCoordination<calculateFloat>::TorchCoordination (const ActionOptions &ao)
   : PLUMED_COLVAR_INIT (ao) {
   std::vector<AtomNumber> GroupA;
   parseAtomList ("GROUPA", GroupA);
@@ -293,6 +326,17 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
     error (
       R"(implementation error in constructor: calculation mode cannot be "none")");
   }
+
+// parse("DEVICEID",deviceid);
+  if(comm.Get_rank()==0) {
+    if (/*gpu_ && */torch::cuda::is_available()) {
+      myDevice = torch::kCUDA;
+    } else {
+      myDevice = torch::kCPU;
+      // gpu_ = false;
+    }
+  }
+  tensorOptions =torch::TensorOptions().device(myDevice).dtype(myDtype);
   bool nopbc = !pbc;
   parseFlag ("NOPBC", nopbc);
   pbc = !nopbc;
@@ -363,13 +407,14 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
     switchingParameters.invr0_2 = invr0 * invr0;
     constexpr bool dostretch = true;
     if (dostretch) {
-      std::array<calculateFloat,2> inputs = {0.0, dmax};
+      std::array<double,2> inputs = {0.0, dmax};
       //fastRational* gets the square as input
       inputs[1] *= inputs[1];
-      af::array AFinputs(2,1,inputs.data());
+      torch::Tensor AFinputs=convertToDevice<calculateFloat>(
+                               DataInterface(inputs),myDevice);
       auto [res, dfunc] = switching(AFinputs,switchingParameters);
-      std::array<calculateFloat,2> resZeroMax;
-      res.host(resZeroMax.data());
+      std::array<double,2> resZeroMax;
+      convertFromDevice(res,DataInterface(resZeroMax));
 
       switchingParameters.stretch = 1.0 / (resZeroMax[0] - resZeroMax[1]);
       switchingParameters.shift = -resZeroMax[1] * switchingParameters.stretch;
@@ -384,82 +429,59 @@ FireCoordination<calculateFloat>::FireCoordination (const ActionOptions &ao)
       << 1.0 / sqrt (switchingParameters.invr0_2)
       << ", N=" << switchingParameters.nn << ", M=" << switchingParameters.mm
       << ".\n";
-
-  parse("DEVICEID",deviceid);
-  if(comm.Get_rank()==0) {
-    // if not set try to check the one set by the API
-    if(deviceid==-1) deviceid=plumed.getGpuDeviceId();
-    // if still not set use 0
-    if(deviceid==-1) deviceid=0;
-    //afdevice will change to the namespace found by plumed, (see the include clauses)
-    af::setDevice(afdevice::getNativeId(deviceid));
-    af::info();
-  }
 }
 
-template <typename calculateFloat>
-inline std::tuple<calculateFloat,af::array,af::array>
-FireCoordination<calculateFloat>::work(af::array& diff,
-                                       af::array& keys
-                                      ) {
 
+template <typename calculateFloat>
+inline std::tuple<calculateFloat,torch::Tensor,torch::Tensor>
+TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
+                                        torch::Tensor& keys
+                                       ) {
   if(pbc) {
-    diff(af::span,af::span,0) = pbcClamp(diff(af::span,af::span,0) * myPBC.X.inv) * myPBC.X.val;
-    diff(af::span,af::span,1) = pbcClamp(diff(af::span,af::span,1) * myPBC.Y.inv) * myPBC.Y.val;
-    diff(af::span,af::span,2) = pbcClamp(diff(af::span,af::span,2) * myPBC.Z.inv) * myPBC.Z.val;
+    std::array<calculateFloat,3> vals{myPBC.X.val,myPBC.Y.val,myPBC.Z.val},
+        invs{myPBC.X.inv,myPBC.Y.inv,myPBC.Z.inv};
+    auto tvals = loadToDevice(DataInterface(vals), myDevice);
+    auto tinvs = loadToDevice(DataInterface(invs), myDevice);
+    if(diff.dim()==2) { //pair
+      tvals=tvals.reshape({3,1});
+      tinvs=tinvs.reshape({3,1});
+    } else {
+      tvals=tvals.reshape({3,1,1});
+      tinvs=tinvs.reshape({3,1,1});
+    }
+
+    diff = pbcClamp(diff * tinvs) * tvals;
   }
-  auto ddistSQ = af::sum(diff * diff,2);
-  //now we discard the distances that are greater than the limit
-  //and the atoms that have the same index
-  keys = (ddistSQ < switchingParameters.dmaxSQ) - keys;
+  auto ddistSQ = (diff*diff).sum(0,true);
+  keys &= (ddistSQ < switchingParameters.dmaxSQ);
+  auto [res,dev] = switching (ddistSQ,switchingParameters);
 
-  auto [res, dfunc] = switching(ddistSQ, switchingParameters);
-  calculateFloat coord;
-  af::sum(af::sum(keys*res)).host(&coord);
+  auto t = (keys*res).sum()
+           .to(torch::kCPU)
+           .to(torch::kFloat64);
+  //my compiler refuses to use the .data_ptr<double>(), so here's the workaround...
+  // double coord = t.item<double>();
+  // double coord =*t.data_ptr<double>();
+  double coord = *static_cast<double*>(t.data_ptr());
+  dev = dev * diff * keys;
+  dev *= keys;
+  auto AFvirial=torch::zeros({9},tensorOptions);
+  {
+    using namespace torch::indexing;
+    for(int i=0,k=0; i<3; ++i) {
+      for(int j=0; j<3; ++j) {
+        AFvirial.index_put_({k},-(dev.index({i})* diff.index({j})).sum());
+        ++k;
+      }
+    }
+  }
 
-  auto AFderiv = af::select(keys, dfunc * diff, 0.0);
-
-  const unsigned natA = diff.dims()[1];
-  const unsigned natB = diff.dims()[0];
-
-  auto AFvirial=af::array(natB,natA,9,getType<calculateFloat>());
-
-  AFvirial(af::span,af::span,0) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,0);
-  AFvirial(af::span,af::span,1) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,1);
-  AFvirial(af::span,af::span,2) = AFderiv(af::span,af::span,0) * diff(af::span,af::span,2);
-  AFvirial(af::span,af::span,3) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,0);
-  AFvirial(af::span,af::span,4) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,1);
-  AFvirial(af::span,af::span,5) = AFderiv(af::span,af::span,1) * diff(af::span,af::span,2);
-  AFvirial(af::span,af::span,6) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,0);
-  AFvirial(af::span,af::span,7) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,1);
-  AFvirial(af::span,af::span,8) = AFderiv(af::span,af::span,2) * diff(af::span,af::span,2);
-  //we constructed an
-  //dx*dfunc dx*dfunc dx*dfunc dz*dfunc dz*dfunc dz*dfunc dy*dfunc dy*dfunc dy*dfunc
-  //tensor, and we multiply it by the tensor:
-  //dx dy dz dx dy dz dx dy dz
-  //"external product"
-  //no need to lookup/select, already done in  the deriv
-  AFvirial = -af::sum(af::sum(AFvirial, 0),1);
-
-  return std::make_tuple(coord,AFderiv,AFvirial);
+  return std::make_tuple(coord,dev,AFvirial);
 }
 
 template <typename calculateFloat>
-void FireCoordination<calculateFloat>::calculate () {
-
-  double coordination;
-  auto derivativeA = std::vector<Vector> (atomsInA);
-  auto derivativeB = std::vector<Vector> (atomsInB);
-
-
-  std::vector<unsigned> trueIndexesA (atomsInA);
-  for (size_t i = 0; i < atomsInA; ++i) {
-    trueIndexesA[i] = getAbsoluteIndex (i).index();
-  }
-  std::vector<unsigned> trueIndexesB (atomsInB);
-  for (size_t i = 0; i < atomsInB; ++i) {
-    trueIndexesB[i] = getAbsoluteIndex (atomsInA+i).index();
-  }
+void TorchCoordination<calculateFloat>::calculate() {
+  // std::cerr << getStep() <<"\n";
   if (pbc) {
     makeWhole();
     auto box = getBox();
@@ -468,86 +490,89 @@ void FireCoordination<calculateFloat>::calculate () {
     myPBC.Y = box (1, 1);
     myPBC.Z = box (2, 2);
   }
+  std::vector <PLMD::Vector> inputs = getPositions();
+  auto derivativeA = std::vector<Vector> (atomsInA);
+  auto derivativeB = std::vector<Vector> (atomsInB);
+  double coordination;
   PLMD::Tensor virial;
+  std::vector<int> trueIndexesA (atomsInA);
+  for (size_t i = 0; i < atomsInA; ++i) {
+    trueIndexesA[i] = getAbsoluteIndex (i).index();
+  }
+  std::vector<int> trueIndexesB (atomsInB);
+  for (size_t i = 0; i < atomsInB; ++i) {
+    trueIndexesB[i] = getAbsoluteIndex (atomsInA+i).index();
+  }
+
   switch (mode) {
-  case calculationMode::self:
-  {
-    auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
-    auto posB = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
-    posB = af::tile(posB,1,atomsInA);
-    posA = af::tile(af::moddims(posA,1,atomsInA,3),atomsInA,1);
-    /*
-    auto indexesA = af::array(1,atomsInA,trueIndexesA.data());
-    auto indexesB = af::array(atomsInA,trueIndexesA.data());
-    auto trueindexes = af::tile(indexesA,atomsInA,1) == af::tile(indexesB,1,atomsInA);
-    */
-    auto trueindexes = af::tile(af::array(1,atomsInA,trueIndexesA.data()),atomsInA,1)
-                       == af::tile(af::array(atomsInA,trueIndexesA.data()),1,atomsInA);
-    posB -= posA;
+  case calculationMode::self: {
+    torch::Tensor posA=convertToDevice<calculateFloat>(toDataInterface(inputs),
+                       myDevice)
+                       .reshape({atomsInA,3,1})
+                       .transpose(0,1)
+                       .tile({1,1,atomsInA});
+    torch::Tensor posB=convertToDevice<calculateFloat>(
+                         toDataInterface(inputs),myDevice)
+                       .reshape({atomsInA,1,3})
+                       .transpose(0,2)
+                       .tile({1,atomsInA,1});
+    auto diff = posB-posA;
+    torch::Tensor indexesA=loadToDevice(DataInterface(trueIndexesA),myDevice)
+                           .reshape({1,atomsInA,1})
+                           .tile({1,1,atomsInA});
+    torch::Tensor indexesB=loadToDevice<int>(DataInterface(trueIndexesA),myDevice)
+                           .reshape({1,1,atomsInA})
+                           .tile({1,atomsInA,1});
+    auto trueindexes = indexesA != indexesB;
 
-    auto [
-      res,
-      AFderiv,
-      AFvirial
-    ] = work(posB, trueindexes);
+    auto[coord, dev, storedVirial] = work(diff,trueindexes);
 
-    getToHost<calculateFloat>(0.5*AFvirial, DataInterface(virial));
+    coordination = 0.5*coord;
+    convertFromDevice( 0.5*storedVirial, toDataInterface(virial));
+    convertFromDevice( dev.sum(1).transpose(1,0), toDataInterface(derivativeA));
 
-    coordination =0.5* res;
-    // summing on the second index to not change the sign
-    // getToHost<calculateFloat>(-af::sum(AFderiv,0).T(), DataInterface(derivativeA));
-    getToHost<calculateFloat>( af::moddims(af::sum(AFderiv,1),atomsInA,3).T(), DataInterface(derivativeA));
   }
   break;
-  case calculationMode::dual:
-  {
-    auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
-    auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
-    posB = af::tile(posB,1,atomsInA);
-    posA = af::tile(af::moddims(posA,1,atomsInA,3),atomsInB,1);
-    posB -= posA;
-    /*
-    auto indexesA = af::array(1,atomsInA,trueIndexesA.data());
-    auto indexesB = af::array(atomsInB,trueIndexesB.data());
-    auto trueindexes = af::tile(indexesA,atomsInB,1) == af::tile(indexesB,1,atomsInA);
-    */
-    auto trueindexes = af::tile(af::array(1,atomsInA,trueIndexesA.data()),atomsInB,1)
-                       == af::tile(af::array(atomsInB,trueIndexesB.data()),1,atomsInA);
-    auto [
-      res,
-      AFderiv,
-      AFvirial
-    ] = work(posB, trueindexes);
+  case calculationMode::dual: {
+    auto posA=setPositions<calculateFloat>(&inputs[0][0], atomsInA,myDevice)
+              .reshape({3,atomsInA,1})
+              .tile({1,1,atomsInB});
+    auto posB=setPositions<calculateFloat>(&inputs[atomsInA][0], atomsInB,myDevice)
+              .reshape({3,1,atomsInB})
+              .tile({1,atomsInA,1});
+    auto diff = posB-posA;
+    torch::Tensor indexesA=loadToDevice(DataInterface(trueIndexesA),myDevice)
+                           .reshape({1,atomsInA,1})
+                           .tile({1,1,atomsInB});
+    torch::Tensor indexesB=loadToDevice(DataInterface(trueIndexesB),myDevice)
+                           .reshape({1,1,atomsInB})
+                           .tile({1,atomsInA,1});
+    auto trueindexes = indexesA != indexesB;
 
-    getToHost<calculateFloat>(AFvirial, DataInterface(virial));
+    auto[coord, dev, storedVirial] = work(diff,trueindexes);
 
-    coordination = res;
+    coordination = coord;
+    convertFromDevice( storedVirial, toDataInterface(virial));
+    convertFromDevice( -dev.sum(2).transpose(1,0), toDataInterface(derivativeA));
+    convertFromDevice( dev.sum(1).transpose(1,0), toDataInterface(derivativeB));
 
-    getToHost<calculateFloat>(-af::moddims(af::sum(AFderiv,0),atomsInA,3).T(), DataInterface(derivativeA));
-    getToHost<calculateFloat>( af::moddims(af::sum(AFderiv,1),atomsInB,3).T(), DataInterface(derivativeB));
   }
   break;
-  case calculationMode::pair:
-  { //PAIR
-    auto posA = setPositions<calculateFloat>(&getPositions()[0][0], atomsInA);
-    auto posB = setPositions<calculateFloat>(&getPositions()[atomsInA][0], atomsInB);
+  case calculationMode::pair: {
+    auto posA=setPositions<calculateFloat>(&inputs[0][0], atomsInA,myDevice);
+    auto posB=setPositions<calculateFloat>(&inputs[atomsInA][0], atomsInB,myDevice);
     posB -= posA;
     auto trueindexes =
-      af::array(atomsInA,trueIndexesA.data())
-      == af::array(atomsInB,trueIndexesB.data());
+      (loadToDevice(DataInterface(trueIndexesA),myDevice)
+       != loadToDevice(DataInterface(trueIndexesB),myDevice))
+      .reshape({1,atomsInA});
 
-    auto [
-      res,
-      AFderiv,
-      AFvirial
-    ] = work(posB, trueindexes);
-
-    getToHost<calculateFloat>(AFvirial, DataInterface(virial));
+    auto [res, dev, storedVirial] = work(posB, trueindexes);
 
     coordination = res;
-
-    getToHost<calculateFloat>(-af::moddims(AFderiv,atomsInA,3).T(), DataInterface(derivativeA));
-    getToHost<calculateFloat>( af::moddims(AFderiv,atomsInB,3).T(), DataInterface(derivativeB));
+    convertFromDevice(storedVirial, toDataInterface(virial));
+    convertFromDevice(-dev.transpose(1,0), toDataInterface(derivativeA));
+    convertFromDevice( dev.transpose(1,0), toDataInterface(derivativeB));
   }
   break;
   case calculationMode::none:
@@ -565,6 +590,7 @@ void FireCoordination<calculateFloat>::calculate () {
 
   setValue (coordination);
   setBoxDerivatives (virial);
+
 }
 
 } // namespace colvar

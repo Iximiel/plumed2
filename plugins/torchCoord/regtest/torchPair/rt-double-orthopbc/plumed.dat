@@ -1,4 +1,4 @@
-LOAD FILE=../../../../FireCoordination.so
+LOAD FILE=../../../../TorchCoordination.so
 #R_0=1   means automatic dmax=6.81292 > 3 (half box size)
 #R_0=0.4 means automatic dmax=2.72517 < 3 (half box size)
 #using R_0!=1 also tests that no "1" are accidentally slipped into the various 1/r0
@@ -6,7 +6,7 @@ LOAD FILE=../../../../FireCoordination.so
 #at time of writing this ONLY even NN and MM work
 #the trajectory here has 3 different dimensions for x,y and z, so it tests also that
 
-fire: FIRECOORDINATION PAIR GROUPA=1-107 GROUPB=2-108 NN=6 MM=14 R_0=0.4
+fire: TORCHCOORDINATION PAIR GROUPA=1-107 GROUPB=2-108 NN=6 MM=14 R_0=0.4
 cpu:  COORDINATION     PAIR GROUPA=1-107 GROUPB=2-108 NN=6 MM=14 R_0=0.4
 
 #if the switch is to be explicitly written, then D_MAX is not automatically set!!!
