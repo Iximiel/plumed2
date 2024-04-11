@@ -32,11 +32,17 @@
 #include <limits>
 #include <functional>
 
-#include <iostream>
-// #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
-// #define plotsize(name) std::cerr << __LINE__ << #name ": "<< name.sizes()<< '\n';
+#include <thread>
+#include <chrono> 
 
-// #define vdbg(...)
+#include <iostream>
+#define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
+#define plotsize(name) std::cerr << __LINE__ << #name ": "<< name.sizes()<< '\n';
+#define sleeper(millis) std::this_thread::sleep_for (std::chrono::milliseconds(millis));
+
+#define sleeper(...)
+#define vdbg(...)
+#define plotsize(...)
 namespace PLMD {
 //stolen from cuda implementation
 namespace GPU {
@@ -195,44 +201,108 @@ template <typename calculateFloat> struct rationalSwitchParameters {
   int mm = 12;
 };
 
+
+template <typename calculateFloat>
+class fastRationalN2MF : public torch::autograd::Function<fastRationalN2MF<calculateFloat>> {
+public:
+
+
+  static torch::autograd::variable_list forward(torch::autograd::AutogradContext *ctx,
+      const rationalSwitchParameters<calculateFloat> switchingParameters,
+      torch::autograd::Variable rdistSQ/*distSquared*/
+                                               ) {
+    auto NN = switchingParameters.nn / 2;
+    rdistSQ *= switchingParameters.invr0_2;
+    auto rNdist = torch::pow(rdistSQ, NN - 1);
+    auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
+    //need to use select
+    auto dfunc = (-NN * 2.0
+                  * switchingParameters.invr0_2 * switchingParameters.stretch)
+                 * rNdist * res * res;
+    res = res * switchingParameters.stretch + switchingParameters.shift;
+    return {res,
+            dfunc};
+
+    //  // Save data for backward in context
+    //  ctx->saved_data["n"] = n;
+    //  var.mul_(2);
+    //  // Mark var as modified by inplace operation
+    //  ctx->mark_dirty({var});
+    //  return {var};
+  }
+
+  static torch::autograd::variable_list backward(torch::autograd::AutogradContext *ctx,
+      torch::autograd::variable_list
+      grad_output) {
+    return {grad_output[0]};
+  }
+};
+
+template <typename calculateFloat>
+class rowdot : public torch::autograd::Function<rowdot<calculateFloat>> {
+public:
+
+  static torch::autograd::variable_list forward(torch::autograd::AutogradContext *ctx,
+      torch::autograd::Variable vec,torch::autograd::Variable key, calculateFloat myMax) {
+    auto dot = vec[0]*vec[0]
+    +vec[1]*vec[1]
+    +vec[2]*vec[2];
+    auto mykey=key.bitwise_and(dot<myMax);
+    return {dot, mykey};
+  }
+
+  static torch::autograd::variable_list backward(torch::autograd::AutogradContext *ctx,
+      torch::autograd::variable_list
+      grad_output) {
+    return {grad_output[0]};
+  }
+};
+
+
 /*****************************Implementation starts here***********************/
 template <typename calculateFloat>
 std::pair<torch::Tensor,torch::Tensor> fastRationalN2M(
-  const torch::Tensor& distSquared,
+  torch::Tensor rdistSQ/*distSquared*/,
   const rationalSwitchParameters<calculateFloat> switchingParameters) {
   auto NN = switchingParameters.nn / 2;
-  auto rdistSQ = distSquared * switchingParameters.invr0_2;
-  auto rNdist = torch::pow(rdistSQ, NN - 1);
-  auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
+  // auto rdistSQ = distSquared * switchingParameters.invr0_2;
+   rdistSQ = torch::mul(rdistSQ, switchingParameters.invr0_2);
+  // auto rNdist = torch::pow(rdistSQ, NN - 1);
+  // auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
+  auto res =  torch::reciprocal(torch::add(torch::mul(rdistSQ,torch::pow(rdistSQ, NN - 1)),calculateFloat(1.0)));
+  // auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
   //need to use select
-  auto dfunc = (-NN * 2.0
-                * switchingParameters.invr0_2 * switchingParameters.stretch)
-               * rNdist * res * res;
+  // auto dfunc = (-NN * 2.0
+  //               * switchingParameters.invr0_2 * switchingParameters.stretch)
+  //              * rNdist * res * res;
 
-  return std::make_pair(
-           res * switchingParameters.stretch + switchingParameters.shift,
-           dfunc);
+//see if is a good idea to use 
+//addcmul
+rdistSQ=torch::pow(rdistSQ, NN - 1) * res * res *
+           (-NN * 2.0 * switchingParameters.invr0_2 * switchingParameters.stretch);
+res = res * switchingParameters.stretch + switchingParameters.shift;
+  return std::make_pair(res,rdistSQ
+           );
 }
 
 template <typename calculateFloat>
 std::pair<torch::Tensor,torch::Tensor> fastRational(
-  const torch::Tensor& distSquared,
+  torch::Tensor rdistSQ/*distSquared*/,
   const rationalSwitchParameters<calculateFloat> switchingParameters) {
   auto NN = switchingParameters.nn / 2;
   auto MM = switchingParameters.mm / 2;
-  auto rdistSQ = distSquared * switchingParameters.invr0_2;
+  // auto rdistSQ = distSquared * switchingParameters.invr0_2;
+  rdistSQ *= switchingParameters.invr0_2;
   auto rNdist = torch::pow(rdistSQ, NN - 1);
   auto rMdist = torch::pow(rdistSQ, MM - 1);
   auto den = calculateFloat(1.0) / (calculateFloat(1.0) - rdistSQ * rMdist);
   auto res =  (calculateFloat(1.0) - rdistSQ * rNdist)*den;
 
-  //need to use select
-  auto dfunc = (MM * rMdist * den * res -NN * rNdist * den )
-               * ( 2.0 * switchingParameters.invr0_2 * switchingParameters.stretch);
 
   return std::make_pair(
            res * switchingParameters.stretch + switchingParameters.shift,
-           dfunc);
+           (MM * rMdist * den * res - NN * rNdist * den )
+           * ( 2.0 * switchingParameters.invr0_2 * switchingParameters.stretch));
 }
 
 template <typename calculateFloat> class TorchCoordination : public Colvar {
@@ -240,7 +310,7 @@ template <typename calculateFloat> class TorchCoordination : public Colvar {
   // torch::TensorOptions().device(device_t_).dtype(torch::kFloat32);
   torch::TensorOptions tensorOptions =torch::TensorOptions();
   torch::DeviceType myDevice;
-  std::tuple<calculateFloat,torch::Tensor,torch::Tensor> work(torch::Tensor& diff,
+  std::tuple<calculateFloat,torch::Tensor,PLMD::Tensor> work(torch::Tensor& diff,
       torch::Tensor& trueindexes);
 
   PLMD::GPU::ortoPBCs<calculateFloat> myPBC;
@@ -253,7 +323,7 @@ template <typename calculateFloat> class TorchCoordination : public Colvar {
   enum class calculationMode { self, dual, pair, none };
   calculationMode mode = calculationMode::none;
   std::function<
-  std::pair<torch::Tensor,torch::Tensor> (const torch::Tensor&,
+  std::pair<torch::Tensor,torch::Tensor> (torch::Tensor&,
                                           const rationalSwitchParameters<calculateFloat> )
   > switching;
   bool pbc{true};
@@ -433,50 +503,70 @@ TorchCoordination<calculateFloat>::TorchCoordination (const ActionOptions &ao)
 
 
 template <typename calculateFloat>
-inline std::tuple<calculateFloat,torch::Tensor,torch::Tensor>
+inline std::tuple<calculateFloat,torch::Tensor,PLMD::Tensor>
 TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
                                         torch::Tensor& keys
                                        ) {
+  sleeper(2);
   if(pbc) {
     std::array<calculateFloat,3> vals{myPBC.X.val,myPBC.Y.val,myPBC.Z.val},
         invs{myPBC.X.inv,myPBC.Y.inv,myPBC.Z.inv};
-    auto tvals = loadToDevice(DataInterface(vals), myDevice);
-    auto tinvs = loadToDevice(DataInterface(invs), myDevice);
-    if(diff.dim()==2) { //pair
-      tvals=tvals.reshape({3,1});
-      tinvs=tinvs.reshape({3,1});
-    } else {
-      tvals=tvals.reshape({3,1,1});
-      tinvs=tinvs.reshape({3,1,1});
-    }
-
-    diff = pbcClamp(diff * tinvs) * tvals;
+    auto tvals = loadToDevice(DataInterface(vals), myDevice).reshape({3,1});
+    auto tinvs = loadToDevice(DataInterface(invs), myDevice).reshape({3,1});
+    diff = torch::mul(pbcClamp(torch::mul(diff, tinvs)),tvals);
   }
-  auto ddistSQ = (diff*diff).sum(0,true);
-  keys &= (ddistSQ < switchingParameters.dmaxSQ);
-  auto [res,dev] = switching (ddistSQ,switchingParameters);
+  sleeper(1);
+  auto nOperations = diff.numel()/3;
+  // auto ddistSQ = torch::mul(diff,diff).sum(0,true);
+  auto getData = rowdot<calculateFloat>::apply(diff, keys, switchingParameters.dmaxSQ);
+  auto ddistSQ = getData[0].reshape({1,nOperations});
+  plotsize(ddistSQ);
+  // auto ddistSQ = torch::mul(diff,diff).sum(0,true);
+  
+  keys= getData[1];
+  sleeper(3);
+  torch::Tensor tmp;
+  std::tie(tmp,ddistSQ) =
+  /*auto [res,dev] =*/ switching (ddistSQ,switchingParameters);
+  sleeper(2);
+  double coord;
 
-  auto t = (keys*res).sum()
-           .to(torch::kCPU)
-           .to(torch::kFloat64);
-  //my compiler refuses to use the .data_ptr<double>(), so here's the workaround...
-  // double coord = t.item<double>();
-  // double coord =*t.data_ptr<double>();
-  double coord = *static_cast<double*>(t.data_ptr());
-  dev = dev * diff * keys;
-  dev *= keys;
-  auto AFvirial=torch::zeros({9},tensorOptions);
-  {
-    using namespace torch::indexing;
-    for(int i=0,k=0; i<3; ++i) {
-      for(int j=0; j<3; ++j) {
-        AFvirial.index_put_({k},-(dev.index({i})* diff.index({j})).sum());
-        ++k;
-      }
-    }
-  }
+  convertFromDevice(torch::sum(res*keys), DataInterface(coord));  
+  sleeper(3);
+  
+  // dev *= keys;
+  // dev = dev * diff;
+  ddistSQ =keys * ddistSQ * diff;
+  
 
-  return std::make_tuple(coord,dev,AFvirial);
+  sleeper(1);
+  PLMD::Tensor virial;
+  // auto t= -torch::kron(ddistSQ,diff);
+  // plotsize(t);
+  // convertFromDevice(t.sum(1),DataInterface(virial[0][0],9))
+  // for(int i=0; i<3; ++i) {
+  //   for(int j=0; j<3; ++j) {
+  //     //convertFromDevice(-torch::dot(dev.index({i}), diff.index({j})),
+  //     convertFromDevice(-torch::dot(ddistSQ.index({i}), diff.index({j})),
+  //                       DataInterface(virial[i][j]));
+  //   }
+  // }
+  // {
+  //   convertFromDevice(-torch::dot(ddistSQ.index({0}), diff.index({0})),DataInterface(virial[0][0]));
+  //   convertFromDevice(-torch::dot(ddistSQ.index({0}), diff.index({1})),DataInterface(virial[0][1]));
+  //   convertFromDevice(-torch::dot(ddistSQ.index({0}), diff.index({2})),DataInterface(virial[0][2]));
+  //   convertFromDevice(-torch::dot(ddistSQ.index({1}), diff.index({0})),DataInterface(virial[1][0]));
+  //   convertFromDevice(-torch::dot(ddistSQ.index({1}), diff.index({1})),DataInterface(virial[1][1]));
+  //   convertFromDevice(-torch::dot(ddistSQ.index({1}), diff.index({2})),DataInterface(virial[1][2]));
+  //   convertFromDevice(-torch::dot(ddistSQ.index({2}), diff.index({0})),DataInterface(virial[2][0]));
+  //   convertFromDevice(-torch::dot(ddistSQ.index({2}), diff.index({1})),DataInterface(virial[2][1]));
+  //   convertFromDevice(-torch::dot(ddistSQ.index({2}), diff.index({2})),DataInterface(virial[2][2]));
+  // }
+
+  sleeper(1);
+  
+  // return std::make_tuple(coord,dev,virial);
+  return std::make_tuple(coord,ddistSQ,virial);
 }
 
 template <typename calculateFloat>
@@ -516,19 +606,22 @@ void TorchCoordination<calculateFloat>::calculate() {
                        .reshape({atomsInA,1,3})
                        .transpose(0,2)
                        .tile({1,atomsInA,1});
-    auto diff = posB-posA;
+    posB-=posA;
+    posB=posB.reshape({3,atomsInA*atomsInA});
+
     torch::Tensor indexesA=loadToDevice(DataInterface(trueIndexesA),myDevice)
-                           .reshape({1,atomsInA,1})
-                           .tile({1,1,atomsInA});
+                           .reshape({atomsInA,1})
+                           .tile({1,atomsInA});
     torch::Tensor indexesB=loadToDevice<int>(DataInterface(trueIndexesA),myDevice)
-                           .reshape({1,1,atomsInA})
-                           .tile({1,atomsInA,1});
-    auto trueindexes = indexesA != indexesB;
+                           .reshape({1,atomsInA})
+                           .tile({atomsInA,1});
+    auto trueindexes = (indexesA != indexesB).reshape({1,atomsInA*atomsInA});
 
-    auto[coord, dev, storedVirial] = work(diff,trueindexes);
-
+    auto[coord, dev, storedVirial] = work(posB,trueindexes);
+    dev = dev.reshape({3,atomsInA,atomsInA});
     coordination = 0.5*coord;
-    convertFromDevice( 0.5*storedVirial, toDataInterface(virial));
+    // convertFromDevice( 0.5*storedVirial, toDataInterface(virial));
+    virial = 0.5*storedVirial;
     convertFromDevice( dev.sum(1).transpose(1,0), toDataInterface(derivativeA));
 
   }
@@ -540,19 +633,20 @@ void TorchCoordination<calculateFloat>::calculate() {
     auto posB=setPositions<calculateFloat>(&inputs[atomsInA][0], atomsInB,myDevice)
               .reshape({3,1,atomsInB})
               .tile({1,atomsInA,1});
-    auto diff = posB-posA;
+    posB-=posA;
+    posB=posB.reshape({3,atomsInB*atomsInA});
     torch::Tensor indexesA=loadToDevice(DataInterface(trueIndexesA),myDevice)
-                           .reshape({1,atomsInA,1})
-                           .tile({1,1,atomsInB});
+                           .reshape({atomsInA,1})
+                           .tile({1,atomsInB});
     torch::Tensor indexesB=loadToDevice(DataInterface(trueIndexesB),myDevice)
-                           .reshape({1,1,atomsInB})
-                           .tile({1,atomsInA,1});
-    auto trueindexes = indexesA != indexesB;
-
-    auto[coord, dev, storedVirial] = work(diff,trueindexes);
-
+                           .reshape({1,atomsInB})
+                           .tile({atomsInA,1});
+    auto trueindexes = (indexesA != indexesB).reshape({1,atomsInA*atomsInB});
+    auto[coord, dev, storedVirial] = work(posB,trueindexes);
+    dev = dev.reshape({3,atomsInA,atomsInB});
     coordination = coord;
-    convertFromDevice( storedVirial, toDataInterface(virial));
+    // convertFromDevice( storedVirial, toDataInterface(virial));
+    virial = storedVirial;
     convertFromDevice( -dev.sum(2).transpose(1,0), toDataInterface(derivativeA));
     convertFromDevice( dev.sum(1).transpose(1,0), toDataInterface(derivativeB));
 
@@ -570,7 +664,8 @@ void TorchCoordination<calculateFloat>::calculate() {
     auto [res, dev, storedVirial] = work(posB, trueindexes);
 
     coordination = res;
-    convertFromDevice(storedVirial, toDataInterface(virial));
+    // convertFromDevice(storedVirial, toDataInterface(virial));
+    virial = storedVirial;
     convertFromDevice(-dev.transpose(1,0), toDataInterface(derivativeA));
     convertFromDevice( dev.transpose(1,0), toDataInterface(derivativeB));
   }
