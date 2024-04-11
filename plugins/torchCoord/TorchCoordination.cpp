@@ -264,9 +264,13 @@ template <typename calculateFloat>
 std::pair<torch::Tensor,torch::Tensor> fastRationalN2M(
   torch::Tensor rdistSQ/*distSquared*/,
   const rationalSwitchParameters<calculateFloat> switchingParameters) {
+  vdbg(rdistSQ.data_ptr());
+
   auto NN = switchingParameters.nn / 2;
   // auto rdistSQ = distSquared * switchingParameters.invr0_2;
-   rdistSQ = torch::mul(rdistSQ, switchingParameters.invr0_2);
+   rdistSQ *= switchingParameters.invr0_2;
+  vdbg(rdistSQ.data_ptr());
+
   // auto rNdist = torch::pow(rdistSQ, NN - 1);
   // auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
   auto res =  torch::reciprocal(torch::add(torch::mul(rdistSQ,torch::pow(rdistSQ, NN - 1)),calculateFloat(1.0)));
@@ -275,12 +279,18 @@ std::pair<torch::Tensor,torch::Tensor> fastRationalN2M(
   // auto dfunc = (-NN * 2.0
   //               * switchingParameters.invr0_2 * switchingParameters.stretch)
   //              * rNdist * res * res;
+  
 
 //see if is a good idea to use 
 //addcmul
 rdistSQ=torch::pow(rdistSQ, NN - 1) * res * res *
            (-NN * 2.0 * switchingParameters.invr0_2 * switchingParameters.stretch);
-res = res * switchingParameters.stretch + switchingParameters.shift;
+  vdbg(rdistSQ.data_ptr());
+vdbg(res.data_ptr());
+res *= switchingParameters.stretch;
+vdbg(res.data_ptr());
+res+= switchingParameters.shift;
+vdbg(res.data_ptr());
   return std::make_pair(res,rdistSQ
            );
 }
@@ -516,27 +526,33 @@ TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
     diff = torch::mul(pbcClamp(torch::mul(diff, tinvs)),tvals);
   }
   sleeper(1);
-  auto nOperations = diff.numel()/3;
+  // auto nOperations = diff.numel()/3;
   // auto ddistSQ = torch::mul(diff,diff).sum(0,true);
-  auto getData = rowdot<calculateFloat>::apply(diff, keys, switchingParameters.dmaxSQ);
-  auto ddistSQ = getData[0].reshape({1,nOperations});
+  // auto getData = rowdot<calculateFloat>::apply(diff, keys, switchingParameters.dmaxSQ);
+  // auto ddistSQ = getData[0].reshape({1,nOperations});
+  // vdbg(ddistSQ.data_ptr());
+  auto ddistSQ = (diff*diff).sum(0,true);
+  keys &= (ddistSQ < switchingParameters.dmaxSQ);
+  
+  // auto ddistSQ = torch::mul(diff,diff).sum(0,true);
+  
+  // keys= getData[1];
+  sleeper(3);
+  // torch::Tensor res;
+  // std::tie(tmp,ddistSQ) =
   plotsize(ddistSQ);
-  // auto ddistSQ = torch::mul(diff,diff).sum(0,true);
-  
-  keys= getData[1];
-  sleeper(3);
-  torch::Tensor tmp;
-  std::tie(tmp,ddistSQ) =
-  /*auto [res,dev] =*/ switching (ddistSQ,switchingParameters);
+  vdbg("switching");
+  auto [res,dev] =
+   switching (ddistSQ,switchingParameters);
+   vdbg("returned");
+  vdbg(ddistSQ.data_ptr());
+  vdbg(res.data_ptr());
   sleeper(2);
-  double coord;
-
-  convertFromDevice(torch::sum(res*keys), DataInterface(coord));  
-  sleeper(3);
   
-  // dev *= keys;
-  // dev = dev * diff;
-  ddistSQ =keys * ddistSQ * diff;
+  
+  dev *= keys;
+  dev = dev * diff;
+  // ddistSQ =keys * ddistSQ * diff;
   
 
   sleeper(1);
@@ -546,11 +562,24 @@ TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
   // convertFromDevice(t.sum(1),DataInterface(virial[0][0],9))
   // for(int i=0; i<3; ++i) {
   //   for(int j=0; j<3; ++j) {
-  //     //convertFromDevice(-torch::dot(dev.index({i}), diff.index({j})),
-  //     convertFromDevice(-torch::dot(ddistSQ.index({i}), diff.index({j})),
+  //     convertFromDevice(-torch::dot(dev.index({i}), diff.index({j})),
+  //     // convertFromDevice(-torch::dot(ddistSQ.index({i}), diff.index({j})),
   //                       DataInterface(virial[i][j]));
   //   }
   // }
+  auto gpuvirial=torch::zeros({9},tensorOptions);
+  {
+    using namespace torch::indexing;
+    for(int i=0,k=0; i<3; ++i) {
+      for(int j=0; j<3; ++j) {
+        // gpuvirial.index_put_({k},-(dev.index({i})* diff.index({j})).sum());
+        gpuvirial.index_put_({k},-(dev.index({i}).dot(diff.index({j}))));
+        ++k;
+      }
+    }
+  }
+  convertFromDevice(gpuvirial,DataInterface(virial[0][0],9))
+
   // {
   //   convertFromDevice(-torch::dot(ddistSQ.index({0}), diff.index({0})),DataInterface(virial[0][0]));
   //   convertFromDevice(-torch::dot(ddistSQ.index({0}), diff.index({1})),DataInterface(virial[0][1]));
@@ -564,9 +593,12 @@ TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
   // }
 
   sleeper(1);
-  
-  // return std::make_tuple(coord,dev,virial);
-  return std::make_tuple(coord,ddistSQ,virial);
+  double coord;
+
+  convertFromDevice(torch::sum(res*keys), DataInterface(coord));  
+  sleeper(3);
+  return std::make_tuple(coord,dev,virial);
+  // return std::make_tuple(coord,ddistSQ,virial);
 }
 
 template <typename calculateFloat>
