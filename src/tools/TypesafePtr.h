@@ -344,20 +344,20 @@ public:
   }
 
   template<typename T>
-  T get(std::size_t nelem) const {
+  T get(std::size_t requestElements) const {
     static_assert(std::is_pointer<T>::value,"only pointer types allowed here");
     typedef typename std::remove_pointer<T>::type T_noptr;
-    return get_priv<T_noptr>(nelem,nullptr,false);
+    return get_priv<T_noptr>(requestElements,nullptr,false);
   }
 
   template<typename T>
-  T get(std::initializer_list<std::size_t> shape) const {
+  T get(std::initializer_list<std::size_t> requestedShape) const {
     static_assert(std::is_pointer<T>::value,"only pointer types allowed here");
-    plumed_assert(shape.size()<=maxrank);
+    plumed_assert(requestedShape.size()<=maxrank);
     std::array<std::size_t,maxrank+1> shape_;
     typedef typename std::remove_pointer<T>::type T_noptr;
     unsigned j=0;
-    for(auto i : shape) {
+    for(auto i : requestedShape) {
       shape_[j]=i;
       j++;
     }
