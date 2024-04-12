@@ -66,16 +66,16 @@ Class to deal with propoagation of typesafe pointers.
 
 */
 class TypesafePtr {
-  inline void init_shape(const std::size_t* shape) {
+  inline void init_shape(const std::size_t* newshape) {
     this->shape[0]=0;
-    if(shape && *shape>0) {
+    if(newshape && *newshape>0) {
       std::size_t nelem_=1;
       unsigned i=0;
       for(i=0; i<this->shape.size(); i++) {
-        this->shape[i]=*shape;
-        if(*shape==0) break;
-        nelem_*=*shape;
-        shape++;
+        this->shape[i]=*newshape;
+        if(*newshape==0) break;
+        nelem_*=*newshape;
+        newshape++;
       }
       plumed_assert(i<this->shape.size()); // check that last element is actually zero
       if(nelem==0) nelem=nelem_;
@@ -96,7 +96,7 @@ public:
     init_shape(shape);
   }
 
-  static const unsigned maxrank=4;
+  static constexpr unsigned maxrank=4;
   static TypesafePtr fromSafePtr(void* safe);
   static TypesafePtr setNelemAndShape(const TypesafePtr &other, std::size_t nelem, const std::size_t* shape) {
     return TypesafePtr(other.ptr,nelem,shape,other.flags);
