@@ -87,13 +87,13 @@ class TypesafePtr {
 
 public:
 
-  TypesafePtr(void* ptr, std::size_t nelem, const std::size_t* shape, std::size_t flags):
-    ptr(ptr),
-    nelem(nelem),
-    flags(flags)
+  TypesafePtr(void* newptr, std::size_t nOfElements, const std::size_t* newshape, const std::size_t newflags):
+    ptr(newptr),
+    nelem(nOfElements),
+    flags(newflags)
   {
     buffer[0]='\0';
-    init_shape(shape);
+    init_shape(newshape);
   }
 
   static constexpr unsigned maxrank=4;
