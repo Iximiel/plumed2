@@ -121,12 +121,12 @@ public:
 
 /// Macro that generate a constructor with given type and flags
 #define __PLUMED_WRAPPER_TYPESAFEPTR_INNER(type,type_,flags_) \
-  TypesafePtr(type_*ptr, std::size_t nelem=0, const std::size_t* shape=nullptr) : \
-    ptr((void*)const_cast<type*>(ptr)), \
-    nelem(nelem), \
+  TypesafePtr(type_* theptr, std::size_t NofElem=0, const std::size_t* myShape=nullptr) : \
+    ptr((void*)const_cast<type*>(theptr)), \
+    nelem(NofElem), \
     flags(flags_) \
   { \
-    init_shape(shape); \
+    init_shape(myShape); \
     buffer[0]='\0'; \
   }
 
@@ -148,7 +148,7 @@ public:
 /// allow pass-by-value
 #define __PLUMED_WRAPPER_TYPESAFEPTR_SIZED(type,code) \
   __PLUMED_WRAPPER_TYPESAFEPTR(type,code,sizeof(type)) \
-  TypesafePtr(type val, std::size_t nelem=0, const std::size_t* shape=nullptr): \
+  TypesafePtr(type val, std::size_t NofElem=0, const std::size_t* myShape=nullptr): \
       nelem(1), \
       flags(sizeof(type) | (0x10000*(code)) | (0x2000000*1)) \
     { \
@@ -156,7 +156,7 @@ public:
     ptr=&buffer[0]; \
     flags=sizeof(type) | (0x10000*(code)) | (0x2000000*1); \
     std::memcpy(&buffer[0],&val,sizeof(type)); \
-    init_shape(shape); \
+    init_shape(myShape); \
   }
 
 /// Here we create all the required instances
