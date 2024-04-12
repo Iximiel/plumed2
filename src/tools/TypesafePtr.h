@@ -226,7 +226,7 @@ public:
 private:
 
   template<typename T>
-  T* get_priv(std::size_t nelem, const std::size_t* shape, bool byvalue) const {
+  T* get_priv(std::size_t requestedNelem, const std::size_t* requestedShape, bool byvalue) const {
 
     if(typesafePtrSkipCheck()) return (T*) ptr;
     typedef typename std::remove_pointer<T>::type T_noptr;
@@ -294,33 +294,33 @@ private:
       }
     }
     // check full shape, if possible
-    if(shape && shape[0] && this->shape[0]) {
+    if(requestedShape && requestedShape[0] && this->shape[0]) {
       for(unsigned i=0; i<this->shape.size(); i++) {
-        if(shape[i]==0 && this->shape[i]!=0) {
+        if(requestedShape[i]==0 && this->shape[i]!=0) {
           throw ExceptionTypeError() << "Incorrect number of axis (passed greater than requested)"<<extra_msg();
         }
-        if(shape[i]!=0 && this->shape[i]==0) {
+        if(requestedShape[i]!=0 && this->shape[i]==0) {
           throw ExceptionTypeError() << "Incorrect number of axis (requested greater than passed)"<<extra_msg();
         }
-        if(shape[i]==0) break;
-        if((shape[i]>this->shape[i])) {
-          throw ExceptionTypeError() << "This command wants " << shape[i] << " elements on axis " << i <<" of this pointer, but " << this->shape[i] << " have been passed"<<extra_msg();
+        if(requestedShape[i]==0) break;
+        if((requestedShape[i]>this->shape[i])) {
+          throw ExceptionTypeError() << "This command wants " << requestedShape[i] << " elements on axis " << i <<" of this pointer, but " << this->shape[i] << " have been passed"<<extra_msg();
         }
-        if(i>0 && (shape[i]<this->shape[i])) {
-          throw ExceptionTypeError() << "This command wants " << shape[i] << " elements on axis " << i <<" of this pointer, but " << this->shape[i] << " have been passed"<<extra_msg();
+        if(i>0 && (requestedShape[i]<this->shape[i])) {
+          throw ExceptionTypeError() << "This command wants " << requestedShape[i] << " elements on axis " << i <<" of this pointer, but " << this->shape[i] << " have been passed"<<extra_msg();
         }
       }
     }
-    if(nelem==0 && shape && shape[0]>0) {
-      nelem=1;
+    if(requestedNelem==0 && requestedShape && requestedShape[0]>0) {
+      requestedNelem=1;
       for(unsigned i=0; i<this->shape.size(); i++) {
-        if(shape[i]==0) break;
-        nelem*=shape[i];
+        if(requestedShape[i]==0) break;
+        requestedNelem*=requestedShape[i];
       }
     }
     // check number of elements
-    if(nelem>0 && this->nelem>0) if(!(nelem<=this->nelem)) {
-        throw ExceptionTypeError() << "This command wants to access " << nelem << " from this pointer, but only " << this->nelem << " have been passed"<<extra_msg();
+    if(requestedNelem>0 && this->nelem>0) if(!(requestedNelem<=this->nelem)) {
+        throw ExceptionTypeError() << "This command wants to access " << requestedNelem << " from this pointer, but only " << this->nelem << " have been passed"<<extra_msg();
       }
     return (T*) ptr;
   }
