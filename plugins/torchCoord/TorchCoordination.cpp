@@ -19,7 +19,7 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-
+//(cd ../../plugins/torchCoord && make ) && cp ../../plugins/torchCoord/TorchCoordination.so . && ./doperf.sh
 #include <torch/torch.h>
 #include <torch/script.h>
 
@@ -33,7 +33,7 @@
 #include <functional>
 
 #include <thread>
-#include <chrono> 
+#include <chrono>
 
 #include <iostream>
 #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
@@ -136,7 +136,7 @@ inline torch::Tensor convertToDevice(DataInterface<convertFrom> dataInterface,
                                      torch::DeviceType device) {
   if constexpr (std::is_same_v<convertTo,convertFrom>) {
     //skipping an unuseful  conversion
-    //(I do not kno if the API automagically skips it)
+    //(I do not know if the API automagically skips it)
     return torch::from_blob(dataInterface.ptr, {dataInterface.size},
                             getType<convertFrom>()).to(device);
   } else {
@@ -202,6 +202,23 @@ template <typename calculateFloat> struct rationalSwitchParameters {
 };
 
 
+// inline
+// torch::autograd::Variable fastpow(torch::autograd::Variable base, unsigned exp) {
+//   auto result = torch::ones_like(base);
+//   //this does not passes the tests because base gets updated also in the caller
+//   while (exp) {
+//     if (exp & 1)
+//       result *= base;
+//     exp >>= 1;
+//     base *= base;
+//   }
+//   vdbg(result.data_ptr());
+//   vdbg(base.data_ptr());
+//   vdbg(t.data_ptr());
+//   return result;
+// }
+
+
 template <typename calculateFloat>
 class fastRationalN2MF : public torch::autograd::Function<fastRationalN2MF<calculateFloat>> {
 public:
@@ -214,14 +231,16 @@ public:
     auto NN = switchingParameters.nn / 2;
     rdistSQ *= switchingParameters.invr0_2;
     auto rNdist = torch::pow(rdistSQ, NN - 1);
+    // auto rNdist = fastpow(rdistSQ, NN - 1);
     auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
-    //need to use select
-    auto dfunc = (-NN * 2.0
+
+    rNdist *= (-NN * 2.0
                   * switchingParameters.invr0_2 * switchingParameters.stretch)
-                 * rNdist * res * res;
-    res = res * switchingParameters.stretch + switchingParameters.shift;
+                  * res * res;
+    res *= switchingParameters.stretch;
+    res += switchingParameters.shift;
     return {res,
-            dfunc};
+            rNdist};
 
     //  // Save data for backward in context
     //  ctx->saved_data["n"] = n;
@@ -245,8 +264,8 @@ public:
   static torch::autograd::variable_list forward(torch::autograd::AutogradContext *ctx,
       torch::autograd::Variable vec,torch::autograd::Variable key, calculateFloat myMax) {
     auto dot = vec[0]*vec[0]
-    +vec[1]*vec[1]
-    +vec[2]*vec[2];
+               +vec[1]*vec[1]
+               +vec[2]*vec[2];
     auto mykey=key.bitwise_and(dot<myMax);
     return {dot, mykey};
   }
@@ -260,39 +279,62 @@ public:
 
 
 /*****************************Implementation starts here***********************/
+
+
+// inline
+// torch::Tensor fastpow(torch::Tensor base, unsigned exp) {
+//   auto result = torch::ones_like(base);
+//   //this does not passes the tests because base gets updated also in the caller
+//   while (exp) {
+//     if (exp & 1)
+//       result *= base;
+//     exp >>= 1;
+//     base *= base;
+//   }
+//   vdbg(result.data_ptr());
+//   vdbg(base.data_ptr());
+//   vdbg(t.data_ptr());
+//   return result;
+// }
+
 template <typename calculateFloat>
 std::pair<torch::Tensor,torch::Tensor> fastRationalN2M(
   torch::Tensor rdistSQ/*distSquared*/,
   const rationalSwitchParameters<calculateFloat> switchingParameters) {
+    auto toRet=fastRationalN2MF<calculateFloat>::apply(switchingParameters,rdistSQ);
+    return std::make_pair(toRet[0], toRet[1]);
+    /*
   vdbg(rdistSQ.data_ptr());
 
-  auto NN = switchingParameters.nn / 2;
+  const auto NN = switchingParameters.nn / 2;
   // auto rdistSQ = distSquared * switchingParameters.invr0_2;
-   rdistSQ *= switchingParameters.invr0_2;
+  rdistSQ *= switchingParameters.invr0_2;
   vdbg(rdistSQ.data_ptr());
 
-  // auto rNdist = torch::pow(rdistSQ, NN - 1);
+  // auto rNdist = fastpow(rdistSQ, NN - 1);
+  auto rNdist = torch::pow(rdistSQ, NN - 1);
+  vdbg(rNdist.data_ptr());
   // auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
-  auto res =  torch::reciprocal(torch::add(torch::mul(rdistSQ,torch::pow(rdistSQ, NN - 1)),calculateFloat(1.0)));
+  auto res = torch::reciprocal(torch::add(torch::mul(rdistSQ,rNdist),calculateFloat(1.0)));
   // auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
   //need to use select
   // auto dfunc = (-NN * 2.0
   //               * switchingParameters.invr0_2 * switchingParameters.stretch)
   //              * rNdist * res * res;
-  
 
-//see if is a good idea to use 
+
+//see if is a good idea to use
 //addcmul
-rdistSQ=torch::pow(rdistSQ, NN - 1) * res * res *
-           (-NN * 2.0 * switchingParameters.invr0_2 * switchingParameters.stretch);
+  rNdist *= res * res *
+            (-NN * 2.0 * switchingParameters.invr0_2 * switchingParameters.stretch);
   vdbg(rdistSQ.data_ptr());
-vdbg(res.data_ptr());
-res *= switchingParameters.stretch;
-vdbg(res.data_ptr());
-res+= switchingParameters.shift;
-vdbg(res.data_ptr());
-  return std::make_pair(res,rdistSQ
-           );
+  vdbg(res.data_ptr());
+  res *= switchingParameters.stretch;
+  vdbg(res.data_ptr());
+  res+= switchingParameters.shift;
+  vdbg(res.data_ptr());
+  return std::make_pair(res,rNdist);
+  */
 }
 
 template <typename calculateFloat>
@@ -410,8 +452,10 @@ TorchCoordination<calculateFloat>::TorchCoordination (const ActionOptions &ao)
 // parse("DEVICEID",deviceid);
   if(comm.Get_rank()==0) {
     if (/*gpu_ && */torch::cuda::is_available()) {
+      log.printf ("  Using a CUDA device with libtorch\n");
       myDevice = torch::kCUDA;
     } else {
+      log.printf ("  Using the CPU as libtorch device\n");
       myDevice = torch::kCPU;
       // gpu_ = false;
     }
@@ -511,7 +555,6 @@ TorchCoordination<calculateFloat>::TorchCoordination (const ActionOptions &ao)
       << ".\n";
 }
 
-
 template <typename calculateFloat>
 inline std::tuple<calculateFloat,torch::Tensor,PLMD::Tensor>
 TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
@@ -533,9 +576,9 @@ TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
   // vdbg(ddistSQ.data_ptr());
   auto ddistSQ = (diff*diff).sum(0,true);
   keys &= (ddistSQ < switchingParameters.dmaxSQ);
-  
+
   // auto ddistSQ = torch::mul(diff,diff).sum(0,true);
-  
+
   // keys= getData[1];
   sleeper(3);
   // torch::Tensor res;
@@ -543,17 +586,17 @@ TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
   plotsize(ddistSQ);
   vdbg("switching");
   auto [res,dev] =
-   switching (ddistSQ,switchingParameters);
-   vdbg("returned");
+    switching (ddistSQ,switchingParameters);
+  vdbg("returned");
   vdbg(ddistSQ.data_ptr());
   vdbg(res.data_ptr());
   sleeper(2);
-  
-  
+
+
   dev *= keys;
   dev = dev * diff;
   // ddistSQ =keys * ddistSQ * diff;
-  
+
 
   sleeper(1);
   PLMD::Tensor virial;
@@ -595,7 +638,7 @@ TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
   sleeper(1);
   double coord;
 
-  convertFromDevice(torch::sum(res*keys), DataInterface(coord));  
+  convertFromDevice(torch::sum(res*keys), DataInterface(coord));
   sleeper(3);
   return std::make_tuple(coord,dev,virial);
   // return std::make_tuple(coord,ddistSQ,virial);
@@ -603,6 +646,8 @@ TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
 
 template <typename calculateFloat>
 void TorchCoordination<calculateFloat>::calculate() {
+  //deactivating autograd should(?) accelerates
+  auto deactivateAutoGrad=c10::InferenceMode(true);
   // std::cerr << getStep() <<"\n";
   if (pbc) {
     makeWhole();
