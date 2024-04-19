@@ -195,6 +195,8 @@ inline T pbcClamp(const T& x) {
 template <typename calculateFloat> struct rationalSwitchParameters {
   calculateFloat dmaxSQ = std::numeric_limits<calculateFloat>::max();
   calculateFloat invr0_2 = 1.0; // r0=1
+  calculateFloat invr0 = 1.0; // r0=1
+  calculateFloat d0 = 0.0;
   calculateFloat stretch = 1.0;
   calculateFloat shift = 0.0;
   int nn = 6;
@@ -235,8 +237,8 @@ public:
     auto res =  calculateFloat(1.0) / (calculateFloat(1.0) + rdistSQ * rNdist);
 
     rNdist *= (-NN * 2.0
-                  * switchingParameters.invr0_2 * switchingParameters.stretch)
-                  * res * res;
+               * switchingParameters.invr0_2 * switchingParameters.stretch)
+              * res * res;
     res *= switchingParameters.stretch;
     res += switchingParameters.shift;
     return {res,
@@ -301,9 +303,7 @@ template <typename calculateFloat>
 std::pair<torch::Tensor,torch::Tensor> fastRationalN2M(
   torch::Tensor rdistSQ/*distSquared*/,
   const rationalSwitchParameters<calculateFloat> switchingParameters) {
-    auto toRet=fastRationalN2MF<calculateFloat>::apply(switchingParameters,rdistSQ);
-    return std::make_pair(toRet[0], toRet[1]);
-    /*
+
   vdbg(rdistSQ.data_ptr());
 
   const auto NN = switchingParameters.nn / 2;
@@ -334,7 +334,7 @@ std::pair<torch::Tensor,torch::Tensor> fastRationalN2M(
   res+= switchingParameters.shift;
   vdbg(res.data_ptr());
   return std::make_pair(res,rNdist);
-  */
+
 }
 
 template <typename calculateFloat>
@@ -355,6 +355,42 @@ std::pair<torch::Tensor,torch::Tensor> fastRational(
            res * switchingParameters.stretch + switchingParameters.shift,
            (MM * rMdist * den * res - NN * rNdist * den )
            * ( 2.0 * switchingParameters.invr0_2 * switchingParameters.stretch));
+}
+
+template <typename calculateFloat>
+std::pair<torch::Tensor,torch::Tensor> cosSwitch(
+  torch::Tensor dist/*distSquared*/,
+  const rationalSwitchParameters<calculateFloat> switchingParameters) {
+
+  dist=torch::sqrt(dist);
+
+  //D0=0
+  // rdist = (distance-d0)/r0
+  auto res = dist*(switchingParameters.invr0*PLMD::pi);
+  auto dfunc = (-0.5 * PLMD::pi  * switchingParameters.invr0_2//*switchingParameters.stretch
+               )* torch::sin ( res );
+  
+  auto tores = 0.5*(torch::cos(res)+1);
+
+  dfunc/=dist;
+//there are some division by 0;
+  dfunc=dfunc.nan_to_num(0.0);
+//with current implementation the swich can ve ingnored
+  // res *= switchingParameters.stretch;
+  // res+= switchingParameters.shift;
+  // dfunc*=;
+  plotsize(tores);
+  plotsize(dfunc);
+  plotsize(dist);
+  {
+    using namespace torch::indexing;
+    if(dfunc.dim()>1) {
+      vdbg(dfunc.index({0,1}));
+      vdbg(dist.index({0,1}));
+      vdbg(res.index({0,1}));
+    }
+  }
+  return std::make_pair(tores,dfunc);
 }
 
 template <typename calculateFloat> class TorchCoordination : public Colvar {
@@ -414,6 +450,7 @@ void TorchCoordination<calculateFloat>::registerKeywords (Keywords &keys) {
   keys.add (
     "compulsory", "D_MAX", "0.0", "The cut off of the switching function");
   keys.add("compulsory","DEVICEID","-1","Identifier of the GPU to be used");
+  keys.add("compulsory","SWITCH","rational","rational or cosinus");
 
 }
 
@@ -525,10 +562,18 @@ TorchCoordination<calculateFloat>::TorchCoordination (const ActionOptions &ao)
       // dmax=tsw.get_dmax();
       // in plain plumed
     }
+    {
+      std::string switchType;
+      parse("SWITCH",switchType);
+      if(switchType=="cosinus") {
+        switching = cosSwitch<calculateFloat>;
+        dmax=r0_;
+      }
+    }
 
     switchingParameters.dmaxSQ = dmax * dmax;
-    calculateFloat invr0 = 1.0 / r0_;
-    switchingParameters.invr0_2 = invr0 * invr0;
+    switchingParameters.invr0 = 1.0 / r0_;
+    switchingParameters.invr0_2 = switchingParameters.invr0 * switchingParameters.invr0;
     constexpr bool dostretch = true;
     if (dostretch) {
       std::array<double,2> inputs = {0.0, dmax};
@@ -546,6 +591,16 @@ TorchCoordination<calculateFloat>::TorchCoordination (const ActionOptions &ao)
   }
 
   checkRead();
+
+
+  vdbg(switchingParameters.dmaxSQ);
+  vdbg(switchingParameters.invr0_2);
+  vdbg(switchingParameters.invr0);
+  vdbg(switchingParameters.d0);
+  vdbg(switchingParameters.stretch);
+  vdbg(switchingParameters.shift);
+  vdbg(switchingParameters.nn);
+  vdbg(switchingParameters.mm);
 
   log << "  contacts are counted with cutoff (dmax)="
       << sqrt (switchingParameters.dmaxSQ)
@@ -587,6 +642,9 @@ TorchCoordination<calculateFloat>::work(torch::Tensor& diff,
   vdbg("switching");
   auto [res,dev] =
     switching (ddistSQ,switchingParameters);
+  plotsize(res);
+  plotsize(dev);
+  plotsize(ddistSQ);
   vdbg("returned");
   vdbg(ddistSQ.data_ptr());
   vdbg(res.data_ptr());
