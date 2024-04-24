@@ -369,13 +369,13 @@ std::pair<torch::Tensor,torch::Tensor> cosSwitch(
   auto res = dist*(switchingParameters.invr0*PLMD::pi);
   auto dfunc = (-0.5 * PLMD::pi  * switchingParameters.invr0_2//*switchingParameters.stretch
                )* torch::sin ( res );
-  
+
   auto tores = 0.5*(torch::cos(res)+1);
 
   dfunc/=dist;
 //there are some division by 0;
   dfunc=dfunc.nan_to_num(0.0);
-//with current implementation the swich can ve ingnored
+//with current implementation the swich can be ingnored
   // res *= switchingParameters.stretch;
   // res+= switchingParameters.shift;
   // dfunc*=;
