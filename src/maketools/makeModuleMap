@@ -16,34 +16,33 @@ for module in ../*/module.type; do
         # gawk and perl implementation in case your bash dialect do not process correctly the regex
         # actionName=$(gawk 'match($0,/PLUMED_REGISTER_ACTION\s*\(\s*[0-9_a-zA-Z]+\s*,\s*"([0-9a-zA-Z_]+)"\s*\)/, captured){print captured[1]}' "${file}" )
         # # in case gawk does not work, here's the perl implementation:
-        # # actionName=$(perl -ln -e'print $1 if /PLUMED_REGISTER_ACTION\s*\(\s*[0-9_a-zA-Z]+\s*,\s*"([0-9a-zA-Z_]+)"\s*\)/'  "${file}")
-        # ng=$(grep -c PLUMED_REGISTER_ACTION "${file}")
-        # nawk=$(
-        #           cat <<EOF | wc -l
-        # $b
-        # EOF
-        #         )
-        #         if [[ $ng -ne $nawk ]]; then
-        #           problems="$problems ${modulename}:${file}"
-        #         fi
-        # for a in $actionName; do
-        #   printf  "$toPrint" "$a" "$modulename"
-        #   # echo -ne "$init  {\"$a\", \"$modulename\"}"
-        #   toPrint=',\n  {"%s", "%s"}'
-        # done
-        # fi
-
-        grep PLUMED_REGISTER_ACTION "${file}" | while read -r action; do
-          # echo $action
-          if [[ $action =~ $regex ]]; then
-            actionName=${BASH_REMATCH[1]}
-            printf "$toPrint" "$actionName" "$modulename"
-            
-            toPrint=',\n  {"%s", "%s"}'
-          fi
+        actionName=$(perl -ln -e'print $1 if /PLUMED_REGISTER_ACTION\s*\(\s*[0-9a-zA-Z_]+\s*,\s*"([0-9a-zA-Z_]+)"\s*\)/' "${file}")
+        ng=$(grep -c PLUMED_REGISTER_ACTION "${file}")
+        nawk=$(
+          cat <<EOF | wc -l
+$actionName
+EOF
+        )
+        if [[ $ng -ne $nawk ]]; then
+          problems="$problems ${modulename}:${file}"
+        fi
+        for a in $actionName; do
+          printf "$toPrint" "$a" "$modulename"
+          # echo -ne "$init  {\"$a\", \"$modulename\"}"
+          toPrint=',\n  {"%s", "%s"}'
         done
-        #also here becasue while spawns a subshell and toPrint do not get updated
-        toPrint=',\n  {"%s", "%s"}'
+
+        # grep PLUMED_REGISTER_ACTION "${file}" | while read -r action; do
+        #   # echo $action
+        #   if [[ $action =~ $regex ]]; then
+        #     actionName=${BASH_REMATCH[1]}
+        #     printf "$toPrint" "$actionName" "$modulename"
+
+        #     toPrint=',\n  {"%s", "%s"}'
+        #   fi
+        # done
+        # #also here becasue while spawns a subshell and toPrint do not get updated
+        # toPrint=',\n  {"%s", "%s"}'
       fi
     done
   }
