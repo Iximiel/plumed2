@@ -166,7 +166,7 @@ void CoordinationACC::calculate()
 {
 
   double ncoord=0.;
-  Tensor virial;
+  Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
   const float dmax=switching.get_dmax();
   const float invr02=[&]() {
@@ -183,25 +183,19 @@ void CoordinationACC::calculate()
       positions[i*3+2] = tmp[2];
     }
     std::vector<float> derivatives(3*getPositions().size());
-    vdbg(derivatives.size());
-    std::vector<float> virialF(9);
-
+    std::vector<float> virial(9,0.0f);
 
     ncoord = myACC::calculateSwitch(natA,natB,
-                                    positions.data(),derivatives.data(),virialF.data(),invr02,dmax);
+                                    positions.data(),derivatives.data(),virial.data(),invr02,dmax);
     for(auto i=0U; i<getPositions().size(); ++i) {
       deriv[i][0]=derivatives[i*3  ];
       deriv[i][1]=derivatives[i*3+1];
       deriv[i][2]=derivatives[i*3+2];
     }
-    constexpr int dbgnum=1;
-    vdbg(derivatives[3*dbgnum+0]);
-    vdbg(derivatives[3*dbgnum+1]);
-    vdbg(derivatives[3*dbgnum+2]);
-    vdbg(deriv[dbgnum]);
+
     for(auto i=0U,k=0U; i<3U; ++i) {
       for(auto j=0U; j<3U; ++j) {
-        virial[i][j]=virialF[k];
+        boxDev[i][j]=virial[k];
         ++k;
       }
     }
@@ -211,7 +205,7 @@ void CoordinationACC::calculate()
     setAtomsDerivatives(i,deriv[i]);
   }
   setValue           (ncoord);
-  setBoxDerivatives  (virial);
+  setBoxDerivatives  (boxDev);
 
 }
 } // namespace colvar
