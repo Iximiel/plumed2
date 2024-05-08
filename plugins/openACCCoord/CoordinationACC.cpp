@@ -43,10 +43,8 @@ class CoordinationACC : public Colvar {
   bool invalidateList;
   bool firsttime;
 
-  unsigned natA{0};
-  unsigned natB{0};
   //used to get some calculations
-  SwitchingFunction switching;
+  myACC::fastCoord calculator;
 public:
   explicit CoordinationACC(const ActionOptions&);
   ~CoordinationACC();
@@ -79,16 +77,23 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
 
   parseFlag("SERIAL",serial);
 
-  switching.set(6,0,1.0,0.0);
-
   std::vector<AtomNumber> ga_lista,gb_lista;
   parseAtomList("GROUPA",ga_lista);
-  natA=ga_lista.size();
+  unsigned natA=ga_lista.size();
   parseAtomList("GROUPB",gb_lista);
-  natB=gb_lista.size();
+  unsigned natB=gb_lista.size();
   bool nopbc=!pbc;
   parseFlag("NOPBC",nopbc);
   pbc=!nopbc;
+
+  SwitchingFunction switching;
+  switching.set(6,0,1.0,0.0);
+  const float dmax=switching.get_dmax();
+  const float invr02=[&]() {
+    auto t= 1.0/switching.get_r0();
+    return t*t;
+  }();
+  calculator = myACC::fastCoord(natA,natB,invr02,dmax);
 
 // pair stuff
   bool dopair=false;
@@ -168,11 +173,6 @@ void CoordinationACC::calculate()
   double ncoord=0.;
   Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
-  const float dmax=switching.get_dmax();
-  const float invr02=[&]() {
-    auto t= 1.0/switching.get_r0();
-    return t*t;
-  }();
   {
 
     std::vector<float> positions(3*getPositions().size());
@@ -185,8 +185,7 @@ void CoordinationACC::calculate()
     std::vector<float> derivatives(3*getPositions().size());
     std::vector<float> virial(9,0.0f);
 
-    ncoord = myACC::calculateSwitch(natA,natB,
-                                    positions.data(),derivatives.data(),virial.data(),invr02,dmax);
+    ncoord = calculator(positions.data(),derivatives.data(),virial.data());
     for(auto i=0U; i<getPositions().size(); ++i) {
       deriv[i][0]=derivatives[i*3  ];
       deriv[i][1]=derivatives[i*3+1];
