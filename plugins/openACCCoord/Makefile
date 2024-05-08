@@ -6,7 +6,7 @@ DEPDIR := .deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 NVCXX = nvc++
 
-NVCCCFLAGS =  -acc -acc=gpu -gpu=cc75 --c++17 -Minfo=all
+NVCCCFLAGS =  -acc -acc=gpu -gpu=cc75 --c++17 -Minfo=all -fast
 NVCCLDFLAGS = -shared -acc -acc=gpu -gpu=cc75
 OBJS = CoordinationACC.o
 ACCOBJS = fastCoord.o

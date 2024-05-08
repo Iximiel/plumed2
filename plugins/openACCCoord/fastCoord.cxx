@@ -3,6 +3,8 @@
 #include <iostream>
 #include <utility>
 
+#include "fastCoord.hxx"
+
 #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 // #define plotsize(name) std::cerr << __LINE__ << #name ": "<< name.sizes()<< '\n';
 
@@ -45,9 +47,9 @@ static inline std::pair<T,T> doRational(const T rdist, T result=0.0) {
 template <int N,typename T>
 std::pair<T,T> calculateSqr(const T distance2,
                             const T invr0_2,
-                            const T dmax_2=6.0,
-                            const T stretch=1.0,
-                            const T shift=0.0) {
+                            const T dmax_2,
+                            const T stretch,
+                            const T shift) {
   int mul = (distance2 <= dmax_2);
   const T rdist = distance2*invr0_2;
   auto [result,dfunc] = doRational<N/2>(rdist);
@@ -61,41 +63,69 @@ std::pair<T,T> calculateSqr(const T distance2,
 
 }
 
-float calculateSwitch(unsigned const natA,
-                      unsigned const natB,
-                      float* const positions,
-                      float* derivatives,
-                      float* virial,
-                      float const invr0_2,
-                      float const dmax) {
+float getShift(float const invr0_2, float const dmaxsq) {
+  float s0=calculateSqr<6,float>(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0).first;
+  float sd=calculateSqr<6,float>(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0).first;
 
-  float const dmaxsq=dmax*dmax;
-
-  float s0=calculateSqr<6,float>(0.0f,invr0_2,dmaxsq+1.0).first;
-  float sd=calculateSqr<6,float>(dmaxsq,invr0_2,dmaxsq+1.0).first;
-
-  float const stretch=1.0/(s0-sd);
+  float const stretch=1.0f/(s0-sd);
   float const shift=-sd*stretch;
+  return shift;
+}
+
+float getStretch(float const invr0_2, float const dmaxsq) {
+  float s0=calculateSqr<6,float>(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0).first;
+  float sd=calculateSqr<6,float>(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0).first;
+
+  float const stretch=1.0f/(s0-sd);
+  float const shift=-sd*stretch;
+  return stretch;
+}
+
+fastCoord::fastCoord()=default;
+
+fastCoord::fastCoord(unsigned const natA_, unsigned const natB_, float const invr0_2_, float const dmax_)
+  :
+  natA(natA_),
+  natB(natB_),
+  invr0_2(invr0_2_),
+  dmaxsq(dmax_*dmax_),
+  shift(getShift(invr0_2,dmaxsq)),
+  stretch(getStretch(invr0_2,dmaxsq))
+{}
+
+float fastCoord::operator()(
+  const float* const positions,
+  float* const derivatives,
+  float* const virial) const {
+//const float* is a pointer to a constant float variable
+//float* const is a constant pointer to a float fariable
+//const float* const is a constant pointer to a constant float variable
+
+// const T* x;       -> can't *x=something, can   x=pointer;
+// T* const x;       -> can   *x=something, can't x=pointer;
+// const T* const x; -> can't *x=something, can't x=pointer;
+
+
   const unsigned nat = natA+natB;
-  float ncoord=0.0f;
-    
-#pragma acc data copy(ncoord) \
-        copyin(positions[0:3*nat]) \
-        copyout(derivatives[0:3*nat],virial[0:9])
+  float ncoord;
+
+#pragma acc data copyin(positions[0:3*nat]) \
+        copyout(derivatives[0:3*nat],virial[0:9],ncoord)
   {
 #pragma acc parallel
-{
-     virial[0] = 0.0f;//0.0f;
-     virial[1] = 0.0f;//1.0f;
-     virial[2] = 0.0f;//2.0f;
-    virial[3] = 0.0f;//3.0f;
-     virial[4] = 0.0f;//4.0f;
-     virial[5] = 0.0f;//5.0f;
-     virial[6] = 0.0f;//6.0f;
-     virial[7] = 0.0f;//7.0f;
-     virial[8] = 0.0f;//8.0f;
-}   
-    
+    {
+      ncoord=0.0f;
+      virial[0] = 0.0f;
+      virial[1] = 0.0f;
+      virial[2] = 0.0f;
+      virial[3] = 0.0f;
+      virial[4] = 0.0f;
+      virial[5] = 0.0f;
+      virial[6] = 0.0f;
+      virial[7] = 0.0f;
+      virial[8] = 0.0f;
+    }
+
     if (natB==0) {//self
 #pragma acc parallel loop gang reduction(+:ncoord,virial[0:9])
       for (size_t i = 0; i < natA; i++) {
@@ -115,6 +145,10 @@ float calculateSwitch(unsigned const natA,
         float myVirial_7=0.0f;
         float myVirial_8=0.0f;
 
+        const float x=positions[3*i  ];
+        const float y=positions[3*i+1];
+        const float z=positions[3*i+2];
+
 //this needs some more work to functionc correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
 //         myVirial_0,myVirial_1,myVirial_2, \
@@ -123,9 +157,9 @@ float calculateSwitch(unsigned const natA,
 #pragma acc loop seq
         for (size_t j = 0; j < natA; j++) {
 
-          const float d0=positions[3*j  ]-positions[3*i  ];
-          const float d1=positions[3*j+1]-positions[3*i+1];
-          const float d2=positions[3*j+2]-positions[3*i+2];
+          const float d0=positions[3*j  ]-x;
+          const float d1=positions[3*j+1]-y;
+          const float d2=positions[3*j+2]-z;
 
           float dsq=d0*d0+d1*d1+d2*d2;
           //todo this:
@@ -133,7 +167,7 @@ float calculateSwitch(unsigned const natA,
 
           //add will need to be the check on the same "real" id
           bool add=i!=j;
-          auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
+          const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
           myNcoord +=add*t;
 
           // dfunc*=add;
@@ -165,13 +199,13 @@ float calculateSwitch(unsigned const natA,
         virial[6] += myVirial_6;
         virial[7] += myVirial_7;
         virial[8] += myVirial_8;
-        
+
         derivatives[3*i+0] = mydevX;
         derivatives[3*i+1] = mydevY;
         derivatives[3*i+2] = mydevZ;
       }
     }//self
-        
+
   } //data clause
 
   return ncoord;
