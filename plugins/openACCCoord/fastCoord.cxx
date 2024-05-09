@@ -31,80 +31,113 @@ inline T fastpow(T const base) {
     return fastpow_rec<exp,T>(base, 1.0);
   }
 }
+
+template <typename T>
+inline
+T fastpow(T base, unsigned exp) {
+  T result = 1.0;
+  while (exp) {
+    if (exp & 1)
+      result *= base;
+    exp >>= 1;
+    base *= base;
+  }
+  return result;
+}
 } //namespace Tools
 
 template <int POW,typename T>
-static inline std::pair<T,T> doRational(const T rdist, T result=0.0) {
-
+static inline std::pair<T,T> doReducedRational(const T rdist, T result=0.0) {
   const T rNdist=Tools::fastpow<POW-1>(rdist);
   result=1.0/(1.0+rNdist*rdist);
-  const T dfunc = -POW*rNdist*result*result;
-  // stretch:
-  // result=result*stretch+shift;
-  // dfunc*=stretch;
+  const T dfunc = -rNdist*result*result*POW;
   return {result,dfunc};
 }
+
+template <typename T>
+static inline std::pair<T,T> doReducedRational(const T rdist, const unsigned pow, T result=0.0) {
+  const T rNdist=Tools::fastpow(rdist, pow-1);
+  result=1.0/(1.0+rNdist*rdist);
+  const T dfunc = -rNdist*result*result*pow;
+  return {result,dfunc};
+}
+
 template <int N,typename T>
-std::pair<T,T> calculateSqr(const T distance2,
-                            const T invr0_2,
-                            const T dmax_2,
-                            const T stretch,
-                            const T shift) {
-  int mul = (distance2 <= dmax_2);
-  const T rdist = distance2*invr0_2;
-  auto [result,dfunc] = doRational<N/2>(rdist);
-  dfunc*=2*invr0_2;
-  // stretch:
-  result=result*stretch+shift;
-  dfunc*=stretch;
-  result*=mul;
-  dfunc*=mul;
-  return {result,dfunc};
+struct calculatorFixed {
+  static std::pair<T,T> calculateSqr(const T distance2,
+                                     const T invr0_2,
+                                     const T dmax_2,
+                                     const T stretch,
+                                     const T shift,
+                                     const unsigned ) {
+    int mul = (distance2 <= dmax_2);
+    const T rdist = distance2*invr0_2;
+    auto [result,dfunc] = doReducedRational<N/2>(rdist);
+    dfunc*=2*invr0_2;
+    // stretch:
+    result=result*stretch+shift;
+    dfunc*=stretch;
+    result*=mul;
+    dfunc*=mul;
+    return {result,dfunc};
+  }
+};
 
-}
+template <typename T>
+struct calculatorFlexible {
+  static std::pair<T,T> calculateSqr(const T distance2,
+                                     const T invr0_2,
+                                     const T dmax_2,
+                                     const T stretch,
+                                     const T shift,
+                                     const unsigned pow) {
+    int mul = (distance2 <= dmax_2);
+    const T rdist = distance2*invr0_2;
+    auto [result,dfunc] = doReducedRational(rdist,pow/2);
+    dfunc*=2*invr0_2;
+    // stretch:
+    result=result*stretch+shift;
+    dfunc*=stretch;
+    result*=mul;
+    dfunc*=mul;
+    return {result,dfunc};
+  }
+};
 
-float getShift(float const invr0_2, float const dmaxsq) {
-  float s0=calculateSqr<6,float>(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0).first;
-  float sd=calculateSqr<6,float>(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0).first;
+template <typename calculator>
+std::pair<float,float> getShiftAndStretch(float const invr0_2, float const dmaxsq, const unsigned pow) {
+  float s0=calculator::calculateSqr(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0,pow).first;
+  float sd=calculator::calculateSqr(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0,pow).first;
 
   float const stretch=1.0f/(s0-sd);
   float const shift=-sd*stretch;
-  return shift;
+  return {shift,stretch};
 }
 
-float getStretch(float const invr0_2, float const dmaxsq) {
-  float s0=calculateSqr<6,float>(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0).first;
-  float sd=calculateSqr<6,float>(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0).first;
+// using mycalculator = calculatorFlexible<float>;
+using mycalculator = calculatorFixed<6,float>;
 
-  float const stretch=1.0f/(s0-sd);
-  float const shift=-sd*stretch;
-  return stretch;
+fastCoord::fastCoord(unsigned const natA_, unsigned const natB_, float const invr0_, float const dmax_)
+  : natA(natA_),
+    natB(natB_),
+    invr0_2(invr0_*invr0_),
+    dmaxsq(dmax_*dmax_) {
+  auto [setShift, setStretch] = getShiftAndStretch<mycalculator>(invr0_2, dmaxsq,6);
+  shift = setShift;
+  stretch = setStretch;
 }
-
-fastCoord::fastCoord()=default;
-
-fastCoord::fastCoord(unsigned const natA_, unsigned const natB_, float const invr0_2_, float const dmax_)
-  :
-  natA(natA_),
-  natB(natB_),
-  invr0_2(invr0_2_),
-  dmaxsq(dmax_*dmax_),
-  shift(getShift(invr0_2,dmaxsq)),
-  stretch(getStretch(invr0_2,dmaxsq))
-{}
 
 float fastCoord::operator()(
   const float* const positions,
   float* const derivatives,
   float* const virial) const {
-//const float* is a pointer to a constant float variable
-//float* const is a constant pointer to a float fariable
-//const float* const is a constant pointer to a constant float variable
-
-// const T* x;       -> can't *x=something, can   x=pointer;
-// T* const x;       -> can   *x=something, can't x=pointer;
-// const T* const x; -> can't *x=something, can't x=pointer;
-
+  //const T* is a pointer to a constant variable
+  //T* const is a constant pointer to a variable
+  //const T* const is a constant pointer to a constant variable
+  // |                   | *x=something; | x=pointer; |
+  // | const T* x;       |    can't      |    can     |
+  // | T* const x;       |    can        |    can't   |
+  // | const T* const x; |    can't      |    can't   |
 
   const unsigned nat = natA+natB;
   float ncoord;
@@ -167,7 +200,8 @@ float fastCoord::operator()(
 
           //add will need to be the check on the same "real" id
           bool add=i!=j;
-          const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
+          // const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
+          const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,6);
           myNcoord +=add*t;
 
           // dfunc*=add;
