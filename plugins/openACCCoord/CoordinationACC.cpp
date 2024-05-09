@@ -140,35 +140,42 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
     log.printf("  update every %d steps and cutoff %f\n",nl_st,nl_cut);
   }
   {
-  // setting up the SwitchingFunction
-  //using  PLMD::SwitchingFunction for configuration
-  std::string sw;
-  SwitchingFunction switchingFunction;
-  // parse("SWITCH",sw);
-  if(sw.length()>0) {
-    std::string errors;
-    switchingFunction.set(sw,errors);
-    if( errors.length()!=0 ){
-     error("problem reading SWITCH keyword : " + errors );
+    // setting up the SwitchingFunction
+    //using  PLMD::SwitchingFunction for configuration
+    std::string sw;
+    SwitchingFunction switchingFunction;
+    unsigned nn=6;
+    unsigned mm=0;
+    // parse("SWITCH",sw);
+    if(sw.length()>0) {
+      std::string errors;
+      switchingFunction.set(sw,errors);
+      if( errors.length()!=0 ) {
+        error("problem reading SWITCH keyword : " + errors );
+      }
+    } else {
+      double d0=0.0;
+      double r0=-1.0;
+      parse("R_0",r0);
+      if(r0<0.0) {
+        error("R_0 should be explicitly specified and positive");
+      }
+      parse("D_0",d0);
+      parse("NN",nn);
+      parse("MM",mm);
+      if (mm!=0 || nn%2!=0 || d0!=0.0) {
+        error("Sorry, but current implementation accepts only NN=even, MM=0 and D_0=0.0");
+      }
+      switchingFunction.set(nn,mm,r0,d0);
     }
-  } else {
-    int nn=6;
-    int mm=0;
-    double d0=0.0;
-    double r0=-1.0;
-    parse("R_0",r0);
-    if(r0<0.0) error("R_0 should be explicitly specified and positive");
-    parse("D_0",d0);
-    parse("NN",nn);
-    parse("MM",mm);
 
-    switchingFunction.set(nn,mm,r0,d0);
+    calculator = myACC::fastCoord(natA,
+                                  natB,
+                                  nn,
+                                  mm,
+                                  1.0/switchingFunction.get_r0(),
+                                  switchingFunction.get_dmax());
   }
-  const float dmax=switchingFunction.get_dmax();
-  const float invr0=1.0/switchingFunction.get_r0();
-  calculator = myACC::fastCoord(natA,natB,invr0,dmax);
-  }
-
 }
 
 CoordinationACC::~CoordinationACC() {
@@ -195,9 +202,14 @@ double pairing(double distance,double&dfunc,unsigned i,unsigned j) {
 }
 
 // calculator
-void CoordinationACC::calculate()
-{
-
+void CoordinationACC::calculate() {
+  //I should exploit this:
+// assert(sizeof(PLMD::AtomNumber)==sizeof(unsigned);
+//since AtomNumber wraps an unsigned
+  std::vector<unsigned> atomNumbers(getNumberOfAtoms());
+  for(auto i=0; i<getNumberOfAtoms(); ++i) {
+    atomNumbers[i]= getAbsoluteIndexes()[i].index();
+  }
   double ncoord=0.;
   Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
@@ -213,7 +225,7 @@ void CoordinationACC::calculate()
     std::vector<float> derivatives(3*getPositions().size());
     std::vector<float> virial(9,0.0f);
 
-    ncoord = calculator(positions.data(),derivatives.data(),virial.data());
+    ncoord = calculator(positions.data(),atomNumbers.data(),derivatives.data(),virial.data());
     for(auto i=0U; i<getPositions().size(); ++i) {
       deriv[i][0]=derivatives[i*3  ];
       deriv[i][1]=derivatives[i*3+1];

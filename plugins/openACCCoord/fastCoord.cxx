@@ -70,15 +70,15 @@ struct calculatorFixed {
                                      const T stretch,
                                      const T shift,
                                      const unsigned ) {
-    int mul = (distance2 <= dmax_2);
+    if (distance2 > dmax_2) {
+      return {0.0f,0.0f};
+    }
     const T rdist = distance2*invr0_2;
     auto [result,dfunc] = doReducedRational<N/2>(rdist);
     dfunc*=2*invr0_2;
     // stretch:
     result=result*stretch+shift;
     dfunc*=stretch;
-    result*=mul;
-    dfunc*=mul;
     return {result,dfunc};
   }
 };
@@ -91,15 +91,16 @@ struct calculatorFlexible {
                                      const T stretch,
                                      const T shift,
                                      const unsigned pow) {
-    int mul = (distance2 <= dmax_2);
+    // int mul = (distance2 <= dmax_2);
+    if (distance2 > dmax_2) {
+      return {0.0f,0.0f};
+    }
     const T rdist = distance2*invr0_2;
     auto [result,dfunc] = doReducedRational(rdist,pow/2);
     dfunc*=2*invr0_2;
     // stretch:
     result=result*stretch+shift;
     dfunc*=stretch;
-    result*=mul;
-    dfunc*=mul;
     return {result,dfunc};
   }
 };
@@ -114,21 +115,28 @@ std::pair<float,float> getShiftAndStretch(float const invr0_2, float const dmaxs
   return {shift,stretch};
 }
 
-// using mycalculator = calculatorFlexible<float>;
-using mycalculator = calculatorFixed<6,float>;
+using mycalculator = calculatorFlexible<float>;
+// using mycalculator = calculatorFixed<6,float>;
 
-fastCoord::fastCoord(unsigned const natA_, unsigned const natB_, float const invr0_, float const dmax_)
+fastCoord::fastCoord(unsigned const natA_,
+                     unsigned const natB_,
+                     unsigned const N,
+                     unsigned const M,
+                     float const invr0_,
+                     float const dmax_)
   : natA(natA_),
     natB(natB_),
+    NN(N),
     invr0_2(invr0_*invr0_),
     dmaxsq(dmax_*dmax_) {
-  auto [setShift, setStretch] = getShiftAndStretch<mycalculator>(invr0_2, dmaxsq,6);
+  auto [setShift, setStretch] = getShiftAndStretch<mycalculator>(invr0_2, dmaxsq,NN);
   shift = setShift;
   stretch = setStretch;
 }
 
 float fastCoord::operator()(
   const float* const positions,
+  const unsigned* const reaIndexes,
   float* const derivatives,
   float* const virial) const {
   //const T* is a pointer to a constant variable
@@ -142,7 +150,7 @@ float fastCoord::operator()(
   const unsigned nat = natA+natB;
   float ncoord;
 
-#pragma acc data copyin(positions[0:3*nat]) \
+#pragma acc data copyin(positions[0:3*nat],reaIndexes[0:nat]) \
         copyout(derivatives[0:3*nat],virial[0:9],ncoord)
   {
 #pragma acc parallel
@@ -181,7 +189,7 @@ float fastCoord::operator()(
         const float x=positions[3*i  ];
         const float y=positions[3*i+1];
         const float z=positions[3*i+2];
-
+        unsigned realIndex_i=reaIndexes[i];
 //this needs some more work to functionc correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
 //         myVirial_0,myVirial_1,myVirial_2, \
@@ -196,13 +204,15 @@ float fastCoord::operator()(
 
           float dsq=d0*d0+d1*d1+d2*d2;
           //todo this:
-          //if(getAbsoluteIndex(i0)==getAbsoluteIndex(i1)) continue;
+          if(realIndex_i==reaIndexes[j]) {
+            continue;
+          }
 
           //add will need to be the check on the same "real" id
-          bool add=i!=j;
+
           // const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
-          const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,6);
-          myNcoord +=add*t;
+          const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
+          myNcoord +=t;
 
           // dfunc*=add;
 
@@ -212,18 +222,20 @@ float fastCoord::operator()(
           mydevX += t_0;
           mydevY += t_1;
           mydevZ += t_2;
-          add&=i>j;
-          myVirial_0 += t_0 * d0 * add;
-          myVirial_1 += t_0 * d1 * add;
-          myVirial_2 += t_0 * d2 * add;
-          myVirial_3 += t_1 * d0 * add;
-          myVirial_4 += t_1 * d1 * add;
-          myVirial_5 += t_1 * d2 * add;
-          myVirial_6 += t_2 * d0 * add;
-          myVirial_7 += t_2 * d1 * add;
-          myVirial_8 += t_2 * d2 * add;
+          if(i>j) {
+            myVirial_0 += t_0 * d0;
+            myVirial_1 += t_0 * d1;
+            myVirial_2 += t_0 * d2;
+            myVirial_3 += t_1 * d0;
+            myVirial_4 += t_1 * d1;
+            myVirial_5 += t_1 * d2;
+            myVirial_6 += t_2 * d0;
+            myVirial_7 += t_2 * d1;
+            myVirial_8 += t_2 * d2;
+          }
         }
         ncoord += 0.5 * myNcoord;
+
         virial[0] += myVirial_0;
         virial[1] += myVirial_1;
         virial[2] += myVirial_2;
@@ -246,4 +258,3 @@ float fastCoord::operator()(
 }
 
 } // namespace myAcc
-
