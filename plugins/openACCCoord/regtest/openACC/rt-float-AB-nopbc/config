@@ -7,7 +7,7 @@ arg="--plumed plumed.dat --ixyz traj-nopbc.xyz"
 plumed_regtest_after() {
   {
     if [[ -e colvar ]]; then
-      echo '#! FIELDS time diff'
+      head -1 colvar
       awk 'NR>1{printf " %s   0.0000\n",$1} ' <colvar
     else
       #this works anyway
