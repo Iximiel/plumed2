@@ -63,7 +63,7 @@ static inline std::pair<T,T> doReducedRational(const T rdist, const unsigned pow
 }
 
 template <int N,typename T>
-struct calculatorFixed {
+struct calculatorReducedRationalFixed {
   static std::pair<T,T> calculateSqr(const T distance2,
                                      const T invr0_2,
                                      const T dmax_2,
@@ -84,7 +84,7 @@ struct calculatorFixed {
 };
 
 template <typename T>
-struct calculatorFlexible {
+struct calculatorReducedRationalFlexible {
   static std::pair<T,T> calculateSqr(const T distance2,
                                      const T invr0_2,
                                      const T dmax_2,
@@ -115,8 +115,8 @@ std::pair<float,float> getShiftAndStretch(float const invr0_2, float const dmaxs
   return {shift,stretch};
 }
 
-using mycalculator = calculatorFlexible<float>;
-// using mycalculator = calculatorFixed<6,float>;
+using mycalculator = calculatorReducedRationalFlexible<float>;
+// using mycalculator = calculatorReducedRationalFixed<6,float>;
 
 fastCoord::fastCoord(unsigned const natA_,
                      unsigned const natB_,
@@ -190,7 +190,7 @@ float fastCoord::operator()(
         const float y=positions[3*i+1];
         const float z=positions[3*i+2];
         unsigned realIndex_i=reaIndexes[i];
-//this needs some more work to functionc correctly
+//this needs some more work to function correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
 //         myVirial_0,myVirial_1,myVirial_2, \
 //         myVirial_3,myVirial_4,myVirial_5, \
@@ -250,7 +250,134 @@ float fastCoord::operator()(
         derivatives[3*i+1] = mydevY;
         derivatives[3*i+2] = mydevZ;
       }
-    }//self
+    } else {
+     #pragma acc parallel loop gang reduction(+:ncoord,virial[0:9])
+      for (size_t i = 0; i < natA; i++) {
+        float myNcoord=0.0f;
+
+        float mydevX=0.0f;
+        float mydevY=0.0f;
+        float mydevZ=0.0f;
+
+        float myVirial_0=0.0f;
+        float myVirial_1=0.0f;
+        float myVirial_2=0.0f;
+        float myVirial_3=0.0f;
+        float myVirial_4=0.0f;
+        float myVirial_5=0.0f;
+        float myVirial_6=0.0f;
+        float myVirial_7=0.0f;
+        float myVirial_8=0.0f;
+
+        const float x=positions[3*i  ];
+        const float y=positions[3*i+1];
+        const float z=positions[3*i+2];
+        unsigned realIndex_i=reaIndexes[i];
+//this needs some more work to function correctly
+// #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
+//         myVirial_0,myVirial_1,myVirial_2, \
+//         myVirial_3,myVirial_4,myVirial_5, \
+//         myVirial_6,myVirial_7,myVirial_8)
+#pragma acc loop seq
+        for (size_t j = natA; j < nat; j++) {
+
+          const float d0=positions[3*j  ]-x;
+          const float d1=positions[3*j+1]-y;
+          const float d2=positions[3*j+2]-z;
+
+          float dsq=d0*d0+d1*d1+d2*d2;
+          //todo this:
+          if(realIndex_i==reaIndexes[j]) {
+            continue;
+          }
+
+          //add will need to be the check on the same "real" id
+
+          // const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
+          const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
+          myNcoord +=t;
+
+          // dfunc*=add;
+
+          const float t_0 = -dfunc * d0;
+          const float t_1 = -dfunc * d1;
+          const float t_2 = -dfunc * d2;
+          mydevX += t_0;
+          mydevY += t_1;
+          mydevZ += t_2;
+          
+            myVirial_0 += t_0 * d0;
+            myVirial_1 += t_0 * d1;
+            myVirial_2 += t_0 * d2;
+            myVirial_3 += t_1 * d0;
+            myVirial_4 += t_1 * d1;
+            myVirial_5 += t_1 * d2;
+            myVirial_6 += t_2 * d0;
+            myVirial_7 += t_2 * d1;
+            myVirial_8 += t_2 * d2;
+          
+        }
+        ncoord += myNcoord;
+
+        virial[0] += myVirial_0;
+        virial[1] += myVirial_1;
+        virial[2] += myVirial_2;
+        virial[3] += myVirial_3;
+        virial[4] += myVirial_4;
+        virial[5] += myVirial_5;
+        virial[6] += myVirial_6;
+        virial[7] += myVirial_7;
+        virial[8] += myVirial_8;
+
+        derivatives[3*i+0] = mydevX;
+        derivatives[3*i+1] = mydevY;
+        derivatives[3*i+2] = mydevZ;
+      }
+//second loop to extract the derivatives of the second group
+#pragma acc parallel loop gang
+      for (size_t i = natA; i < nat; i++) {
+        
+        float mydevX=0.0f;
+        float mydevY=0.0f;
+        float mydevZ=0.0f;
+
+        const float x=positions[3*i  ];
+        const float y=positions[3*i+1];
+        const float z=positions[3*i+2];
+        unsigned realIndex_i=reaIndexes[i];
+//this needs some more work to function correctly
+// #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
+//         myVirial_0,myVirial_1,myVirial_2, \
+//         myVirial_3,myVirial_4,myVirial_5, \
+//         myVirial_6,myVirial_7,myVirial_8)
+#pragma acc loop seq
+        for (size_t j = 0; j < natA; j++) {
+
+          const float d0=positions[3*j  ]-x;
+          const float d1=positions[3*j+1]-y;
+          const float d2=positions[3*j+2]-z;
+
+          float dsq=d0*d0+d1*d1+d2*d2;
+          //todo this:
+          if(realIndex_i==reaIndexes[j]) {
+            continue;
+          }
+          // const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
+          const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
+
+          const float t_0 = -dfunc * d0;
+          const float t_1 = -dfunc * d1;
+          const float t_2 = -dfunc * d2;
+          mydevX += t_0;
+          mydevY += t_1;
+          mydevZ += t_2;
+        }
+        
+        derivatives[3*i+0] = mydevX;
+        derivatives[3*i+1] = mydevY;
+        derivatives[3*i+2] = mydevZ;
+      }
+    }
 
   } //data clause
 

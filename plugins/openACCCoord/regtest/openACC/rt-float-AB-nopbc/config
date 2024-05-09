@@ -1,0 +1,38 @@
+type=driver
+
+arg="--plumed plumed.dat --ixyz traj-nopbc.xyz"
+
+#the strength of this is that you can change the  trajectory lenght and the
+#number of atoms and the test still works, this may be dangerous tough
+plumed_regtest_after() {
+  {
+    if [[ -e colvar ]]; then
+      echo '#! FIELDS time diff'
+      awk 'NR>1{printf " %s   0.0000\n",$1} ' <colvar
+    else
+      #this works anyway
+      echo -e '\e[31mcolvar file was not found\e[0m'
+    fi
+  } >colvar.reference
+  {
+    echo '#! FIELDS time dataID delta'
+    echo '#errors found in the derivatives and in the virial:'
+  } >deriv_delta.reference
+  {
+    if [[ -e deriv ]]; then
+      echo '#! FIELDS time dataID delta'
+      echo '#errors found in the derivatives and in the virial:'
+      #I'm giving some space to the floating point precision
+      # echo '#! FIELDS time parameter cpu-gpu'
+      awk 'function abs(v) {return v < 0 ? -v : v} NR>1{
+      if(abs($4-$3) > 0.0001){
+         print $1, $2, $4-$3}
+          } ' <deriv
+    else
+      echo -e '#\e[31mthe derivatives and virial file was not printed\e[0m'
+    fi
+  } >deriv_delta
+}
+extra_files="../../trajectories/traj-nopbc.xyz"
+
+# export NVCOMPILER_ACC_NOTIFY=31
