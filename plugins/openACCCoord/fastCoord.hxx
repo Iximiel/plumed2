@@ -9,8 +9,8 @@ class fastCoord {
   float shift{0.0f};
   float stretch{1.0f};
 public:
-  fastCoord();
-  fastCoord(unsigned natA, unsigned natB, float invr0_2, float dmax);
+  fastCoord()=default;
+  fastCoord(unsigned natA, unsigned natB, float invr0, float dmax);
   float operator()(const float* const positions, float* derivatives, float* virial) const;
 };
 

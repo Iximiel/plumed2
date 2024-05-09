@@ -63,6 +63,13 @@ void CoordinationACC::registerKeywords( Keywords& keys ) {
   keys.add("optional","NL_STRIDE","The frequency with which we are updating the atoms in the neighbor list");
   keys.add("atoms","GROUPA","First list of atoms");
   keys.add("atoms","GROUPB","Second list of atoms (if empty, N*(N-1)/2 pairs in GROUPA are counted)");
+  keys.add("compulsory","NN","6","The n parameter of the switching function ");
+  keys.add("compulsory","MM","0","The m parameter of the switching function; 0 implies 2*NN");
+  keys.add("compulsory","D_0","0.0","The d_0 parameter of the switching function");
+  keys.add("compulsory","R_0","The r_0 parameter of the switching function");
+  // keys.add("optional","SWITCH","This keyword is used if you want to employ an alternative to the continuous switching function defined above. "
+  //          "The following provides information on the \\ref switchingfunction that are available. "
+  //          "When this keyword is present you no longer need the NN, MM, D_0 and R_0 keywords.");
 }
 
 PLUMED_REGISTER_ACTION(CoordinationACC,"COORDINATIONACC")
@@ -85,15 +92,6 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
   bool nopbc=!pbc;
   parseFlag("NOPBC",nopbc);
   pbc=!nopbc;
-
-  SwitchingFunction switching;
-  switching.set(6,0,1.0,0.0);
-  const float dmax=switching.get_dmax();
-  const float invr02=[&]() {
-    auto t= 1.0/switching.get_r0();
-    return t*t;
-  }();
-  calculator = myACC::fastCoord(natA,natB,invr02,dmax);
 
 // pair stuff
   bool dopair=false;
@@ -141,6 +139,36 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
     log.printf("  using neighbor lists with\n");
     log.printf("  update every %d steps and cutoff %f\n",nl_st,nl_cut);
   }
+  {
+  // setting up the SwitchingFunction
+  //using  PLMD::SwitchingFunction for configuration
+  std::string sw;
+  SwitchingFunction switchingFunction;
+  // parse("SWITCH",sw);
+  if(sw.length()>0) {
+    std::string errors;
+    switchingFunction.set(sw,errors);
+    if( errors.length()!=0 ){
+     error("problem reading SWITCH keyword : " + errors );
+    }
+  } else {
+    int nn=6;
+    int mm=0;
+    double d0=0.0;
+    double r0=-1.0;
+    parse("R_0",r0);
+    if(r0<0.0) error("R_0 should be explicitly specified and positive");
+    parse("D_0",d0);
+    parse("NN",nn);
+    parse("MM",mm);
+
+    switchingFunction.set(nn,mm,r0,d0);
+  }
+  const float dmax=switchingFunction.get_dmax();
+  const float invr0=1.0/switchingFunction.get_r0();
+  calculator = myACC::fastCoord(natA,natB,invr0,dmax);
+  }
+
 }
 
 CoordinationACC::~CoordinationACC() {
