@@ -1,54 +1,22 @@
 #include <cmath>
-#include <type_traits>
 #include <iostream>
 #include <utility>
 
 #include "fastCoord.hxx"
+#include "Tools_pow.h"
+#include "plumed/tools/Tools.h"
+//Tools is a class, so I cannot do:
+//using PLMD::Tools::fastpow;
 
 #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 // #define plotsize(name) std::cerr << __LINE__ << #name ": "<< name.sizes()<< '\n';
 
 // #define vdbg(...)
 namespace myACC {
-namespace Tools {
-
-template <int exp, typename T, std::enable_if_t< (exp >=0), bool> = true>
-inline T fastpow_rec(T const base, T result) {
-  if constexpr (exp == 0) {
-    return result;
-  }
-  if constexpr (exp & 1) {
-    result *= base;
-  }
-  return fastpow_rec<(exp>>1),T> (base*base, result);
-}
-
-template <int exp, typename T>
-inline T fastpow(T const base) {
-  if constexpr (exp<0) {
-    return  fastpow_rec<-exp,T>(1.0/base,1.0);
-  } else {
-    return fastpow_rec<exp,T>(base, 1.0);
-  }
-}
-
-template <typename T>
-inline
-T fastpow(T base, unsigned exp) {
-  T result = 1.0;
-  while (exp) {
-    if (exp & 1)
-      result *= base;
-    exp >>= 1;
-    base *= base;
-  }
-  return result;
-}
-} //namespace Tools
 
 template <int POW,typename T>
 static inline std::pair<T,T> doReducedRational(const T rdist, T result=0.0) {
-  const T rNdist=Tools::fastpow<POW-1>(rdist);
+  const T rNdist=PLMD::Tools::fastpow<POW-1>(rdist);
   result=1.0/(1.0+rNdist*rdist);
   const T dfunc = -rNdist*result*result*POW;
   return {result,dfunc};
@@ -56,7 +24,7 @@ static inline std::pair<T,T> doReducedRational(const T rdist, T result=0.0) {
 
 template <typename T>
 static inline std::pair<T,T> doReducedRational(const T rdist, const unsigned pow, T result=0.0) {
-  const T rNdist=Tools::fastpow(rdist, pow-1);
+  const T rNdist=myACC::Tools::fastpow(rdist, pow-1);
   result=1.0/(1.0+rNdist*rdist);
   const T dfunc = -rNdist*result*result*pow;
   return {result,dfunc};
@@ -251,7 +219,7 @@ float fastCoord::operator()(
         derivatives[3*i+2] = mydevZ;
       }
     } else {
-     #pragma acc parallel loop gang reduction(+:ncoord,virial[0:9])
+#pragma acc parallel loop gang reduction(+:ncoord,virial[0:9])
       for (size_t i = 0; i < natA; i++) {
         float myNcoord=0.0f;
 
@@ -305,17 +273,17 @@ float fastCoord::operator()(
           mydevX += t_0;
           mydevY += t_1;
           mydevZ += t_2;
-          
-            myVirial_0 += t_0 * d0;
-            myVirial_1 += t_0 * d1;
-            myVirial_2 += t_0 * d2;
-            myVirial_3 += t_1 * d0;
-            myVirial_4 += t_1 * d1;
-            myVirial_5 += t_1 * d2;
-            myVirial_6 += t_2 * d0;
-            myVirial_7 += t_2 * d1;
-            myVirial_8 += t_2 * d2;
-          
+
+          myVirial_0 += t_0 * d0;
+          myVirial_1 += t_0 * d1;
+          myVirial_2 += t_0 * d2;
+          myVirial_3 += t_1 * d0;
+          myVirial_4 += t_1 * d1;
+          myVirial_5 += t_1 * d2;
+          myVirial_6 += t_2 * d0;
+          myVirial_7 += t_2 * d1;
+          myVirial_8 += t_2 * d2;
+
         }
         ncoord += myNcoord;
 
@@ -336,7 +304,7 @@ float fastCoord::operator()(
 //second loop to extract the derivatives of the second group
 #pragma acc parallel loop gang
       for (size_t i = natA; i < nat; i++) {
-        
+
         float mydevX=0.0f;
         float mydevY=0.0f;
         float mydevZ=0.0f;
@@ -372,7 +340,7 @@ float fastCoord::operator()(
           mydevY += t_1;
           mydevZ += t_2;
         }
-        
+
         derivatives[3*i+0] = mydevX;
         derivatives[3*i+1] = mydevY;
         derivatives[3*i+2] = mydevZ;
