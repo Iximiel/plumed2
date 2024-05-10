@@ -1,5 +1,6 @@
 #ifndef myACC_hxx
 #define myACC_hxx
+#include "plumed/tools/AtomNumber.h"
 namespace myACC {
 class fastCoord {
   unsigned natA{0};
@@ -18,7 +19,7 @@ public:
             float invr0,
             float dmax);
   float operator()(const float* const positions,
-                   const unsigned* const reaIndexes,
+                   const PLMD::AtomNumber* const reaIndexes,
                    float* derivatives,
                    float* virial) const;
 };
