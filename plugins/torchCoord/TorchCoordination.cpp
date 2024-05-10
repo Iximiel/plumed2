@@ -31,6 +31,7 @@
 
 #include <limits>
 #include <functional>
+#include <type_traits>
 
 #include <iostream>
 // #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
@@ -86,42 +87,50 @@ inline constexpr torch::Dtype getType() {
 }
 
 //MEMORY MANAGEMENT//
+//deduction guides
+template<typename T> struct DataInterface;
+//for VectorGeneric
+template <unsigned n>
+DataInterface(PLMD::VectorGeneric<n>)->DataInterface<double>;
+template <unsigned n>
+DataInterface(std::vector<PLMD::VectorGeneric<n>>)->DataInterface<double>;
+//for TensorGeneric
+template <unsigned n, unsigned m>
+DataInterface(TensorGeneric<n, m>)->DataInterface<double>;
+template <unsigned n, unsigned m>
+DataInterface(std::vector<TensorGeneric<n, m>>)->DataInterface<double>;
+
 template<typename T>
 struct DataInterface {
   // NOT owning pointer
-  T *ptr = nullptr;
-  size_t size = 0;
+  //const prt to avoid unwanted changes
+  T * const ptr;
+  size_t const size;
   DataInterface() = delete;
 
-  explicit DataInterface (std::vector<T> &vt) : DataInterface (vt[0]) {
-    size *= vt.size();
-  }
+  template <unsigned n>
+  explicit DataInterface (PLMD::VectorGeneric<n> &v, size_t s=1)
+    : DataInterface (v[0],s*n) {}
+
+  template <unsigned n, unsigned m>
+  explicit DataInterface (PLMD::TensorGeneric<n, m> &v, size_t s=1)
+    :DataInterface (v[0][0],s*m*n) {}
+
+  template <unsigned n>
+  explicit DataInterface (std::vector<PLMD::VectorGeneric<n>> &vt)
+    : DataInterface (vt[0],vt.size()) {}
+
+  template <unsigned n, unsigned m>
+  explicit DataInterface (std::vector<PLMD::TensorGeneric<n,m>> &vt)
+    : DataInterface (vt[0],vt.size()) {}
+
+  explicit DataInterface (std::vector<T> &vt) : DataInterface (vt[0],vt.size()) {}
+
   template <size_t N>
-  explicit DataInterface (std::array<T,N> &vt) : DataInterface (vt[0]) {
-    size *= N;
-  }
-  explicit DataInterface (T& v) : ptr(&v),size(1) {};
+  explicit DataInterface (std::array<T,N> &vt) : DataInterface (vt[0],N) {}
 
-  explicit DataInterface (T& v, size_t n) : ptr(&v),size(n) {};
+  explicit DataInterface (T& v, size_t n=1) : ptr(&v),size(n) {};
 };
-
-template <unsigned n>
-inline DataInterface<double> toDataInterface(
-  std::vector<PLMD::VectorGeneric<n>> &vg) {
-  return DataInterface<double> (vg[0][0], n*vg.size());
-}
-
-template <unsigned n, unsigned m>
-inline DataInterface<double> toDataInterface(
-  std::vector<TensorGeneric<n, m> > &tg) {
-  return DataInterface<double> (tg[0][0][0], m*n*tg.size());
-}
-
-template <unsigned n, unsigned m>
-inline DataInterface<double> toDataInterface(
-  TensorGeneric<n, m> &tg) {
-  return DataInterface<double> (tg[0][0], m*n);
-}
 
 //loads the data, with conversion if necessary,
 //convertFrom is deduced from DataInterface
@@ -506,13 +515,13 @@ void TorchCoordination<calculateFloat>::calculate() {
 
   switch (mode) {
   case calculationMode::self: {
-    torch::Tensor posA=convertToDevice<calculateFloat>(toDataInterface(inputs),
+    torch::Tensor posA=convertToDevice<calculateFloat>(DataInterface(inputs),
                        myDevice)
                        .reshape({atomsInA,3,1})
                        .transpose(0,1)
                        .tile({1,1,atomsInA});
     torch::Tensor posB=convertToDevice<calculateFloat>(
-                         toDataInterface(inputs),myDevice)
+                         DataInterface(inputs),myDevice)
                        .reshape({atomsInA,1,3})
                        .transpose(0,2)
                        .tile({1,atomsInA,1});
@@ -528,8 +537,8 @@ void TorchCoordination<calculateFloat>::calculate() {
     auto[coord, dev, storedVirial] = work(diff,trueindexes);
 
     coordination = 0.5*coord;
-    convertFromDevice( 0.5*storedVirial, toDataInterface(virial));
-    convertFromDevice( dev.sum(1).transpose(1,0), toDataInterface(derivativeA));
+    convertFromDevice( 0.5*storedVirial, DataInterface(virial));
+    convertFromDevice( dev.sum(1).transpose(1,0), DataInterface(derivativeA));
 
   }
   break;
@@ -552,9 +561,9 @@ void TorchCoordination<calculateFloat>::calculate() {
     auto[coord, dev, storedVirial] = work(diff,trueindexes);
 
     coordination = coord;
-    convertFromDevice( storedVirial, toDataInterface(virial));
-    convertFromDevice( -dev.sum(2).transpose(1,0), toDataInterface(derivativeA));
-    convertFromDevice( dev.sum(1).transpose(1,0), toDataInterface(derivativeB));
+    convertFromDevice( storedVirial, DataInterface(virial));
+    convertFromDevice( -dev.sum(2).transpose(1,0), DataInterface(derivativeA));
+    convertFromDevice( dev.sum(1).transpose(1,0), DataInterface(derivativeB));
 
   }
   break;
@@ -570,9 +579,9 @@ void TorchCoordination<calculateFloat>::calculate() {
     auto [res, dev, storedVirial] = work(posB, trueindexes);
 
     coordination = res;
-    convertFromDevice(storedVirial, toDataInterface(virial));
-    convertFromDevice(-dev.transpose(1,0), toDataInterface(derivativeA));
-    convertFromDevice( dev.transpose(1,0), toDataInterface(derivativeB));
+    convertFromDevice(storedVirial, DataInterface(virial));
+    convertFromDevice(-dev.transpose(1,0), DataInterface(derivativeA));
+    convertFromDevice( dev.transpose(1,0), DataInterface(derivativeB));
   }
   break;
   case calculationMode::none:
