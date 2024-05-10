@@ -104,7 +104,7 @@ fastCoord::fastCoord(unsigned const natA_,
 
 float fastCoord::operator()(
   const float* const positions,
-  const unsigned* const reaIndexes,
+  const PLMD::AtomNumber* const reaIndexes,
   float* const derivatives,
   float* const virial) const {
   //const T* is a pointer to a constant variable
@@ -157,7 +157,7 @@ float fastCoord::operator()(
         const float x=positions[3*i  ];
         const float y=positions[3*i+1];
         const float z=positions[3*i+2];
-        unsigned realIndex_i=reaIndexes[i];
+        auto realIndex_i=reaIndexes[i];
 //this needs some more work to function correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
 //         myVirial_0,myVirial_1,myVirial_2, \
@@ -240,7 +240,7 @@ float fastCoord::operator()(
         const float x=positions[3*i  ];
         const float y=positions[3*i+1];
         const float z=positions[3*i+2];
-        unsigned realIndex_i=reaIndexes[i];
+        auto realIndex_i=reaIndexes[i];
 //this needs some more work to function correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
 //         myVirial_0,myVirial_1,myVirial_2, \
@@ -312,7 +312,7 @@ float fastCoord::operator()(
         const float x=positions[3*i  ];
         const float y=positions[3*i+1];
         const float z=positions[3*i+2];
-        unsigned realIndex_i=reaIndexes[i];
+        auto realIndex_i=reaIndexes[i];
 //this needs some more work to function correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
 //         myVirial_0,myVirial_1,myVirial_2, \

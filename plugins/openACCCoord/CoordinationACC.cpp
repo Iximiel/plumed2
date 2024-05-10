@@ -207,9 +207,6 @@ void CoordinationACC::calculate() {
 // assert(sizeof(PLMD::AtomNumber)==sizeof(unsigned);
 //since AtomNumber wraps an unsigned
   std::vector<unsigned> atomNumbers(getNumberOfAtoms());
-  for(auto i=0; i<getNumberOfAtoms(); ++i) {
-    atomNumbers[i]= getAbsoluteIndexes()[i].index();
-  }
   double ncoord=0.;
   Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
@@ -225,7 +222,7 @@ void CoordinationACC::calculate() {
     std::vector<float> derivatives(3*getPositions().size());
     std::vector<float> virial(9,0.0f);
 
-    ncoord = calculator(positions.data(),atomNumbers.data(),derivatives.data(),virial.data());
+    ncoord = calculator(positions.data(),getAbsoluteIndexes().data(),derivatives.data(),virial.data());
     for(auto i=0U; i<getPositions().size(); ++i) {
       deriv[i][0]=derivatives[i*3  ];
       deriv[i][1]=derivatives[i*3+1];
