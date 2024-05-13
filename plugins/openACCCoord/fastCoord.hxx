@@ -1,7 +1,10 @@
 #ifndef myACC_hxx
 #define myACC_hxx
+#include <utility>
+
 #include "plumed/tools/AtomNumber.h"
 #include "Vector.h"
+#include "Tensor.h"
 
 namespace myACC {
 class fastCoord {
@@ -20,10 +23,9 @@ public:
             unsigned MM,
             float invr0,
             float dmax);
-  float operator()(const PLMD::wFloat::Vector<float>* const positions,
-                   const PLMD::AtomNumber* const reaIndexes,
-                   PLMD::wFloat::Vector<float>* derivatives,
-                   float* virial) const;
+  std::pair<float,PLMD::wFloat::Tensor<float>> operator()(const PLMD::wFloat::Vector<float>* const positions,
+      const PLMD::AtomNumber* const reaIndexes,
+      PLMD::wFloat::Vector<float>* derivatives) const;
 };
 
 } // namespace myAcc

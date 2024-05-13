@@ -220,19 +220,19 @@ void CoordinationACC::calculate() {
       positions[i][2] = tmp[2];
     }
     std::vector<wFloat::Vector<float>> derivatives(getPositions().size());
-    std::vector<float> virial(9,0.0f);
-
-    ncoord = calculator(positions.data(),getAbsoluteIndexes().data(),derivatives.data(),virial.data());
+    wFloat::Tensor<float> virial;
+std::tie(ncoord,virial) =
+     calculator(positions.data(),getAbsoluteIndexes().data(),derivatives.data());
+    
     for(auto i=0U; i<getPositions().size(); ++i) {
       deriv[i][0]=derivatives[i][0];
       deriv[i][1]=derivatives[i][1];
       deriv[i][2]=derivatives[i][2];
     }
 
-    for(auto i=0U,k=0U; i<3U; ++i) {
+    for(auto i=0U; i<3U; ++i) {
       for(auto j=0U; j<3U; ++j) {
-        boxDev[i][j]=virial[k];
-        ++k;
+        boxDev[i][j]=virial[i][j];
       }
     }
   }
