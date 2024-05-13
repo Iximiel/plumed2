@@ -115,26 +115,26 @@ public:
 /// sign -
   VectorGeneric operator -()const;
 /// return v1+v2
-  template<unsigned m>
-  friend VectorGeneric<m, T> operator+(const VectorGeneric<m, T>&,const VectorGeneric<m, T>&);
+  template<unsigned m, typename U>
+  friend VectorGeneric<m, U> operator+(const VectorGeneric<m, U>&,const VectorGeneric<m, U>&);
 /// return v1-v2
   template<unsigned m, typename U>
   friend VectorGeneric<m, U> operator-(VectorGeneric<m, U>,const VectorGeneric<m, U>&);
 /// return s*v
-  template<unsigned m>
-  friend VectorGeneric<m, T> operator*(T,const VectorGeneric<m, T>&);
+  template<unsigned m, typename U>
+  friend VectorGeneric<m, U> operator*(U,VectorGeneric<m, U>);
 /// return v*s
-  template<unsigned m>
-  friend VectorGeneric<m, T> operator*(const VectorGeneric<m, T>&,T);
+  template<unsigned m, typename U>
+  friend VectorGeneric<m, U> operator*(const VectorGeneric<m, U>&,U);
 /// return v/s
-  template<unsigned m>
-  friend VectorGeneric<m, T> operator/(const VectorGeneric<m, T>&,T);
+  template<unsigned m, typename U>
+  friend VectorGeneric<m, U> operator/(const VectorGeneric<m, U>&,U);
 /// return v2-v1
-  template<unsigned m>
-  friend VectorGeneric<m, T> delta(const VectorGeneric<m, T>&v1,const VectorGeneric<m, T>&v2);
+  template<unsigned m, typename U>
+  friend VectorGeneric<m, U> delta(const VectorGeneric<m, U>&v1,const VectorGeneric<m, U>&v2);
 /// return v1 .scalar. v2
-  template<unsigned m>
-  friend T dotProduct(const VectorGeneric<m, T>&,const VectorGeneric<m, T>&);
+  template<unsigned m, typename U>
+  friend T dotProduct(const VectorGeneric<m, U>&,const VectorGeneric<m, U>&);
   //this bad boy produces a warning (in fact becasue declrare the crossproduc as a friend for ALL thhe possible combinations of n and T)
 /// return v1 .vector. v2
 /// Only available for size 3
@@ -254,9 +254,8 @@ VectorGeneric<n,T> operator-(VectorGeneric<n,T>v1,const VectorGeneric<n,T>&v2) {
 }
 
 template<unsigned n, typename T>
-VectorGeneric<n,T> operator*(T s,const VectorGeneric<n,T>&v) {
-  VectorGeneric<n,T> vv(v);
-  return vv*=s;
+VectorGeneric<n,T> operator*(T s,VectorGeneric<n,T>v) {
+  return v*=s;
 }
 
 template<unsigned n, typename T>
