@@ -108,6 +108,8 @@ public:
   void zero();
 /// get the underline pointer to data
   T* data();
+/// get the underline pointer to data
+  const T* data() const;
 /// access element
   T & operator() (unsigned i,unsigned j);
 /// access element
@@ -231,15 +233,44 @@ TensorGeneric<n,m,T>::TensorGeneric(T first,Args... arg)
 
 template <unsigned n,unsigned m, typename T>
 T* TensorGeneric<n,m,T>::data() {return d.data();}
+template <unsigned n,unsigned m, typename T>
+const T* TensorGeneric<n,m,T>::data() const {return d.data();}
 
 template <unsigned n,unsigned m, typename T>
 TensorGeneric<n,m,T>::TensorGeneric() {
   LoopUnroller<n*m,T>::_zero(d.data());
 }
 
+/* between RVO and compile time this should be faster, but slows down openACC, a lot
+template <unsigned i, unsigned j, unsigned m, typename T>
+void external_rec(T*const out,const T*const v1, const T*const v2){
+      if constexpr (j>0) {
+        external_rec<i,j-1,m>(out,v1,v2);
+      } else if constexpr (i>0) {
+          external_rec<i-1,m-1,m>(out,v1,v2);
+      }
+      out[i*m+j]=v1[i]*v2[j];
+}
+
+template <unsigned n,unsigned m, typename T>
+std::array<T,n*m> externaProd(const VectorGeneric<n,T>&v1,const VectorGeneric<m,T>&v2){
+std::array<T,n*m> toRet;
+external_rec<n-1,m-1,m>(toRet.data(),v1.data(),v2.data());
+return toRet;
+}
+
+template <unsigned n,unsigned m, typename T>
+TensorGeneric<n,m,T>::TensorGeneric(const VectorGeneric<n,T>&v1,const VectorGeneric<m,T>&v2)
+:d(externaProd(v1,v2)) {}
+*/
+
 template <unsigned n,unsigned m, typename T>
 TensorGeneric<n,m,T>::TensorGeneric(const VectorGeneric<n,T>&v1,const VectorGeneric<m,T>&v2) {
-  for(unsigned i=0; i<n; i++)for(unsigned j=0; j<m; j++)d[i*m+j]=v1[i]*v2[j];
+  for(unsigned i=0; i<n; i++) {
+    for(unsigned j=0; j<m; j++) {
+      d[i*m+j]=v1[i]*v2[j];
+    }
+  }
 }
 
 template <unsigned n,unsigned m, typename T>
