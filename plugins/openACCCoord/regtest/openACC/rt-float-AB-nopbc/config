@@ -23,10 +23,10 @@ plumed_regtest_after() {
       echo '#! FIELDS time dataID delta'
       echo '#errors found in the derivatives and in the virial:'
       #I'm giving some space to the floating point precision
-      # echo '#! FIELDS time parameter cpu-gpu'
+      # echo '#! FIELDS time parameter cpu,gpu cpu-gpu'
       awk 'function abs(v) {return v < 0 ? -v : v} NR>1{
       if(abs($4-$3) > 0.0001){
-         print $1, $2, $4-$3}
+         printf " %f %f -%f+%f->%f\n" $1, $2, $3,$4, $4-$3}
           } ' <deriv
     else
       echo -e '#\e[31mthe derivatives and virial file was not printed\e[0m'

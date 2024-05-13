@@ -106,6 +106,8 @@ public:
   TensorGeneric(const VectorGeneric<n,T>&v1,const VectorGeneric<m,T>&v2);
 /// set it to zero
   void zero();
+  /// get underline pointer to data
+  T* data(){return d.data();}
 /// access element
   T & operator() (unsigned i,unsigned j);
 /// access element
@@ -356,7 +358,7 @@ TensorGeneric<n,m,T> operator/(const TensorGeneric<n,m,T>&t1,T s) {
 template<unsigned n,unsigned m, typename T>
 inline
 T TensorGeneric<n,m,T>::determinant()const {
-static_assert(n==3&&m==3,"determinanat can be called only for 3x3 Tensors");
+  static_assert(n==3&&m==3,"determinanat can be called only for 3x3 Tensors");
   return
     d[0]*d[4]*d[8]
     + d[1]*d[5]*d[6]
@@ -560,8 +562,8 @@ void diagMatSym(const TensorGeneric<n,n,T>&mat,VectorGeneric<m,T>&evals,TensorGe
   int liwork=iwork.size();
   int lwork=work.size();
   TensorGenericAux<T>::local_dsyevr("V", (n==m?"A":"I"), "T", &nn, const_cast<T*>(&mat_copy[0][0]), &nn, &vl, &vu, &one, &mm,
-                                 &abstol, &mout, &evals_tmp[0], &evec[0][0], &nn,
-                                 isup.data(), work.data(), &lwork, iwork.data(), &liwork, &info);
+                                    &abstol, &mout, &evals_tmp[0], &evec[0][0], &nn,
+                                    isup.data(), work.data(), &lwork, iwork.data(), &liwork, &info);
   if(info!=0) plumed_error()<<"Error diagonalizing matrix\n"
                               <<"Matrix:\n"<<mat<<"\n"
                               <<"Info: "<<info<<"\n";
