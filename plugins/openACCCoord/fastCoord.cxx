@@ -103,10 +103,11 @@ fastCoord::fastCoord(unsigned const natA_,
 }
 
 float fastCoord::operator()(
-  const float* const positions,
+  const PLMD::wFloat::Vector<float>* const positions,
   const PLMD::AtomNumber* const reaIndexes,
   float* const derivatives,
   float* const virial) const {
+  using v3= PLMD::wFloat::Vector<float>;
   //const T* is a pointer to a constant variable
   //T* const is a constant pointer to a variable
   //const T* const is a constant pointer to a constant variable
@@ -118,7 +119,7 @@ float fastCoord::operator()(
   const unsigned nat = natA+natB;
   float ncoord;
 
-#pragma acc data copyin(positions[0:3*nat],reaIndexes[0:nat]) \
+#pragma acc data copyin(positions[0:nat],reaIndexes[0:nat]) \
         copyout(derivatives[0:3*nat],virial[0:9],ncoord)
   {
 #pragma acc parallel
@@ -154,9 +155,8 @@ float fastCoord::operator()(
         float myVirial_7=0.0f;
         float myVirial_8=0.0f;
 
-        const float x=positions[3*i  ];
-        const float y=positions[3*i+1];
-        const float z=positions[3*i+2];
+        v3 xyz=positions[i];
+
         auto realIndex_i=reaIndexes[i];
 //this needs some more work to function correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
@@ -166,11 +166,10 @@ float fastCoord::operator()(
 #pragma acc loop seq
         for (size_t j = 0; j < natA; j++) {
 
-          const float d0=positions[3*j  ]-x;
-          const float d1=positions[3*j+1]-y;
-          const float d2=positions[3*j+2]-z;
+          const v3 d=positions[j]-xyz;
 
-          float dsq=d0*d0+d1*d1+d2*d2;
+          float dsq=d.modulo2();
+          // float dsq=d[0]*d[0]+d[1]*d[1]+d[2]*d[2];
           //todo this:
           if(realIndex_i==reaIndexes[j]) {
             continue;
@@ -180,26 +179,27 @@ float fastCoord::operator()(
 
           // const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
           const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
+          
           myNcoord +=t;
 
           // dfunc*=add;
 
-          const float t_0 = -dfunc * d0;
-          const float t_1 = -dfunc * d1;
-          const float t_2 = -dfunc * d2;
+          const float t_0 = -dfunc * d[0];
+          const float t_1 = -dfunc * d[1];
+          const float t_2 = -dfunc * d[2];
           mydevX += t_0;
           mydevY += t_1;
           mydevZ += t_2;
           if(i>j) {
-            myVirial_0 += t_0 * d0;
-            myVirial_1 += t_0 * d1;
-            myVirial_2 += t_0 * d2;
-            myVirial_3 += t_1 * d0;
-            myVirial_4 += t_1 * d1;
-            myVirial_5 += t_1 * d2;
-            myVirial_6 += t_2 * d0;
-            myVirial_7 += t_2 * d1;
-            myVirial_8 += t_2 * d2;
+            myVirial_0 += t_0 * d[0];
+            myVirial_1 += t_0 * d[1];
+            myVirial_2 += t_0 * d[2];
+            myVirial_3 += t_1 * d[0];
+            myVirial_4 += t_1 * d[1];
+            myVirial_5 += t_1 * d[2];
+            myVirial_6 += t_2 * d[0];
+            myVirial_7 += t_2 * d[1];
+            myVirial_8 += t_2 * d[2];
           }
         }
         ncoord += 0.5 * myNcoord;
@@ -237,9 +237,7 @@ float fastCoord::operator()(
         float myVirial_7=0.0f;
         float myVirial_8=0.0f;
 
-        const float x=positions[3*i  ];
-        const float y=positions[3*i+1];
-        const float z=positions[3*i+2];
+        v3 xyz=positions[i];
         auto realIndex_i=reaIndexes[i];
 //this needs some more work to function correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
@@ -249,11 +247,9 @@ float fastCoord::operator()(
 #pragma acc loop seq
         for (size_t j = natA; j < nat; j++) {
 
-          const float d0=positions[3*j  ]-x;
-          const float d1=positions[3*j+1]-y;
-          const float d2=positions[3*j+2]-z;
+          const v3 d=positions[j]-xyz;
 
-          float dsq=d0*d0+d1*d1+d2*d2;
+          float dsq=d[0]*d[0]+d[1]*d[1]+d[2]*d[2];
           //todo this:
           if(realIndex_i==reaIndexes[j]) {
             continue;
@@ -267,22 +263,22 @@ float fastCoord::operator()(
 
           // dfunc*=add;
 
-          const float t_0 = -dfunc * d0;
-          const float t_1 = -dfunc * d1;
-          const float t_2 = -dfunc * d2;
+          const float t_0 = -dfunc * d[0];
+          const float t_1 = -dfunc * d[1];
+          const float t_2 = -dfunc * d[2];
           mydevX += t_0;
           mydevY += t_1;
           mydevZ += t_2;
 
-          myVirial_0 += t_0 * d0;
-          myVirial_1 += t_0 * d1;
-          myVirial_2 += t_0 * d2;
-          myVirial_3 += t_1 * d0;
-          myVirial_4 += t_1 * d1;
-          myVirial_5 += t_1 * d2;
-          myVirial_6 += t_2 * d0;
-          myVirial_7 += t_2 * d1;
-          myVirial_8 += t_2 * d2;
+          myVirial_0 += t_0 * d[0];
+          myVirial_1 += t_0 * d[1];
+          myVirial_2 += t_0 * d[2];
+          myVirial_3 += t_1 * d[0];
+          myVirial_4 += t_1 * d[1];
+          myVirial_5 += t_1 * d[2];
+          myVirial_6 += t_2 * d[0];
+          myVirial_7 += t_2 * d[1];
+          myVirial_8 += t_2 * d[2];
 
         }
         ncoord += myNcoord;
@@ -309,9 +305,7 @@ float fastCoord::operator()(
         float mydevY=0.0f;
         float mydevZ=0.0f;
 
-        const float x=positions[3*i  ];
-        const float y=positions[3*i+1];
-        const float z=positions[3*i+2];
+        v3 xyz=positions[i];
         auto realIndex_i=reaIndexes[i];
 //this needs some more work to function correctly
 // #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
@@ -321,11 +315,9 @@ float fastCoord::operator()(
 #pragma acc loop seq
         for (size_t j = 0; j < natA; j++) {
 
-          const float d0=positions[3*j  ]-x;
-          const float d1=positions[3*j+1]-y;
-          const float d2=positions[3*j+2]-z;
+          const v3 d=positions[j]-xyz;
 
-          float dsq=d0*d0+d1*d1+d2*d2;
+          float dsq=d[0]*d[0]+d[1]*d[1]+d[2]*d[2];
           //todo this:
           if(realIndex_i==reaIndexes[j]) {
             continue;
@@ -333,9 +325,9 @@ float fastCoord::operator()(
           // const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
           const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
 
-          const float t_0 = -dfunc * d0;
-          const float t_1 = -dfunc * d1;
-          const float t_2 = -dfunc * d2;
+          const float t_0 = -dfunc * d[0];
+          const float t_1 = -dfunc * d[1];
+          const float t_2 = -dfunc * d[2];
           mydevX += t_0;
           mydevY += t_1;
           mydevZ += t_2;
