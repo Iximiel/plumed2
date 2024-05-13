@@ -120,6 +120,8 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
   const unsigned nat = natA+natB;
   float ncoord;
   tens outVirial;
+  //openacc does not do the reduction on the operator of the Tensor
+  //so we are tricking it into doing it anyway ;)
   float* virial = outVirial.data();
 #pragma acc data copyin(positions[0:nat],reaIndexes[0:nat]) \
         copyout(derivatives[0:nat],virial[0:9],ncoord)
@@ -165,10 +167,11 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
           const v3 td = -dfunc * d;
           mydev += td;
           if(i>j) {
-          myVirial+=tens(td,d);
+            myVirial+=tens(td,d);
           }
         }
         ncoord += 0.5 * myNcoord;
+        //openacc does not do the reduction on the operator of the Tensor
         virial[0]+=myVirial[0][0];
         virial[1]+=myVirial[0][1];
         virial[2]+=myVirial[0][2];

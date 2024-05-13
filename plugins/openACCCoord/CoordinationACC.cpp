@@ -221,9 +221,9 @@ void CoordinationACC::calculate() {
     }
     std::vector<wFloat::Vector<float>> derivatives(getPositions().size());
     wFloat::Tensor<float> virial;
-std::tie(ncoord,virial) =
-     calculator(positions.data(),getAbsoluteIndexes().data(),derivatives.data());
-    
+    std::tie(ncoord,virial) =
+      calculator(positions.data(),getAbsoluteIndexes().data(),derivatives.data());
+
     for(auto i=0U; i<getPositions().size(); ++i) {
       deriv[i][0]=derivatives[i][0];
       deriv[i][1]=derivatives[i][1];

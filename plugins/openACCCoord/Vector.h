@@ -92,6 +92,8 @@ public:
   VectorGeneric(T first,Args... arg);
 /// create it null
   VectorGeneric();
+/// get the underline pointer to the data
+  T* data();
 /// set it to zero
   void zero();
 /// array-like access [i]
@@ -175,6 +177,9 @@ VectorGeneric<n,T>::VectorGeneric(T first,Args... arg)
   static_assert((sizeof...(Args))+1==n,"you are trying to initialize a Vector with the wrong number of arguments");
   auxiliaryConstructor(first,arg...);
 }
+
+template <unsigned n, typename T>
+T* VectorGeneric<n,T>::data() {return d.data();}
 
 template<unsigned n, typename T>
 void VectorGeneric<n,T>::zero() {
