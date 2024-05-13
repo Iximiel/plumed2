@@ -106,8 +106,8 @@ public:
   TensorGeneric(const VectorGeneric<n,T>&v1,const VectorGeneric<m,T>&v2);
 /// set it to zero
   void zero();
-  /// get underline pointer to data
-  T* data(){return d.data();}
+/// get the underline pointer to data
+  T* data();
 /// access element
   T & operator() (unsigned i,unsigned j);
 /// access element
@@ -228,6 +228,9 @@ TensorGeneric<n,m,T>::TensorGeneric(T first,Args... arg)
   static_assert((sizeof...(Args))+1==n*m,"you are trying to initialize a Tensor with the wrong number of arguments");
   auxiliaryConstructor(first,arg...);
 }
+
+template <unsigned n,unsigned m, typename T>
+T* TensorGeneric<n,m,T>::data() {return d.data();}
 
 template <unsigned n,unsigned m, typename T>
 TensorGeneric<n,m,T>::TensorGeneric() {
