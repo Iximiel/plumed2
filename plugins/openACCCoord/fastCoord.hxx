@@ -22,7 +22,7 @@ public:
             float dmax);
   float operator()(const PLMD::wFloat::Vector<float>* const positions,
                    const PLMD::AtomNumber* const reaIndexes,
-                   float* derivatives,
+                   PLMD::wFloat::Vector<float>* derivatives,
                    float* virial) const;
 };
 

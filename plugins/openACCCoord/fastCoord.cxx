@@ -105,7 +105,7 @@ fastCoord::fastCoord(unsigned const natA_,
 float fastCoord::operator()(
   const PLMD::wFloat::Vector<float>* const positions,
   const PLMD::AtomNumber* const reaIndexes,
-  float* const derivatives,
+  PLMD::wFloat::Vector<float>* const derivatives,
   float* const virial) const {
   using v3= PLMD::wFloat::Vector<float>;
   //const T* is a pointer to a constant variable
@@ -120,7 +120,7 @@ float fastCoord::operator()(
   float ncoord;
 
 #pragma acc data copyin(positions[0:nat],reaIndexes[0:nat]) \
-        copyout(derivatives[0:3*nat],virial[0:9],ncoord)
+        copyout(derivatives[0:nat],virial[0:9],ncoord)
   {
 #pragma acc parallel
     {
@@ -141,9 +141,7 @@ float fastCoord::operator()(
       for (size_t i = 0; i < natA; i++) {
         float myNcoord=0.0f;
 
-        float mydevX=0.0f;
-        float mydevY=0.0f;
-        float mydevZ=0.0f;
+        v3 mydev= {0.0f, 0.0f, 0.0f};
 
         float myVirial_0=0.0f;
         float myVirial_1=0.0f;
@@ -179,27 +177,21 @@ float fastCoord::operator()(
 
           // const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
           const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
-          
+
           myNcoord +=t;
 
-          // dfunc*=add;
-
-          const float t_0 = -dfunc * d[0];
-          const float t_1 = -dfunc * d[1];
-          const float t_2 = -dfunc * d[2];
-          mydevX += t_0;
-          mydevY += t_1;
-          mydevZ += t_2;
+          const v3 td = -dfunc * d;
+          mydev += td;
           if(i>j) {
-            myVirial_0 += t_0 * d[0];
-            myVirial_1 += t_0 * d[1];
-            myVirial_2 += t_0 * d[2];
-            myVirial_3 += t_1 * d[0];
-            myVirial_4 += t_1 * d[1];
-            myVirial_5 += t_1 * d[2];
-            myVirial_6 += t_2 * d[0];
-            myVirial_7 += t_2 * d[1];
-            myVirial_8 += t_2 * d[2];
+            myVirial_0 += td[0] * d[0];
+            myVirial_1 += td[0] * d[1];
+            myVirial_2 += td[0] * d[2];
+            myVirial_3 += td[1] * d[0];
+            myVirial_4 += td[1] * d[1];
+            myVirial_5 += td[1] * d[2];
+            myVirial_6 += td[2] * d[0];
+            myVirial_7 += td[2] * d[1];
+            myVirial_8 += td[2] * d[2];
           }
         }
         ncoord += 0.5 * myNcoord;
@@ -214,18 +206,14 @@ float fastCoord::operator()(
         virial[7] += myVirial_7;
         virial[8] += myVirial_8;
 
-        derivatives[3*i+0] = mydevX;
-        derivatives[3*i+1] = mydevY;
-        derivatives[3*i+2] = mydevZ;
+        derivatives[i] = mydev;
       }
     } else {
 #pragma acc parallel loop gang reduction(+:ncoord,virial[0:9])
       for (size_t i = 0; i < natA; i++) {
         float myNcoord=0.0f;
 
-        float mydevX=0.0f;
-        float mydevY=0.0f;
-        float mydevZ=0.0f;
+        v3 mydev= {0.0f, 0.0f, 0.0f};
 
         float myVirial_0=0.0f;
         float myVirial_1=0.0f;
@@ -261,25 +249,19 @@ float fastCoord::operator()(
           const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
           myNcoord +=t;
 
-          // dfunc*=add;
-
-          const float t_0 = -dfunc * d[0];
-          const float t_1 = -dfunc * d[1];
-          const float t_2 = -dfunc * d[2];
-          mydevX += t_0;
-          mydevY += t_1;
-          mydevZ += t_2;
-
-          myVirial_0 += t_0 * d[0];
-          myVirial_1 += t_0 * d[1];
-          myVirial_2 += t_0 * d[2];
-          myVirial_3 += t_1 * d[0];
-          myVirial_4 += t_1 * d[1];
-          myVirial_5 += t_1 * d[2];
-          myVirial_6 += t_2 * d[0];
-          myVirial_7 += t_2 * d[1];
-          myVirial_8 += t_2 * d[2];
-
+          const v3 td = -dfunc * d;
+          mydev += td;
+          
+            myVirial_0 += td[0] * d[0];
+            myVirial_1 += td[0] * d[1];
+            myVirial_2 += td[0] * d[2];
+            myVirial_3 += td[1] * d[0];
+            myVirial_4 += td[1] * d[1];
+            myVirial_5 += td[1] * d[2];
+            myVirial_6 += td[2] * d[0];
+            myVirial_7 += td[2] * d[1];
+            myVirial_8 += td[2] * d[2];
+            
         }
         ncoord += myNcoord;
 
@@ -293,18 +275,13 @@ float fastCoord::operator()(
         virial[7] += myVirial_7;
         virial[8] += myVirial_8;
 
-        derivatives[3*i+0] = mydevX;
-        derivatives[3*i+1] = mydevY;
-        derivatives[3*i+2] = mydevZ;
+        derivatives[i] = mydev;
       }
 //second loop to extract the derivatives of the second group
 #pragma acc parallel loop gang
       for (size_t i = natA; i < nat; i++) {
 
-        float mydevX=0.0f;
-        float mydevY=0.0f;
-        float mydevZ=0.0f;
-
+        v3 mydev= {0.0f, 0.0f, 0.0f};
         v3 xyz=positions[i];
         auto realIndex_i=reaIndexes[i];
 //this needs some more work to function correctly
@@ -325,17 +302,10 @@ float fastCoord::operator()(
           // const auto [t,dfunc ]=calculateSqr<6>(dsq,invr0_2,dmaxsq, stretch,shift);
           const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
 
-          const float t_0 = -dfunc * d[0];
-          const float t_1 = -dfunc * d[1];
-          const float t_2 = -dfunc * d[2];
-          mydevX += t_0;
-          mydevY += t_1;
-          mydevZ += t_2;
+          mydev -= dfunc*d;
         }
 
-        derivatives[3*i+0] = mydevX;
-        derivatives[3*i+1] = mydevY;
-        derivatives[3*i+2] = mydevZ;
+        derivatives[i] = mydev;
       }
     }
 

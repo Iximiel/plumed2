@@ -219,14 +219,14 @@ void CoordinationACC::calculate() {
       positions[i][1] = tmp[1];
       positions[i][2] = tmp[2];
     }
-    std::vector<float> derivatives(3*getPositions().size());
+    std::vector<wFloat::Vector<float>> derivatives(getPositions().size());
     std::vector<float> virial(9,0.0f);
 
     ncoord = calculator(positions.data(),getAbsoluteIndexes().data(),derivatives.data(),virial.data());
     for(auto i=0U; i<getPositions().size(); ++i) {
-      deriv[i][0]=derivatives[i*3  ];
-      deriv[i][1]=derivatives[i*3+1];
-      deriv[i][2]=derivatives[i*3+2];
+      deriv[i][0]=derivatives[i][0];
+      deriv[i][1]=derivatives[i][1];
+      deriv[i][2]=derivatives[i][2];
     }
 
     for(auto i=0U,k=0U; i<3U; ++i) {
