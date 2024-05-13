@@ -94,6 +94,8 @@ public:
   VectorGeneric();
 /// get the underline pointer to the data
   T* data();
+/// get the underline pointer to the data
+  const T* data() const;
 /// set it to zero
   void zero();
 /// array-like access [i]
@@ -180,6 +182,9 @@ VectorGeneric<n,T>::VectorGeneric(T first,Args... arg)
 
 template <unsigned n, typename T>
 T* VectorGeneric<n,T>::data() {return d.data();}
+
+template <unsigned n, typename T>
+const T* VectorGeneric<n,T>::data() const {return d.data();}
 
 template<unsigned n, typename T>
 void VectorGeneric<n,T>::zero() {
