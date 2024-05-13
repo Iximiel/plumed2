@@ -212,12 +212,12 @@ void CoordinationACC::calculate() {
   std::vector<Vector> deriv(getNumberOfAtoms());
   {
 
-    std::vector<float> positions(3*getPositions().size());
+    std::vector<wFloat::Vector<float>> positions(getPositions().size());
     for(auto i=0U; i<getPositions().size(); ++i) {
       auto &tmp = getPosition(i);
-      positions[i*3  ] = tmp[0];
-      positions[i*3+1] = tmp[1];
-      positions[i*3+2] = tmp[2];
+      positions[i][0] = tmp[0];
+      positions[i][1] = tmp[1];
+      positions[i][2] = tmp[2];
     }
     std::vector<float> derivatives(3*getPositions().size());
     std::vector<float> virial(9,0.0f);

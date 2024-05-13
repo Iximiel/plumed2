@@ -1,6 +1,8 @@
 #ifndef myACC_hxx
 #define myACC_hxx
 #include "plumed/tools/AtomNumber.h"
+#include "Vector.h"
+
 namespace myACC {
 class fastCoord {
   unsigned natA{0};
@@ -18,7 +20,7 @@ public:
             unsigned MM,
             float invr0,
             float dmax);
-  float operator()(const float* const positions,
+  float operator()(const PLMD::wFloat::Vector<float>* const positions,
                    const PLMD::AtomNumber* const reaIndexes,
                    float* derivatives,
                    float* virial) const;
