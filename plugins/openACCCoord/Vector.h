@@ -323,7 +323,6 @@ typedef VectorGeneric<1,double> Vector1d;
 typedef VectorGeneric<2,double> Vector2d;
 /// \ingroup TOOLBOX
 /// Alias for three dimensional vectors
-// typedef VectorGeneric<3,double> Vector3d;
 template<typename T=double>
 using Vector3d = VectorGeneric<3,T>;
 /// \ingroup TOOLBOX
