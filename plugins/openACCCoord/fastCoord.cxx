@@ -75,8 +75,8 @@ struct calculatorReducedRationalFlexible {
 
 template <typename calculator>
 std::pair<float,float> getShiftAndStretch(float const invr0_2, float const dmaxsq, const unsigned pow) {
-  float s0=calculator::calculateSqr(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0,pow).first;
-  float sd=calculator::calculateSqr(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0,pow).first;
+  const float s0=calculator::calculateSqr(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0,pow).first;
+  const float sd=calculator::calculateSqr(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0,pow).first;
 
   float const stretch=1.0f/(s0-sd);
   float const shift=-sd*stretch;
@@ -102,15 +102,11 @@ fastCoord::fastCoord(unsigned const natA_,
   stretch = setStretch;
 }
 
-
-
 std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
       const PLMD::wFloat::Vector<float>* const positions,
       const PLMD::AtomNumber* const reaIndexes,
       PLMD::wFloat::Vector<float>* const derivatives
 ) const {
-// #define USEPLMDTENSOR
-// #define USEPLMDTENSOR_CTOR
   using v3= PLMD::wFloat::Vector<float>;
   using tens= PLMD::wFloat::Tensor<float>;
   //const T* is a pointer to a constant variable
@@ -149,9 +145,6 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
       for (size_t i = 0; i < natA; i++) {
         float myNcoord=0.0f;
         v3 mydev= {0.0f, 0.0f, 0.0f};
-#ifdef USEPLMDTENSOR
-        tens myVirial;
-#else
 //using registers seems to work faster
         float myVirial_0=0.0f;
         float myVirial_1=0.0f;
@@ -162,7 +155,7 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
         float myVirial_6=0.0f;
         float myVirial_7=0.0f;
         float myVirial_8=0.0f;
-#endif
+
         v3 xyz=positions[i];
         auto realIndex_i=reaIndexes[i];
 //this needs some more work to function correctly
@@ -172,6 +165,7 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
 //         myVirial_6,myVirial_7,myVirial_8)
 #pragma acc loop seq
         for (size_t j = 0; j < natA; j++) {
+
           if(realIndex_i==reaIndexes[j]) {
             continue;
           }
@@ -184,21 +178,6 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
           const v3 td = -dfunc * d;
           mydev += td;
           if(i>j) {
-#ifdef USEPLMDTENSOR
-#ifdef USEPLMDTENSOR_CTOR
-            myVirial+=tens(td,d);
-#else
-            myVirial[0][0]+=td[0]*d[0];
-            myVirial[0][1]+=td[0]*d[1];
-            myVirial[0][2]+=td[0]*d[2];
-            myVirial[1][0]+=td[1]*d[0];
-            myVirial[1][1]+=td[1]*d[1];
-            myVirial[1][2]+=td[1]*d[2];
-            myVirial[2][0]+=td[2]*d[0];
-            myVirial[2][1]+=td[2]*d[1];
-            myVirial[2][2]+=td[2]*d[2];
-#endif
-#else
             myVirial_0+=td[0]*d[0];
             myVirial_1+=td[0]*d[1];
             myVirial_2+=td[0]*d[2];
@@ -208,31 +187,10 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
             myVirial_6+=td[2]*d[0];
             myVirial_7+=td[2]*d[1];
             myVirial_8+=td[2]*d[2];
-#endif
           }
         }
         ncoord += 0.5 * myNcoord;
         //openacc does not do the reduction on the operator of the Tensor
-#ifdef USEPLMDTENSOR
-        // virial[0]+=myVirial[0][0];
-        // virial[1]+=myVirial[0][1];
-        // virial[2]+=myVirial[0][2];
-        // virial[3]+=myVirial[1][0];
-        // virial[4]+=myVirial[1][1];
-        // virial[5]+=myVirial[1][2];
-        // virial[6]+=myVirial[2][0];
-        // virial[7]+=myVirial[2][1];
-        // virial[8]+=myVirial[2][2];
-        virial[0]+=myVirial.data()[0];
-        virial[1]+=myVirial.data()[1];
-        virial[2]+=myVirial.data()[2];
-        virial[3]+=myVirial.data()[3];
-        virial[4]+=myVirial.data()[4];
-        virial[5]+=myVirial.data()[5];
-        virial[6]+=myVirial.data()[6];
-        virial[7]+=myVirial.data()[7];
-        virial[8]+=myVirial.data()[8];
-#else
         virial[0]+=myVirial_0;
         virial[1]+=myVirial_1;
         virial[2]+=myVirial_2;
@@ -242,7 +200,6 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
         virial[6]+=myVirial_6;
         virial[7]+=myVirial_7;
         virial[8]+=myVirial_8;
-#endif
         derivatives[i] = mydev;
       }
     } else {
@@ -250,9 +207,6 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
       for (size_t i = 0; i < natA; i++) {
         float myNcoord=0.0f;
         v3 mydev= {0.0f, 0.0f, 0.0f};
-#ifdef USEPLMDTENSOR
-        tens myVirial;
-#else
         float myVirial_0=0.0f;
         float myVirial_1=0.0f;
         float myVirial_2=0.0f;
@@ -262,14 +216,8 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
         float myVirial_6=0.0f;
         float myVirial_7=0.0f;
         float myVirial_8=0.0f;
-#endif
         v3 xyz=positions[i];
         auto realIndex_i=reaIndexes[i];
-//this needs some more work to function correctly
-// #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
-//         myVirial_0,myVirial_1,myVirial_2, \
-//         myVirial_3,myVirial_4,myVirial_5, \
-//         myVirial_6,myVirial_7,myVirial_8)
 #pragma acc loop seq
         for (size_t j = natA; j < nat; j++) {
           if(realIndex_i==reaIndexes[j]) {
@@ -283,21 +231,7 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
 
           const v3 td = -dfunc * d;
           mydev += td;
-#ifdef USEPLMDTENSOR
-#ifdef USEPLMDTENSOR_CTOR
-          myVirial+=tens(td,d);
-#else
-          myVirial[0][0]+=td[0]*d[0];
-          myVirial[0][1]+=td[0]*d[1];
-          myVirial[0][2]+=td[0]*d[2];
-          myVirial[1][0]+=td[1]*d[0];
-          myVirial[1][1]+=td[1]*d[1];
-          myVirial[1][2]+=td[1]*d[2];
-          myVirial[2][0]+=td[2]*d[0];
-          myVirial[2][1]+=td[2]*d[1];
-          myVirial[2][2]+=td[2]*d[2];
-#endif
-#else
+
           myVirial_0+=td[0]*d[0];
           myVirial_1+=td[0]*d[1];
           myVirial_2+=td[0]*d[2];
@@ -307,21 +241,9 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
           myVirial_6+=td[2]*d[0];
           myVirial_7+=td[2]*d[1];
           myVirial_8+=td[2]*d[2];
-#endif
-
         }
         ncoord += myNcoord;
-#ifdef USEPLMDTENSOR
-        virial[0]+=myVirial[0][0];
-        virial[1]+=myVirial[0][1];
-        virial[2]+=myVirial[0][2];
-        virial[3]+=myVirial[1][0];
-        virial[4]+=myVirial[1][1];
-        virial[5]+=myVirial[1][2];
-        virial[6]+=myVirial[2][0];
-        virial[7]+=myVirial[2][1];
-        virial[8]+=myVirial[2][2];
-#else
+
         virial[0]+=myVirial_0;
         virial[1]+=myVirial_1;
         virial[2]+=myVirial_2;
@@ -331,7 +253,6 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
         virial[6]+=myVirial_6;
         virial[7]+=myVirial_7;
         virial[8]+=myVirial_8;
-#endif
         derivatives[i] = mydev;
       }
 //second loop to extract the derivatives of the second group
@@ -340,11 +261,6 @@ std::pair<float,PLMD::wFloat::Tensor<float>> fastCoord::operator()(
         v3 mydev= {0.0f, 0.0f, 0.0f};
         v3 xyz=positions[i];
         auto realIndex_i=reaIndexes[i];
-//this needs some more work to function correctly
-// #pragma acc loop worker reduction(+:myNcoord,mydevX,mydevY,mydevZ, \
-//         myVirial_0,myVirial_1,myVirial_2, \
-//         myVirial_3,myVirial_4,myVirial_5, \
-//         myVirial_6,myVirial_7,myVirial_8)
 #pragma acc loop seq
         for (size_t j = 0; j < natA; j++) {
           if(realIndex_i==reaIndexes[j]) {
