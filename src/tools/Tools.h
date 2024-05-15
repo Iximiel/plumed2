@@ -241,8 +241,8 @@ public:
     for(unsigned i=0; i<n; i++) ptr[i]=0.0;
   }
 
-  template<unsigned n>
-  static void set_to_zero(std::vector<VectorGeneric<n>> & vec) {
+  template<typename T, unsigned n>
+  static void set_to_zero(std::vector<VectorGeneric<T,n>> & vec) {
     unsigned s=vec.size();
     if(s==0) return;
     set_to_zero(&vec[0][0],s*n);
