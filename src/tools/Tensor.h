@@ -34,8 +34,7 @@ namespace PLMD {
 //should I add something for calling ssyevr?
 /// Small class to contain local utilities.
 /// Should not be used outside of the TensorGeneric class.
-class TensorGenericAux {
-public:
+struct TensorGenericAux {
 // local redefinition, just to avoid including lapack.h here
   static void local_dsyevr(const char *jobz, const char *range, const char *uplo, int *n,
                            double *a, int *lda, double *vl, double *vu, int *
@@ -85,19 +84,31 @@ int main(){
 \endverbatim
 */
 
+//there are some "hiccups" with the friend operators, so I declared them inline in the body of tensor
+//in that way they are automatically declared templaterd without declaration+implementation
+//that despite was the suggested way of doing the implementation on my compiler seems to not work as intended
+
 template<typename T, unsigned n, unsigned m> class TensorGeneric;
 //no need to friend-declare these functions
+/// \ingroup TOOLBOX
 /// returns the determinant of a tensor
 template<typename T> T determinant(const TensorGeneric<T,3,3>&);
-/// returns the inverse of a tensor (same as inverse())
+/// \ingroup TOOLBOX
+/// returns the inverse of a 3x3 tensor (same as TensorGeneric<T,3,3>::inverse())
 template<typename T> TensorGeneric<T,3,3> inverse(const TensorGeneric<T,3,3>&);
+/// \ingroup TOOLBOX
+/// returns the determinant of a 3x3 tensor (same as TensorGeneric<T,3,3>::determinant())
 template<typename T> T determinant(const TensorGeneric<T,3,3>&);
 template<typename T> TensorGeneric<T,3,3> dcrossDv1(const VectorGeneric<T,3>&,const VectorGeneric<T,3>&);
 template<typename T> TensorGeneric<T,3,3> dcrossDv2(const VectorGeneric<T,3>&,const VectorGeneric<T,3>&);
 template<typename T> TensorGeneric<T,3,3> VcrossTensor(const VectorGeneric<T,3>&,const TensorGeneric<T,3,3>&);
 template<typename T> TensorGeneric<T,3,3> VcrossTensor(const TensorGeneric<T,3,3>&,const VectorGeneric<T,3>&);
+/// \ingroup TOOLBOX
 /// Derivative of a normalized vector
 template<typename T> TensorGeneric<T,3,3> deriNorm(const VectorGeneric<T,3>&,const TensorGeneric<T,3,3>&);
+
+template<typename T, unsigned n, unsigned m>
+std::ostream & operator<< (std::ostream &os, const TensorGeneric<T,n,m>&);
 
 template<typename T, unsigned n, unsigned m>
 class TensorGeneric:
@@ -130,9 +141,9 @@ public:
 /// access element
   const T & operator() (unsigned i,unsigned j)const;
 /// increment
-  TensorGeneric& operator +=(const TensorGeneric<T,n,m>& b);
+  TensorGeneric& operator +=(const TensorGeneric& b);
 /// decrement
-  TensorGeneric& operator -=(const TensorGeneric<T,n,m>& b);
+  TensorGeneric& operator -=(const TensorGeneric& b);
 /// multiply
   TensorGeneric& operator *=(T);
 /// divide
@@ -150,20 +161,18 @@ public:
 /// get i-th row
   VectorGeneric<T,m> getRow(unsigned i)const;
 /// return t1+t2
-  template<typename U, unsigned n_, unsigned m_>
-  friend TensorGeneric<U,n_,m_> operator+(const TensorGeneric<U,n_,m_>&,const TensorGeneric<U,n_,m_>&);
-/// return t1+t2
-  template<typename U, unsigned n_, unsigned m_>
-  friend TensorGeneric<U,n_,m_> operator-(const TensorGeneric<U,n_,m_>&,const TensorGeneric<U,n_,m_>&);
+  friend TensorGeneric operator+ (TensorGeneric t1,const TensorGeneric& t2) {return t1+=t2;}
+/// return t1-t2
+  friend TensorGeneric operator- (TensorGeneric t1,const TensorGeneric& t2) {return t1-=t2;}
 /// scale the tensor by a factor s
-  template<typename U, typename J, unsigned n_, unsigned m_>
-  friend TensorGeneric<U,n_,m_> operator*(J,const TensorGeneric<U,n_,m_>&);
+  template<typename U>
+  friend TensorGeneric operator*(TensorGeneric t1,U s) {return t1*=s;}
 /// scale the tensor by a factor s
-  template<typename U, typename J, unsigned n_, unsigned m_>
-  friend TensorGeneric<U,n_,m_> operator*(const TensorGeneric<U,n_,m_>&,J s);
+  template<typename U>
+  friend TensorGeneric operator*(U s,TensorGeneric t1) {return t1*=s;}
 /// scale the tensor by a factor 1/s
-  template<typename U, typename J, unsigned n_, unsigned m_>
-  friend TensorGeneric<U,n_,m_> operator/(const TensorGeneric<U,n_,m_>&,J s);
+  template<typename U>
+  friend TensorGeneric operator/(TensorGeneric t1,U s) {return t1*=(T(1.0)/s);}
 /// returns the determinant
   T determinant()const;
 /// return an identity tensor
@@ -172,40 +181,9 @@ public:
   TensorGeneric inverse()const;
 /// return the transpose matrix
   TensorGeneric<T,m,n> transpose()const;
-/// matrix-matrix multiplication
-  template<typename U, unsigned n_, unsigned m_, unsigned l_>
-  friend TensorGeneric<U,n_,l_> matmul(const TensorGeneric<U,n_,m_>&,const TensorGeneric<U,m_,l_>&);
-/// matrix-vector multiplication
-  template<typename U, unsigned n_, unsigned m_>
-  friend VectorGeneric<U,n_> matmul(const TensorGeneric<U,n_,m_>&,const VectorGeneric<U,m_>&);
-/// vector-matrix multiplication
-  template<typename U, unsigned n_, unsigned m_>
-  friend VectorGeneric<U,n_> matmul(const VectorGeneric<U,m_>&,const TensorGeneric<U,m_,n_>&);
-/// vector-vector multiplication (maps to dotProduct)
-  template<unsigned n_>
-  friend T matmul(const VectorGeneric<T,n_>&,const VectorGeneric<T,n_>&);
-/// matrix-matrix-matrix multiplication
-  template<typename U, unsigned n_, unsigned m_, unsigned l_, unsigned i_>
-  friend TensorGeneric<U,n_,i_> matmul(const TensorGeneric<U,n_,m_>&,const TensorGeneric<U,m_,l_>&,const TensorGeneric<U,l_,i_>&);
-/// matrix-matrix-vector multiplication
-  template<typename U, unsigned n_, unsigned m_, unsigned l_>
-  friend VectorGeneric<U,n_> matmul(const TensorGeneric<U,n_,m_>&,const TensorGeneric<U,m_,l_>&,const VectorGeneric<U,l_>&);
-/// vector-matrix-matrix multiplication
-  template<typename U, unsigned n_, unsigned m_, unsigned l_>
-  friend VectorGeneric<U,l_> matmul(const VectorGeneric<U,n_>&,const TensorGeneric<U,n_,m_>&,const TensorGeneric<U,m_,l_>&);
-/// vector-matrix-vector multiplication
-  template<typename U, unsigned n_, unsigned m_>
-  friend T matmul(const VectorGeneric<U,n_>&,const TensorGeneric<U,n_,m_>&,const VectorGeneric<U,m_>&);
-/// returns the transpose of a tensor (same as transpose())
-  template<typename U, unsigned n_, unsigned m_>
-  friend TensorGeneric<U,n_,m_> transpose(const TensorGeneric<U,m_,n_>&);
-/// returns the transpose of a tensor (same as TensorGeneric(const VectorGeneric&,const VectorGeneric&))
-  template<typename U, unsigned n_, unsigned m_>
-  friend TensorGeneric<U,n_,m_> extProduct(const VectorGeneric<U,n>&,const VectorGeneric<U,m>&);
 /// << operator.
 /// Allows printing tensor `t` with `std::cout<<t;`
-  template<typename U, unsigned n_, unsigned m_>
-  friend std::ostream & operator<<(std::ostream &os, const TensorGeneric<U,n_,m_>&);
+  friend std::ostream & operator<< <>(std::ostream &os, const TensorGeneric&);
 /// Diagonalize tensor.
 /// Syntax is the same as Matrix::diagMat.
 /// In addition, it is possible to call if with m_ smaller than n_. In this case,
@@ -364,40 +342,9 @@ VectorGeneric<T,m> TensorGeneric<T,n,m>::getRow(unsigned i)const {
 }
 
 template<typename T, unsigned n, unsigned m>
-TensorGeneric<T,n,m> operator+(const TensorGeneric<T,n,m>&t1,const TensorGeneric<T,n,m>&t2) {
-  TensorGeneric<T,n,m> t(t1);
-  t+=t2;
-  return t;
-}
-
-template<typename T, unsigned n, unsigned m>
-TensorGeneric<T,n,m> operator-(const TensorGeneric<T,n,m>&t1,const TensorGeneric<T,n,m>&t2) {
-  TensorGeneric<T,n,m> t(t1);
-  t-=t2;
-  return t;
-}
-
-template<typename T, typename J, unsigned n, unsigned m>
-TensorGeneric<T,n,m> operator*(const TensorGeneric<T,n,m>&t1,J s) {
-  TensorGeneric<T,n,m> t(t1);
-  t*=s;
-  return t;
-}
-
-template<typename T, typename J, unsigned n, unsigned m>
-TensorGeneric<T,n,m> operator*(J s,const TensorGeneric<T,n,m>&t1) {
-  return t1*s;
-}
-
-template<typename T, typename J, unsigned n, unsigned m>
-TensorGeneric<T,n,m> operator/(const TensorGeneric<T,n,m>&t1,J s) {
-  return t1*(T(1.0)/s);
-}
-
-template<typename T, unsigned n, unsigned m>
 inline
 T TensorGeneric<T,n,m>::determinant()const {
-  static_assert(n==3&&m==3,"determinanat can be called only for 3x3 Tensors");
+  static_assert(n==3&&m==3,"determinant can be called only for 3x3 Tensors");
   return
     d[0]*d[4]*d[8]
     + d[1]*d[5]*d[6]
@@ -411,6 +358,7 @@ T TensorGeneric<T,n,m>::determinant()const {
 template<typename T, unsigned n, unsigned m>
 inline
 TensorGeneric<T,n,n> TensorGeneric<T,n,m>::identity() {
+  static_assert(n==m, "Identity matrix can only be called from a square tensor");
   TensorGeneric<T,n,n> t;
   for(unsigned i=0; i<n; i++) t(i,i)=1.0;
   return t;
@@ -435,6 +383,7 @@ TensorGeneric<T,n,m> TensorGeneric<T,n,m>::inverse()const {
   return t;
 }
 
+/// matrix-matrix multiplication
 template<typename T, unsigned n, unsigned m, unsigned l>
 TensorGeneric<T,n,l> matmul(const TensorGeneric<T,n,m>&a,const TensorGeneric<T,m,l>&b) {
   TensorGeneric<T,n,l> t;
@@ -444,13 +393,14 @@ TensorGeneric<T,n,l> matmul(const TensorGeneric<T,n,m>&a,const TensorGeneric<T,m
   return t;
 }
 
+/// matrix-vector multiplication
 template<typename T, unsigned n, unsigned m>
 VectorGeneric<T,n> matmul(const TensorGeneric<T,n,m>&a,const VectorGeneric<T,m>&b) {
   VectorGeneric<T,n> t;
   for(unsigned i=0; i<n; i++) for(unsigned j=0; j<m; j++) t(i)+=a(i,j)*b(j);
   return t;
 }
-
+/// vector-matrix multiplication
 template<typename T, unsigned n, unsigned m>
 VectorGeneric<T,n> matmul(const VectorGeneric<T,m>&a,const TensorGeneric<T,m,n>&b) {
   VectorGeneric<T,n> t;
@@ -458,26 +408,31 @@ VectorGeneric<T,n> matmul(const VectorGeneric<T,m>&a,const TensorGeneric<T,m,n>&
   return t;
 }
 
+/// vector-vector multiplication (maps to dotProduct)
 template<typename T, unsigned n_>
 T matmul(const VectorGeneric<T,n_>&a,const VectorGeneric<T,n_>&b) {
   return dotProduct(a,b);
 }
 
+/// matrix-matrix-matrix multiplication
 template<typename T, unsigned n, unsigned m, unsigned l, unsigned i>
 TensorGeneric<T,n,i> matmul(const TensorGeneric<T,n,m>&a,const TensorGeneric<T,m,l>&b,const TensorGeneric<T,l,i>&c) {
   return matmul(matmul(a,b),c);
 }
 
+/// matrix-matrix-vector multiplication
 template<typename T, unsigned n, unsigned m, unsigned l>
 VectorGeneric<T,n> matmul(const TensorGeneric<T,n,m>&a,const TensorGeneric<T,m,l>&b,const VectorGeneric<T,l>&c) {
   return matmul(matmul(a,b),c);
 }
 
+/// vector-matrix-matrix multiplication
 template<typename T, unsigned n, unsigned m, unsigned l>
 VectorGeneric<T,l> matmul(const VectorGeneric<T,n>&a,const TensorGeneric<T,n,m>&b,const TensorGeneric<T,m,l>&c) {
   return matmul(matmul(a,b),c);
 }
 
+/// vector-matrix-vector multiplication
 template<typename T, unsigned n, unsigned m>
 T matmul(const VectorGeneric<T,n>&a,const TensorGeneric<T,n,m>&b,const VectorGeneric<T,m>&c) {
   return matmul(matmul(a,b),c);
@@ -494,12 +449,13 @@ inline
 TensorGeneric<T,3,3> inverse(const TensorGeneric<T,3,3>&t) {
   return t.inverse();
 }
-
+/// returns the transpose of a tensor (same as TensorGeneric::transpose())
 template<typename T, unsigned n, unsigned m>
 TensorGeneric<T,n,m> transpose(const TensorGeneric<T,m,n>&t) {
   return t.transpose();
 }
 
+/// returns the transpose of a tensor (same as TensorGeneric(const VectorGeneric&,const VectorGeneric&))
 template<typename T, unsigned n, unsigned m>
 TensorGeneric<T,n,m> extProduct(const VectorGeneric<T,n>&v1,const VectorGeneric<T,m>&v2) {
   return TensorGeneric<T,n,m>(v1,v2);
@@ -597,8 +553,8 @@ void diagMatSym(const TensorGeneric<T,n,n>&mat,VectorGeneric<T,m>&evals,TensorGe
   int info=0;            // result
   int liwork=iwork.size();
   int lwork=work.size();
-  TensorGenericAux::local_dsyevr("V", (n==m?"A":"I"), "T", &nn, const_cast<T*>(&mat_copy[0][0]), &nn, &vl, &vu, &one, &mm,
-                                 &abstol, &mout, &evals_tmp[0], &evec[0][0], &nn,
+  TensorGenericAux::local_dsyevr("V", (n==m?"A":"I"), "U", &nn, mat_copy.data(), &nn, &vl, &vu, &one, &mm,
+                                 &abstol, &mout, evals_tmp.data(), evec.data(), &nn,
                                  isup.data(), work.data(), &lwork, iwork.data(), &liwork, &info);
   if(info!=0) plumed_error()<<"Error diagonalizing matrix\n"
                               <<"Matrix:\n"<<mat<<"\n"

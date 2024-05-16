@@ -73,7 +73,12 @@ int main(){
 \endverbatim
 
 */
+template<typename T, unsigned n> class VectorGeneric;
+template<typename T, unsigned n>
+std::ostream & operator<<(std::ostream &os, const VectorGeneric<T, n>& v);
 
+template<typename T, unsigned n>
+VectorGeneric<T, n> delta(const VectorGeneric<T, n>&,const VectorGeneric<T, n>&);
 
 template<typename T, unsigned n>
 class VectorGeneric {
@@ -133,8 +138,7 @@ public:
   template<typename U, typename J, unsigned m>
   friend VectorGeneric<U, m> operator/(const VectorGeneric<U, m>&,J);
 /// return v2-v1
-  template<typename U, unsigned m>
-  friend VectorGeneric<U, m> delta(const VectorGeneric<U, m>&v1,const VectorGeneric<U, m>&v2);
+  friend VectorGeneric delta<>(const VectorGeneric&v1,const VectorGeneric&v2);
 /// return v1 .scalar. v2
   template<typename U, unsigned m>
   friend U dotProduct(const VectorGeneric<U, m>&,const VectorGeneric<U, m>&);
@@ -156,8 +160,7 @@ public:
   friend U modulo(const VectorGeneric<U, m>&);
 /// << operator.
 /// Allows printing vector `v` with `std::cout<<v;`
-  template<unsigned m>
-  friend std::ostream & operator<<(std::ostream &os, const VectorGeneric<T, m>&);
+  friend std::ostream & operator<< <> (std::ostream &os, const VectorGeneric&);
 };
 
 template<typename T, unsigned n>
