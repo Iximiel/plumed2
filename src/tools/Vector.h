@@ -275,7 +275,7 @@ VectorGeneric<T, n> operator*(VectorGeneric<T, n> v,J s) {
 
 template<typename T, typename J, unsigned n>
 VectorGeneric<T, n> operator/(const VectorGeneric<T, n>&v,J s) {
-  return v*(1.0/s);
+  return v*(T(1.0)/s);
 }
 
 template<typename T, unsigned n>

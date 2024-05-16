@@ -248,8 +248,8 @@ public:
     set_to_zero(&vec[0][0],s*n);
   }
 
-  template<unsigned n,unsigned m>
-  static void set_to_zero(std::vector<TensorGeneric<n,m>> & vec) {
+  template<typename T, unsigned n,unsigned m>
+  static void set_to_zero(std::vector<TensorGeneric<T,n,m>> & vec) {
     unsigned s=vec.size();
     if(s==0) return;
     set_to_zero(&vec[0](0,0),s*n*m);
