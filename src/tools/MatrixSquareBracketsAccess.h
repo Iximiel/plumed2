@@ -73,7 +73,7 @@ class MatrixSquareBracketsAccess {
     // the user should not manipulate it directly
     const MatrixSquareBracketsAccess& t;
     const I i;
-    Const_row(const MatrixSquareBracketsAccess&t,I i); // constructor is private and cannot be manipulated by the user
+    constexpr Const_row(const MatrixSquareBracketsAccess&t,I i); // constructor is private and cannot be manipulated by the user
   public:
     /// access element
     constexpr const C & operator[] (J j)const;
@@ -84,7 +84,7 @@ class MatrixSquareBracketsAccess {
     // the user should not manipulate it directly
     MatrixSquareBracketsAccess& t;
     const I i;
-    Row(MatrixSquareBracketsAccess&t,I i); // constructor is private and cannot be manipulated by the user
+    constexpr Row(MatrixSquareBracketsAccess&t,I i); // constructor is private and cannot be manipulated by the user
   public:
     /// access element
     constexpr C & operator[] (J j);
@@ -97,11 +97,11 @@ public:
 };
 
 template<class T,class C,class I,class J>
-MatrixSquareBracketsAccess<T,C,I,J>::Const_row::Const_row(const MatrixSquareBracketsAccess&t,I i):
+constexpr MatrixSquareBracketsAccess<T,C,I,J>::Const_row::Const_row(const MatrixSquareBracketsAccess&t,I i):
   t(t),i(i) {}
 
 template<class T,class C,class I,class J>
-MatrixSquareBracketsAccess<T,C,I,J>::Row::Row(MatrixSquareBracketsAccess&t,I i):
+constexpr MatrixSquareBracketsAccess<T,C,I,J>::Row::Row(MatrixSquareBracketsAccess&t,I i):
   t(t),i(i) {}
 
 template<class T,class C,class I,class J>
