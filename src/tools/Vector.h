@@ -55,8 +55,8 @@ Also notice that some operations are only available for 3 dimensional vectors.
 VectorGeneric<int,typename> is templated by type, so it can be used in accelerated context
 when the accelerator has limitation on double precision calculations.
 
-Nearly all of the functions are constexpr, because c++17 and because 
-the cuda compiler, at the time of writing this, support the options 
+Nearly all of the functions are constexpr, because c++17 and because
+the cuda compiler, at the time of writing this, support the options
 --expt-relaxed-constexpr that treats the constexpr funcions as they are declared
 also with the __device__ attribute
 
