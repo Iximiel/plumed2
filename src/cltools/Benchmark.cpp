@@ -451,7 +451,15 @@ void Benchmark::registerKeywords( Keywords& keys ) {
   keys.add("compulsory","--nsteps","2000","number of steps of MD to perform (-1 means forever)");
   keys.add("compulsory","--maxtime","-1","maximum number of seconds (-1 means forever)");
   keys.add("compulsory","--sleep","0","number of seconds of sleep, mimicking MD calculation");
-  keys.add("compulsory","--atom-distribution","line","the kind of possible atomic displacement at each step");
+  // using em space " " to hack some space in the getWords function
+  keys.add("compulsory","--atom-distribution","line","the kind of possible atomic displacement at each step.\n"
+           " \"line\" and \"sc\" have atoms that oscillates around their initial positions:\n"
+           " - \"line\" creates a line of that oscillates aroun their base positions at 1 nm from each other\n"
+           " - \"sc\" creates a simple cubic reticule and fill it with up of the number of atoms asked\n"
+           " \"cube\", \"sphere\" and \"globs\" distribuite the atoms in a volume equal to the number of atoms, giving a mean density of 1nm^3\n"
+           " - \"cube\" at each step evenly (randomly) distribuites all atoms in a cube of volume equal to natoms nm^3\n"
+           " - \"sphere\" at each step evenly (randomly) distribuites all atoms in a sphere of volume equal to natoms nm^3\n"
+           " - \"globs\" at each step evenly (randomly) distribuites all atoms in two spheres of volume equal to natoms/2 nm^3 each");
   keys.addFlag("--domain-decomposition",false,"simulate domain decomposition, implies --shuffle");
   keys.addFlag("--shuffled",false,"reshuffle atoms");
 }
