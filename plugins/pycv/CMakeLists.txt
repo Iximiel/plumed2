@@ -13,15 +13,51 @@ exec_program(plumed
 ARGS info --include-dir
 OUTPUT_VARIABLE PLUMED_INCLUDE_DIR
 )
-message(STATUS "Plumed include dir: ${PLUMED_INCLUDE_DIR}")
 
+exec_program(plumed
+ARGS info --configuration
+OUTPUT_VARIABLE PLUMED_CONFIG
+)
+set(PLUMED_CXX_FLAGS "")
+set(PLUMED_CPP_FLAGS "")
+set(PLUMED_DYNAMIC_LIBS "")
+
+string(REPLACE "\n" ";" ProcessFile_LINES "${PLUMED_CONFIG}")
+foreach(_line ${ProcessFile_LINES})
+    # message(STATUS "Found PLUMED :${_line}")
+  if (${_line} MATCHES "CXXFLAGS=.*")
+    set(PLUMED_CXX_FLAGS ${_line})
+    string(REPLACE "CXXFLAGS= *" "" PLUMED_CXX_FLAGS ${PLUMED_CXX_FLAGS})
+    message(STATUS "Found PLUMED CXX_FLAGS: \"${PLUMED_CXX_FLAGS}\"")
+    # string(REPLACE " " ";" PLUMED_CXX_FLAGS ${PLUMED_CXX_FLAGS})
+  endif()
+  if (${_line} MATCHES "CPPFLAGS=.*")
+    set(PLUMED_CPP_FLAGS ${_line})
+    string(REPLACE "CPPFLAGS= *" "" PLUMED_CPP_FLAGS ${PLUMED_CPP_FLAGS})
+    message(STATUS "Found PLUMED CPP_FLAGS: \"${PLUMED_CPP_FLAGS}\"")
+    # string(REPLACE " " ";" PLUMED_CPP_FLAGS ${PLUMED_CPP_FLAGS})
+  endif()
+  if (${_line} MATCHES "DYNAMIC_LIBS=.*")
+    set(PLUMED_DYNAMIC_LIBS ${_line})
+    string(REPLACE "DYNAMIC_LIBS= *" "" PLUMED_DYNAMIC_LIBS ${PLUMED_DYNAMIC_LIBS})
+    message(STATUS "Found PLUMED DYNAMIC_LIBS: \"${PLUMED_DYNAMIC_LIBS}\"")
+    # string(REPLACE " " ";" PLUMED_DYNAMIC_LIBS ${PLUMED_DYNAMIC_LIBS})
+  endif()
+  
+endforeach()
+
+message(STATUS "Plumed include dir: ${PLUMED_INCLUDE_DIR}")
+set(CMAke__extra)
 ################################################################################
 ################################the pycv library################################
 ################################################################################
 #TODO: removhe the "lib" prefix
 add_library(PythonCVInterface SHARED src/ActionWithPython.cpp  src/PythonCVInterface.cpp  src/PythonFunction.cpp)
+#public, so they trickle down to the python module
+target_compile_definitions(PythonCVInterface PUBLIC ${PLUMED_CPP_FLAGS})
+target_compile_options(PythonCVInterface PUBLIC ${PLUMED_CXX_FLAGS})
 target_link_libraries(PythonCVInterface PRIVATE pybind11::embed)
-target_link_libraries(PythonCVInterface PUBLIC plumedKernel)
+target_link_libraries(PythonCVInterface PUBLIC plumedKernel ${PLUMED_DYNAMIC_LIBS})
 target_include_directories(PythonCVInterface PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
 
 install(TARGETS PythonCVInterface DESTINATION .)
@@ -33,7 +69,8 @@ install(TARGETS PythonCVInterface DESTINATION .)
 pybind11_add_module(plumedCommunications src/PlumedPythonEmbeddedModule.cpp)
 #python_add_library(plumedCommunications MODULE PlumedPythonEmbeddedModule.cpp WITH_SOABI)
 # target_link_libraries(plumedCommunications PRIVATE pybind11::headers)
-target_link_libraries(plumedCommunications PUBLIC plumedKernel)
+#target_compile_definitions(plumedCommunications PUBLIC ${PLUMED_CPP_FLAGS})
+target_link_libraries(plumedCommunications PUBLIC plumedKernel ${PLUMED_DYNAMIC_LIBS})
 target_link_libraries(plumedCommunications PUBLIC PythonCVInterface)
 target_include_directories(plumedCommunications PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
 
