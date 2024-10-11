@@ -15,7 +15,7 @@ OUTPUT_VARIABLE PLUMED_INCLUDE_DIR
 )
 message(STATUS "Plumed include dir: ${PLUMED_INCLUDE_DIR}")
 
-pybind11_add_module(plumedCommunications PlumedPythonEmbeddedModule.cpp)
+pybind11_add_module(plumedCommunications src/PlumedPythonEmbeddedModule.cpp)
 #python_add_library(plumedCommunications MODULE PlumedPythonEmbeddedModule.cpp WITH_SOABI)
 # target_link_libraries(plumedCommunications PRIVATE pybind11::headers)
 target_link_libraries(plumedCommunications PUBLIC plumedKernel)
@@ -28,14 +28,14 @@ install(TARGETS plumedCommunications DESTINATION .)
 
 #the pycv library
 #TODO: removhe the "lib" prefix
-add_library(PythonCVInterface SHARED ActionWithPython.cpp  PythonCVInterface.cpp  PythonFunction.cpp)
+add_library(PythonCVInterface SHARED src/ActionWithPython.cpp  src/PythonCVInterface.cpp  src/PythonFunction.cpp)
 target_link_libraries(PythonCVInterface PRIVATE pybind11::embed)
 target_link_libraries(PythonCVInterface PUBLIC plumedKernel)
 
 target_link_libraries(plumedCommunications PUBLIC PythonCVInterface)
 
-target_include_directories(PythonCVInterface PUBLIC ${PLUMED_INCLUDE_DIR}/plumed)
-target_include_directories(plumedCommunications PUBLIC ${PLUMED_INCLUDE_DIR}/plumed)
+target_include_directories(PythonCVInterface PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
+target_include_directories(plumedCommunications PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
 
 
 install(TARGETS PythonCVInterface DESTINATION .)
