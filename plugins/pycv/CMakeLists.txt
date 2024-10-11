@@ -15,27 +15,27 @@ OUTPUT_VARIABLE PLUMED_INCLUDE_DIR
 )
 message(STATUS "Plumed include dir: ${PLUMED_INCLUDE_DIR}")
 
-pybind11_add_module(plumedCommunications src/PlumedPythonEmbeddedModule.cpp)
-#python_add_library(plumedCommunications MODULE PlumedPythonEmbeddedModule.cpp WITH_SOABI)
-# target_link_libraries(plumedCommunications PRIVATE pybind11::headers)
-target_link_libraries(plumedCommunications PUBLIC plumedKernel)
-
-# This is passing in the version as a define just as an example
-target_compile_definitions(plumedCommunications PRIVATE VERSION_INFO=${PROJECT_VERSION})
-
-# The install directory is the output (wheel) directory
-install(TARGETS plumedCommunications DESTINATION .)
-
-#the pycv library
+################################################################################
+################################the pycv library################################
+################################################################################
 #TODO: removhe the "lib" prefix
 add_library(PythonCVInterface SHARED src/ActionWithPython.cpp  src/PythonCVInterface.cpp  src/PythonFunction.cpp)
 target_link_libraries(PythonCVInterface PRIVATE pybind11::embed)
 target_link_libraries(PythonCVInterface PUBLIC plumedKernel)
-
-target_link_libraries(plumedCommunications PUBLIC PythonCVInterface)
-
 target_include_directories(PythonCVInterface PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
-target_include_directories(plumedCommunications PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
-
 
 install(TARGETS PythonCVInterface DESTINATION .)
+
+################################################################################
+############################The pvCV companion module###########################
+################################################################################
+
+pybind11_add_module(plumedCommunications src/PlumedPythonEmbeddedModule.cpp)
+#python_add_library(plumedCommunications MODULE PlumedPythonEmbeddedModule.cpp WITH_SOABI)
+# target_link_libraries(plumedCommunications PRIVATE pybind11::headers)
+target_link_libraries(plumedCommunications PUBLIC plumedKernel)
+target_link_libraries(plumedCommunications PUBLIC PythonCVInterface)
+target_include_directories(plumedCommunications PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
+
+# The install directory is the output (wheel) directory
+install(TARGETS plumedCommunications DESTINATION .)
