@@ -6,18 +6,17 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "pyCV"
 version = "0.0.1"
-description="PyCV as a package for PLUMED"
+description="PyCV support module for plumed"
 readme = "README.md"
 authors = [
-  { name = "My Name", email = "me@email.com" },
+  { name = "Toni Giorgino", email = "toni.giorgino@gmail.com" },
+  { name = "Daniele Rapetti", email = "daniele.rapetti@sissa.it" },
 ]
 requires-python = ">=3.9"
 classifiers = [
   "Development Status :: 4 - Beta",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.7",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -43,18 +42,13 @@ filterwarnings = [
   "error",
   "ignore::pytest.PytestCacheWarning",
 ]
-testpaths = ["tests"]
+testpaths = ["pythontests"]
 
 
 [tool.cibuildwheel]
 build-frontend = "build[uv]"
-test-command = "pytest {project}/tests"
+test-command = "pytest {project}/pythontests"
 test-extras = ["test"]
 
 [tool.cibuildwheel.pyodide]
 build-frontend = {name = "build", args = ["--exports", "whole_archive"]}
-
-
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**" = ["T20"]

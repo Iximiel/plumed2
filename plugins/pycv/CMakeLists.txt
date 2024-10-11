@@ -15,25 +15,27 @@ OUTPUT_VARIABLE PLUMED_INCLUDE_DIR
 )
 message(STATUS "Plumed include dir: ${PLUMED_INCLUDE_DIR}")
 
-python_add_library(_core MODULE PlumedPythonEmbeddedModule.cpp WITH_SOABI)
-target_link_libraries(_core PRIVATE pybind11::headers)
-target_link_libraries(_core PUBLIC plumedKernel)
+pybind11_add_module(plumedCommunications PlumedPythonEmbeddedModule.cpp)
+#python_add_library(plumedCommunications MODULE PlumedPythonEmbeddedModule.cpp WITH_SOABI)
+# target_link_libraries(plumedCommunications PRIVATE pybind11::headers)
+target_link_libraries(plumedCommunications PUBLIC plumedKernel)
 
 # This is passing in the version as a define just as an example
-target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION})
+target_compile_definitions(plumedCommunications PRIVATE VERSION_INFO=${PROJECT_VERSION})
 
 # The install directory is the output (wheel) directory
-install(TARGETS _core DESTINATION plumedCommunications)
+install(TARGETS plumedCommunications DESTINATION .)
 
 #the pycv library
+#TODO: removhe the "lib" prefix
 add_library(PythonCVInterface SHARED ActionWithPython.cpp  PythonCVInterface.cpp  PythonFunction.cpp)
 target_link_libraries(PythonCVInterface PRIVATE pybind11::embed)
 target_link_libraries(PythonCVInterface PUBLIC plumedKernel)
 
-target_link_libraries(_core PUBLIC PythonCVInterface)
+target_link_libraries(plumedCommunications PUBLIC PythonCVInterface)
 
 target_include_directories(PythonCVInterface PUBLIC ${PLUMED_INCLUDE_DIR}/plumed)
-target_include_directories(_core PUBLIC ${PLUMED_INCLUDE_DIR}/plumed)
+target_include_directories(plumedCommunications PUBLIC ${PLUMED_INCLUDE_DIR}/plumed)
 
-#TBD
-#install(TARGETS PythonCVInterface DESTINATION )
+
+install(TARGETS PythonCVInterface DESTINATION .)

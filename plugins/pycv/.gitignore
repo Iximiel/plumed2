@@ -3,3 +3,5 @@
 *.so
 /env/
 /build*/
+/dist*/
+*.whl
