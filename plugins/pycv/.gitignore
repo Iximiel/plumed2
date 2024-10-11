@@ -1,4 +1,5 @@
 /Makefile.conf
 *.o
 *.so
-env
+/env/
+/build*/
