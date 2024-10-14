@@ -46,7 +46,7 @@ def create_plumed_var( plmd, name, command ):
 
 class Test(unittest.TestCase):
   def runtest(self):
-    from pycv import getLib
+    from pycv import getPythonCVInterface
     os.system('rm -f bck.*')
     # Output to four decimal places only
     np.set_printoptions(precision=4)
@@ -75,8 +75,8 @@ class Test(unittest.TestCase):
     plmd.cmd("setNatoms",num_atoms)
     plmd.cmd("setLogFile","test.log")
     plmd.cmd("init")
-    # plmd.cmd("readInputLine","LOAD FILE=./libPythonCVInterface.so")
-    plmd.cmd("readInputLine",f"LOAD FILE={getLib()}")
+    # plmd.cmd("readInputLine","LOAD FILE=./PythonCVInterface.so")
+    plmd.cmd("readInputLine",f"LOAD FILE={getPythonCVInterface()}")
     cvPy = create_plumed_var( plmd, "cvPy", "PYCVINTERFACE IMPORT=mypycv")
     plmd.cmd("readInputLine","PRINT FILE=colvar.out ARG=*")
     # Open an output file
