@@ -4,9 +4,8 @@ build-backend = "scikit_build_core.build"
 
 
 [project]
-name = "pyCV"
+name = "pycv"
 dependencies = [
-  "plumed",
   "numpy",
   "pybind11>=2.10.3,<=2.11.1"
 ]
@@ -32,6 +31,8 @@ classifiers = [
 [project.optional-dependencies]
 test = ["pytest", "plumed"]
 
+[project.scripts]
+pycv = "pycv:main"
 
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
@@ -57,3 +58,4 @@ test-extras = ["test"]
 
 [tool.cibuildwheel.pyodide]
 build-frontend = {name = "build", args = ["--exports", "whole_archive"]}
+

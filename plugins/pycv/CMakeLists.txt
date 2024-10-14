@@ -75,8 +75,10 @@ target_compile_options(PythonCVInterface PUBLIC ${PLUMED_CXX_FLAGS})
 target_link_libraries(PythonCVInterface PRIVATE pybind11::embed)
 target_link_libraries(PythonCVInterface PUBLIC plumedKernel ${PLUMED_DYNAMIC_LIBS})
 target_include_directories(PythonCVInterface PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
+#this removes the "lib" prefix
+set_target_properties(PythonCVInterface PROPERTIES PREFIX "")
 
-install(TARGETS PythonCVInterface DESTINATION .)
+install(TARGETS PythonCVInterface DESTINATION pycv)
 
 ################################################################################
 ############################The pvCV companion module###########################
