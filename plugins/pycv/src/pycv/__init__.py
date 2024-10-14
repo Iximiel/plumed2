@@ -25,6 +25,22 @@ def main():
         Just run this with no arguments to see the path.
         """,
     )
-    _ = parser.parse_args()
+    parser.add_argument(
+        "-p",
+        "--plumed",
+        help="print on screen an example plumed.dat",
+        action="store_true",
+    )
+    args = parser.parse_args()
+
+    if args.plumed:
+        print(
+            f"""LOAD FILE={getPythonCVInterface()}
+cvPy:PYCVINTERFACE IMPORT=mypycv
+fPy: PYFUNCTION IMPORT=mypycvfunc ARG=cvPy
+PRINT FILE=colvar.out ARG=*"""
+        )
+        return 0
+
     print(getPythonCVInterface())
     return 0
