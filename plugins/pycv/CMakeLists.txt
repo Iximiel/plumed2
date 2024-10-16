@@ -72,7 +72,10 @@ target_compile_definitions(PythonCVInterface PUBLIC ${PLUMED_CPP_FLAGS})
 get_target_property(COMPILE_DEFINITIONS PythonCVInterface COMPILE_DEFINITIONS)
 message(STATUS "COMPILE_DEFINITIONS ${COMPILE_DEFINITIONS}")
 target_compile_options(PythonCVInterface PUBLIC ${PLUMED_CXX_FLAGS})
-target_compile_options(PythonCVInterface PRIVATE -fvisibility=hidden)
+# uncommenting this brings problems since some symbols here are needed by the python module
+# even if it should be the correct setting
+# https://gcc.gnu.org/wiki/Visibility could be a starting point
+# target_compile_options(PythonCVInterface PRIVATE -fvisibility=hidden)
 target_link_libraries(PythonCVInterface PRIVATE pybind11::embed)
 target_link_libraries(PythonCVInterface PUBLIC plumedKernel ${PLUMED_DYNAMIC_LIBS})
 target_include_directories(PythonCVInterface PUBLIC src ${PLUMED_INCLUDE_DIR})
