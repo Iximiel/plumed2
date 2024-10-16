@@ -5,80 +5,53 @@ project(
   LANGUAGES CXX)
 set (CMAKE_CXX_STANDARD 17)
 
+#Finding necessary packages
 find_package(Python REQUIRED COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG REQUIRED)
-message(STATUS "pybind11 found: ${pybind11_VERSION}")
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(plumed REQUIRED plumedInternals)
 
-exec_program(plumed
-ARGS info --include-dir
-OUTPUT_VARIABLE PLUMED_INCLUDE_DIR
-)
+#Finding optionals things
+if("-D__PLUMED_HAS_MPI=1" IN_LIST plumed_CFLAGS)
+    find_package(MPI REQUIRED)
+endif()
+if(MPI_CXX_FOUND)
+    list(APPEND extraLibs MPI::MPI_CXX)
+endif()
 
-exec_program(plumed
-ARGS info --configuration
-OUTPUT_VARIABLE PLUMED_CONFIG
-)
-set(PLUMED_CXX_FLAGS "")
-set(PLUMED_CPP_FLAGS "")
-set(PLUMED_DYNAMIC_LIBS "")
+if("-fopenmp" IN_LIST plumed_STATIC_LDFLAGS_OTHER)
+    find_package(OpenMP REQUIRED)
+endif()
+if(OpenMP_CXX_FOUND )
+    list(APPEND extraLibs OpenMP::OpenMP_CXX)
+endif()
 
-string(REPLACE "\n" ";" ProcessFile_LINES "${PLUMED_CONFIG}")
-foreach(_line ${ProcessFile_LINES})
-    # message(STATUS "Found PLUMED :${_line}")
-  if (${_line} MATCHES "CXXFLAGS=.*")
-    set(PLUMED_CXX_FLAGS ${_line})
-    string(REGEX REPLACE "CXXFLAGS= *" "" PLUMED_CXX_FLAGS ${PLUMED_CXX_FLAGS})
-    string(REPLACE " " ";" PLUMED_CXX_FLAGS ${PLUMED_CXX_FLAGS})
-    # message(STATUS "Found PLUMED CXX_FLAGS: \"${PLUMED_CXX_FLAGS}\"")
-    message(STATUS "Found PLUMED CXX_FLAGS: ")
-    foreach (_flag ${PLUMED_CXX_FLAGS})
-        message(STATUS "   \"${_flag}\"")
-    endforeach()
-  endif()
-  if (${_line} MATCHES "CPPFLAGS=.*")
-    set(PLUMED_CPP_FLAGS ${_line})
-    string(REGEX REPLACE "CPPFLAGS= *" "" PLUMED_CPP_FLAGS ${PLUMED_CPP_FLAGS})
-    string(REPLACE "\\" "" PLUMED_CPP_FLAGS ${PLUMED_CPP_FLAGS})
-    string(REPLACE "-D" ";" PLUMED_CPP_FLAGS ${PLUMED_CPP_FLAGS})
-    # message(STATUS "Found PLUMED CPP_FLAGS: \"${PLUMED_CPP_FLAGS}\"")
-    message(STATUS "Found PLUMED CPP_FLAGS:")
-    foreach(_flag ${PLUMED_CPP_FLAGS})
-        message(STATUS "   \"${_flag}\"")
-    endforeach()
-    
-  endif()
-  if (${_line} MATCHES "DYNAMIC_LIBS=.*")
-    set(PLUMED_DYNAMIC_LIBS ${_line})
-    string(REGEX REPLACE "DYNAMIC_LIBS= *" "" PLUMED_DYNAMIC_LIBS ${PLUMED_DYNAMIC_LIBS})
-    string(REPLACE " " ";" PLUMED_DYNAMIC_LIBS ${PLUMED_DYNAMIC_LIBS})
-    # message(STATUS "Found PLUMED DYNAMIC_LIBS: \"${PLUMED_DYNAMIC_LIBS}\"")
-    message(STATUS "Found PLUMED DYNAMIC_LIBS:")
-    foreach(_flag ${PLUMED_DYNAMIC_LIBS})
-        message(STATUS "   \"${_flag}\"")
-    endforeach()
-  endif()
-  
-endforeach()
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-fno-gnu-unique USE_NO_GNU_UNIQUE)
+if(USE_NO_GNU_UNIQUE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-gnu-unique")
+endif()
 
-message(STATUS "Plumed include dir: ${PLUMED_INCLUDE_DIR}")
-set(CMAke__extra)
+# plumed_STATIC_LDFLAGS_OTHER:INTERNAL=-rdynamic;-Wl,-Bsymbolic;-fopenmp
+#-rdynamic is automatically set by cmake, as -fPIC
+
 ################################################################################
 ################################the pycv library################################
 ################################################################################
-#TODO: remove the "lib" prefix
+
 add_library(PythonCVInterface SHARED src/ActionWithPython.cpp  src/PythonCVInterface.cpp  src/PythonFunction.cpp)
 #public, so they trickle down to the python module
-target_compile_definitions(PythonCVInterface PUBLIC ${PLUMED_CPP_FLAGS})
-get_target_property(COMPILE_DEFINITIONS PythonCVInterface COMPILE_DEFINITIONS)
-message(STATUS "COMPILE_DEFINITIONS ${COMPILE_DEFINITIONS}")
+target_compile_definitions(PythonCVInterface PUBLIC ${plumed_CFLAGS})
 target_compile_options(PythonCVInterface PUBLIC ${PLUMED_CXX_FLAGS})
-# uncommenting this brings problems since some symbols here are needed by the python module
-# even if it should be the correct setting
+target_include_directories(PythonCVInterface PUBLIC src ${plumed_INCLUDEDIR})
+#######################################################################
+# uncommenting this brings problems since some symbols here are needed
+# by the python module even if it should be the correct setting...
 # https://gcc.gnu.org/wiki/Visibility could be a starting point
+#######################################################################
 # target_compile_options(PythonCVInterface PRIVATE -fvisibility=hidden)
 target_link_libraries(PythonCVInterface PRIVATE pybind11::embed)
-target_link_libraries(PythonCVInterface PUBLIC plumedKernel ${PLUMED_DYNAMIC_LIBS})
-target_include_directories(PythonCVInterface PUBLIC src ${PLUMED_INCLUDE_DIR})
+target_link_libraries(PythonCVInterface PUBLIC plumedKernel ${extraLibs})
 #this removes the "lib" prefix
 set_target_properties(PythonCVInterface PROPERTIES PREFIX "")
 
@@ -89,11 +62,8 @@ install(TARGETS PythonCVInterface DESTINATION pycv)
 ################################################################################
 
 pybind11_add_module(plumedCommunications src/PlumedPythonEmbeddedModule.cpp)
-#python_add_library(plumedCommunications MODULE PlumedPythonEmbeddedModule.cpp WITH_SOABI)
- target_link_libraries(plumedCommunications PRIVATE pybind11::headers)
-target_link_libraries(plumedCommunications PUBLIC plumedKernel ${PLUMED_DYNAMIC_LIBS})
+target_link_libraries(plumedCommunications PRIVATE pybind11::headers)
 target_link_libraries(plumedCommunications PUBLIC PythonCVInterface)
-target_include_directories(plumedCommunications PUBLIC src ${PLUMED_INCLUDE_DIR})
 
 # The install directory is the output (wheel) directory
 install(TARGETS plumedCommunications DESTINATION .)
