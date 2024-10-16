@@ -21,8 +21,8 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <pybind11/operators.h>
 #include <pybind11/stl_bind.h>
 
-#include "tools/Vector.h"
-#include "tools/NeighborList.h"
+#include "plumed/tools/Vector.h"
+#include "plumed/tools/NeighborList.h"
 
 #include "PythonCVInterface.h"
 #include "PythonFunction.h"

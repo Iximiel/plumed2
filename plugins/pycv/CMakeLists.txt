@@ -75,7 +75,7 @@ target_compile_options(PythonCVInterface PUBLIC ${PLUMED_CXX_FLAGS})
 target_compile_options(PythonCVInterface PRIVATE -fvisibility=hidden)
 target_link_libraries(PythonCVInterface PRIVATE pybind11::embed)
 target_link_libraries(PythonCVInterface PUBLIC plumedKernel ${PLUMED_DYNAMIC_LIBS})
-target_include_directories(PythonCVInterface PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
+target_include_directories(PythonCVInterface PUBLIC src ${PLUMED_INCLUDE_DIR})
 #this removes the "lib" prefix
 set_target_properties(PythonCVInterface PROPERTIES PREFIX "")
 
@@ -90,7 +90,7 @@ pybind11_add_module(plumedCommunications src/PlumedPythonEmbeddedModule.cpp)
  target_link_libraries(plumedCommunications PRIVATE pybind11::headers)
 target_link_libraries(plumedCommunications PUBLIC plumedKernel ${PLUMED_DYNAMIC_LIBS})
 target_link_libraries(plumedCommunications PUBLIC PythonCVInterface)
-target_include_directories(plumedCommunications PUBLIC src ${PLUMED_INCLUDE_DIR}/plumed)
+target_include_directories(plumedCommunications PUBLIC src ${PLUMED_INCLUDE_DIR})
 
 # The install directory is the output (wheel) directory
 install(TARGETS plumedCommunications DESTINATION .)
