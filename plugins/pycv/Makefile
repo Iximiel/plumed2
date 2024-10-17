@@ -1,19 +1,24 @@
+#this makefiles assume that pip and pytest are installed
 .PHONY: clean check check_standalone check_python all
 
 all: pycv_here
 
 pycv_here: src/*.cpp src/*.h src/pycv/*.py
-	@python3 -m pip install .
-	@which python3 > $@
+	@echo installing pycv
+	pip install .
+	touch $@
 
 clean:
-	@python3 -m pip uninstall pycv
+	pip uninstall pycv
+	rm -fv pycv_here
 
-check_standalone:
+check_standalone: pycv_here
 	$(MAKE) -C regtest testclean
 	$(MAKE) -C regtest checkfail
 
-check_python:
-	python3 -m pytest
+#just in case  pytest is still not installed we install it before the tests
+check_python: pycv_here
+	pip install pytest
+	pytest
 
 check: check_standalone check_python
