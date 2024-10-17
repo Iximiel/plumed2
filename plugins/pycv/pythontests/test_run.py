@@ -85,9 +85,10 @@ class TestPyCV(unittest.TestCase):
 
     def test_nat(self):
         with cd(THIS_DIR):
+            os.environ["PLUMED_MAXBACKUP"] = "0"
             self.setUpTraj()
             plmd = self.preparePlumed()
-            cvPy = create_plumed_var(plmd, "cvPy", "PYCVINTERFACE IMPORT=mypycv")
+            cvPy = create_plumed_var(plmd, "cvPy", "PYCVINTERFACE IMPORT=atoms_number")
             plmd.cmd("readInputLine", "PRINT FILE=colvar.out ARG=*")
             # Open an output file
             with open("logfile", "w+") as of:
@@ -105,9 +106,60 @@ class TestPyCV(unittest.TestCase):
 
                     self.assertEqual(cvPy, 2)
 
+    def test_atomPositions(self):
+        with cd(THIS_DIR):
+            os.environ["PLUMED_MAXBACKUP"] = "0"
+            self.setUpTraj()
+            plmd = self.preparePlumed()
+            
+            cvPy=create_plumed_var(plmd, "cvPy",  "PYCVINTERFACE ATOMS=1,4 IMPORT=pydistancegetAtPos CALCULATE=pydist")
+            cvCPP=create_plumed_var(plmd, "cvCPP", "DISTANCE ATOMS=1,4 NOPBC")
+
+            plmd.cmd("readInputLine", "PRINT FILE=colvar.out ARG=*")
+            # Open an output file
+            with open("logfile", "w+") as of:
+                # Now analyze the trajectory
+                for step in range(0, self.num_frames):
+                    of.write("RUNNING ANALYSIS FOR STEP " + str(step) + "\n")
+                    plmd.cmd("setStep", step)
+                    plmd.cmd("setBox", self.box)
+                    plmd.cmd("setMasses", self.masses)
+                    plmd.cmd("setCharges", self.charges)
+                    plmd.cmd("setPositions", self.traj[step])
+                    plmd.cmd("setForces", self.forces)
+                    plmd.cmd("setVirial", self.virial)
+                    plmd.cmd("calc")
+
+                    np.testing.assert_almost_equal(cvPy, cvCPP,decimal=4)
+
+    def test_atomPositionsPBC(self):
+        with cd(THIS_DIR):
+            os.environ["PLUMED_MAXBACKUP"] = "0"
+            self.setUpTraj()
+            plmd = self.preparePlumed()
+            
+            cvPy=create_plumed_var(plmd, "cvPy",  "PYCVINTERFACE ATOMS=1,4 IMPORT=pydistancePBCs CALCULATE=pydist")
+            cvCPP=create_plumed_var(plmd, "cvCPP", "DISTANCE ATOMS=1,4")
+
+            plmd.cmd("readInputLine", "PRINT FILE=colvar.out ARG=*")
+            # Open an output file
+            with open("logfile", "w+") as of:
+                # Now analyze the trajectory
+                for step in range(0, self.num_frames):
+                    of.write("RUNNING ANALYSIS FOR STEP " + str(step) + "\n")
+                    plmd.cmd("setStep", step)
+                    plmd.cmd("setBox", self.box)
+                    plmd.cmd("setMasses", self.masses)
+                    plmd.cmd("setCharges", self.charges)
+                    plmd.cmd("setPositions", self.traj[step])
+                    plmd.cmd("setForces", self.forces)
+                    plmd.cmd("setVirial", self.virial)
+                    plmd.cmd("calc")
+
+                    np.testing.assert_almost_equal(cvPy, cvCPP,decimal=4)            
+
 
 if __name__ == "__main__":
-    os.environ["PLUMED_MAXBACKUP"] = "0"
     # Output to four decimal places only
     np.set_printoptions(precision=4)
     unittest.main()
