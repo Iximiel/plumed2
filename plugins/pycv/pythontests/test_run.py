@@ -5,6 +5,9 @@ from plumed import Plumed
 import os
 from contextlib import contextmanager
 
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
 @contextmanager
 def cd(newdir):
     prevdir = os.getcwd()
@@ -14,93 +17,97 @@ def cd(newdir):
     finally:
         os.chdir(prevdir)
 
-def read_xyz(filename):
-   xyz = open(filename)
-   n_atoms = int(xyz.readline())
-   title = xyz.readline()
-   trajectory =[]
-   while True :
-      atom_type= np.zeros(n_atoms).astype(str)
-      coordinates = np.zeros([n_atoms,3]) 
-      for i in range(0,n_atoms) :
-          line = xyz.readline()
-          atom,x,y,z = line.split()
-          atom_type[i]=atom
-          coordinates[i,:]=np.array([x,y,z],dtype=np.float64)
-      trajectory.append( coordinates )
-      nextline = xyz.readline()
-      if( nextline=="" ) : break
-      c_atoms = int(nextline)
-      if( c_atoms!=n_atoms ) : break 
-      title = xyz.readline()
-   xyz.close()
-   return trajectory
 
-def create_plumed_var( plmd, name, command ):
-   plmd.cmd("readInputLine", name + ": " + command )
-   shape = np.zeros( 1, dtype=np.int_ )
-   plmd.cmd("getDataRank " + name, shape )
-   data = np.zeros((1))
-   plmd.cmd("setMemoryForData " + name, data )
-   return data
+def read_xyz(filename: str):
+    xyz = open(filename)
+    n_atoms = int(xyz.readline())
+    _ = xyz.readline()
+    trajectory = []
+    while True:
+        atom_type = np.zeros(n_atoms).astype(str)
+        coordinates = np.zeros([n_atoms, 3])
+        for i in range(0, n_atoms):
+            line = xyz.readline()
+            atom, x, y, z = line.split()
+            atom_type[i] = atom
+            coordinates[i, :] = np.array([x, y, z], dtype=np.float64)
+        trajectory.append(coordinates)
+        nextline = xyz.readline()
+        if nextline == "":
+            break
+        c_atoms = int(nextline)
+        if c_atoms != n_atoms:
+            break
+        _ = xyz.readline()
+    xyz.close()
+    return trajectory
 
-class Test(unittest.TestCase):
-  def runtest(self):
-    from pycv import getPythonCVInterface
-    os.system('rm -f bck.*')
-    # Output to four decimal places only
-    np.set_printoptions(precision=4)
-    # Read trajectory
-    traj = read_xyz("traj.xyz")
-    num_frames = len(traj)
-    num_atoms = traj[0].shape[0]
-    
-    # Create arrays for stuff
-    box=np.diag(12.41642*np.ones(3,dtype=np.float64))
-    virial=np.zeros((3,3),dtype=np.float64)
-    masses=np.ones(num_atoms,dtype=np.float64)
-    forces=np.random.rand(num_atoms,3)
-    charges=np.zeros(num_atoms,dtype=np.float64)
-    
-    # Create PLUMED object and read input
-    plmd = Plumed()
 
-    # not really needed, used to check https://github.com/plumed/plumed2/issues/916
-    plumed_version = np.zeros(1, dtype=np.intc)
-    plmd.cmd( "getApiVersion", plumed_version)
+def create_plumed_var(plmd: Plumed, name: str, command: str):
+    plmd.cmd("readInputLine", name + ": " + command)
+    shape = np.zeros(1, dtype=np.int_)
+    plmd.cmd("getDataRank " + name, shape)
+    data = np.zeros((1))
+    plmd.cmd("setMemoryForData " + name, data)
+    return data
 
-    plmd.cmd("setMDEngine","python")
-    plmd.cmd("setTimestep", 1.)
-    plmd.cmd("setKbT", 1.)
-    plmd.cmd("setNatoms",num_atoms)
-    plmd.cmd("setLogFile","test.log")
-    plmd.cmd("init")
-    # plmd.cmd("readInputLine","LOAD FILE=./PythonCVInterface.so")
-    plmd.cmd("readInputLine",f"LOAD FILE={getPythonCVInterface()}")
-    cvPy = create_plumed_var( plmd, "cvPy", "PYCVINTERFACE IMPORT=mypycv")
-    plmd.cmd("readInputLine","PRINT FILE=colvar.out ARG=*")
-    # Open an output file
-    with open("logfile", "w+") as of:
-    
-        # Now analyze the trajectory
-        for step in range(0,num_frames) :
-            of.write("RUNNING ANALYSIS FOR STEP " + str(step) + "\n" )
-            plmd.cmd("setStep",step )
-            plmd.cmd("setBox",box )
-            plmd.cmd("setMasses", masses )
-            plmd.cmd("setCharges", charges )
-            plmd.cmd("setPositions", traj[step])
-            plmd.cmd("setForces", forces )
-            plmd.cmd("setVirial", virial )
-            plmd.cmd("calc")
-            
-            self.assertEqual(cvPy,2)
-    
 
-  def test(self):
-    
-    self.runtest()
+class TestPyCV(unittest.TestCase):
+    def setUpTraj(self):
+        self.traj = read_xyz("traj.xyz")
+        self.num_frames = len(self.traj)
+        self.num_atoms = self.traj[0].shape[0]
+
+        # Create arrays for stuff
+        self.box = np.diag(12.41642 * np.ones(3, dtype=np.float64))
+        self.virial = np.zeros((3, 3), dtype=np.float64)
+        self.masses = np.ones(self.num_atoms, dtype=np.float64)
+        self.forces = np.random.rand(self.num_atoms, 3)
+        self.charges = np.zeros(self.num_atoms, dtype=np.float64)
+
+    def preparePlumed(self):
+        from pycv import getPythonCVInterface
+
+        # Create PLUMED object and read input
+        plmd = Plumed()
+
+        # not really needed, used to check https://github.com/plumed/plumed2/issues/916
+        plumed_version = np.zeros(1, dtype=np.intc)
+        plmd.cmd("getApiVersion", plumed_version)
+        plmd.cmd("setMDEngine", "python")
+        plmd.cmd("setTimestep", 1.0)
+        plmd.cmd("setKbT", 1.0)
+        plmd.cmd("setNatoms", self.num_atoms)
+        plmd.cmd("setLogFile", "test.log")
+        plmd.cmd("init")
+        plmd.cmd("readInputLine", f"LOAD FILE={getPythonCVInterface()}")
+        return plmd
+
+    def test_nat(self):
+        with cd(THIS_DIR):
+            self.setUpTraj()
+            plmd = self.preparePlumed()
+            cvPy = create_plumed_var(plmd, "cvPy", "PYCVINTERFACE IMPORT=mypycv")
+            plmd.cmd("readInputLine", "PRINT FILE=colvar.out ARG=*")
+            # Open an output file
+            with open("logfile", "w+") as of:
+                # Now analyze the trajectory
+                for step in range(0, self.num_frames):
+                    of.write("RUNNING ANALYSIS FOR STEP " + str(step) + "\n")
+                    plmd.cmd("setStep", step)
+                    plmd.cmd("setBox", self.box)
+                    plmd.cmd("setMasses", self.masses)
+                    plmd.cmd("setCharges", self.charges)
+                    plmd.cmd("setPositions", self.traj[step])
+                    plmd.cmd("setForces", self.forces)
+                    plmd.cmd("setVirial", self.virial)
+                    plmd.cmd("calc")
+
+                    self.assertEqual(cvPy, 2)
+
 
 if __name__ == "__main__":
+    os.environ["PLUMED_MAXBACKUP"] = "0"
+    # Output to four decimal places only
+    np.set_printoptions(precision=4)
     unittest.main()
-
