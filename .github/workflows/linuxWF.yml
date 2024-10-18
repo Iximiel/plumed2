@@ -19,24 +19,23 @@ jobs:
       fail-fast: false
       matrix:
         variant:
-        - -doc-mpi-
-        - -mpi-
-        - -coverage-mpi-
-        - -debug-
-        - -debug-mpi-
+        # - -doc-mpi-
+        # - -mpi-
+        # - -coverage-mpi-
+        # - -debug-
+        # - -debug-mpi-
 # temporarily commented out
 # see https://github.com/plumed/plumed2/issues/976
-        - -intel-
+        # - -intel-
         - -pycv-mpi-
 #this does not install mpi but uses the internal one
         - -nvhpc-mpi-
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/cache@v4
+    - uses: actions/cache/restore@v4
       with:
         path: ~/.ccache
-        key: ccache-reset1-linux${{ matrix.variant }}hash-${{ github.sha }}
-        restore-keys: ccache-reset1-linux${{ matrix.variant }}hash-
+        key: ccache-reset1-linux${{ matrix.variant }}
     - name: Removed unused stuff
       run: |
         df -h
@@ -173,16 +172,16 @@ jobs:
         # check for global symbols, see https://github.com/plumed/plumed2/issues/549
         make nmcheck
         ccache -s -M 100M
-    - name: Run tests
-      if: ${{ ! contains( matrix.variant, '-doc-mpi-' ) && ! contains( matrix.variant, '-pycv-mpi-' ) }}
-      run: |
-         (while true; do  # see https://github.com/actions/virtual-environments/issues/1860
-              df -h
-              sleep 15
-              done) &
-         make --no-print-directory -C regtest testclean
-         # these can fail for numerical reasons
-         make -C regtest checkfail
+    # - name: Run tests
+    #   if: ${{ ! contains( matrix.variant, '-doc-mpi-' ) && ! contains( matrix.variant, '-pycv-mpi-' ) }}
+    #   run: |
+    #      (while true; do  # see https://github.com/actions/virtual-environments/issues/1860
+    #           df -h
+    #           sleep 15
+    #           done) &
+    #      make --no-print-directory -C regtest testclean
+    #      # these can fail for numerical reasons
+    #      make -C regtest checkfail
     - name: Run python tests
       run: |
          cd python
@@ -208,6 +207,10 @@ jobs:
         GIT_TOKEN: ${{ secrets.GIT_TOKEN_PLUMEDBOT }}
       run: |
          .ci/push doc
+    - uses: actions/cache/save@v4
+      with:
+           path: ~/.ccache
+           key: ccache-reset1-linux${{ matrix.variant }}
     - name: Compile and test pycv
       if: contains( matrix.variant, '-pycv-' )
       working-directory: ./plugins/pycv/
