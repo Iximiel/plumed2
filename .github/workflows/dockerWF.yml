@@ -1,0 +1,31 @@
+name: dockerCI
+
+on:
+  workflow_call:
+
+env:
+# on CI, better dump stack trace in case there is an error
+  PLUMED_STACK_TRACE: yes
+# use two threads for openMP tests
+  PLUMED_NUM_THREADS: 2
+# these are used to build required packages
+  CC: gcc
+  CXX: g++
+
+jobs:
+
+  docker:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # We test on fedora37 to make sure we have compatibility with newer compilers (gcc 12)
+        # rockylinux8
+        variant:
+        - fedora37
+        - rocky8
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build and run tests
+      run: |
+        make -C docker ${{ matrix.variant }}
