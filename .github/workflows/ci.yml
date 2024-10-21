@@ -18,30 +18,10 @@ jobs:
   linux:
     uses: ./.github/workflows/linuxWF.yml
     secrets: inherit
+
   codecheck:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set path
-      run: |
-         echo "$HOME/opt/bin" >> $GITHUB_PATH
-    - name: Install requirements
-      run: |
-        .ci/install.cppcheck 2.10.3
-        # it is important that this is the same version used to generate the actual ./configure
-        .ci/install.autoconf 2.69
-    - name: Build astyle
-      run: |
-        make -j 4 -C astyle
-    - name: Checking code
-      run: |
-        # this is required so as to have all the include files in place
-        # notice that this is done automatically in build
-        # first make sure that dirslinks are generated for all modules
-        ./configure --enable-modules=all
-        # then generate the links
-        make -C src/lib/ dirslinks
-        make codecheck
+    uses: ./.github/workflows/codecheckWF.yml
+    secrets: inherit
 
   # We test on fedora37 to make sure we have compatibility with newer compilers (gcc 12)
   fedora37:
