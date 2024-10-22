@@ -9,7 +9,7 @@ NVCXX = nvc++
 NVCCCFLAGS =  -acc -acc=gpu -gpu=cc75 --c++17 -Minfo=all -fast -Werror --diag_suppress probable_guiding_friend
 NVCCLDFLAGS = -shared -acc -acc=gpu -gpu=cc75
 OBJS = CoordinationACC.o
-ACCOBJS = fastCoord.o
+ACCOBJS = 
 
 ADDCPPFLAGS=$(PLUMED_INCLUDE)
 ADDCLDFLAGS=
@@ -23,13 +23,10 @@ endif
 
 all: ACCCoordination.$(SOEXT)
 
-%.o: %.cxx $(DEPDIR)/%.d | $(DEPDIR)
-	@echo Compiling object $@
-	$(NVCXX) $(NVCCCFLAGS) -c  $(DEPFLAGS) -fPIC $< -o $@
-
 %.o: %.cpp $(DEPDIR)/%.d | $(DEPDIR)
 	@echo Compiling object $@
-	$(CXX) -c $(PLUMED_INCLUDE)  $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) $< -o $@
+	$(NVCXX) $(NVCCCFLAGS) -c  $(PLUMED_INCLUDE)  $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) -fPIC $< -o $@
+
 
 $(DEPDIR): ; @mkdir -p $@
 
@@ -44,9 +41,9 @@ libswitchACC.$(SOEXT): $(ACCOBJS)
 	# $(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -Wl,-soname,"$(notdir $@)" -o $@ $^
 	$(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -o $@ $^
 
-ACCCoordination.$(SOEXT): $(OBJS) libswitchACC.$(SOEXT)
+ACCCoordination.$(SOEXT): $(OBJS)
 	@echo Linking $@
-	$(CXX) -shared $(ADDCLDFLAGS) -Wl,-soname,"$(notdir $@)" -o $@ $< $(DYNAMIC_LIBS) /u/d/drapetti/scratch/repos/plumed2-dev/plugins/openACCCoord/libswitchACC.so $(PLUMED_KERNEL) 
+	$(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -shared $(ADDCLDFLAGS) -Wl,-soname,"$(notdir $@)" -o $@ $< $(DYNAMIC_LIBS) $(PLUMED_KERNEL) 
 
 clean:
 	@rm -fv $(ACCOBJS) $(OBJS) ACCCoordination.$(SOEXT) libswitchACC.$(SOEXT)

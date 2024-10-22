@@ -26,7 +26,8 @@
 #include "plumed/tools/NeighborList.h"
 
 // #include "plumed/tools/Communicator.h"
-#include "fastCoord.hxx"
+// #include "fastCoord.hxx"
+#include "inlinetest.h"
 
 #include <string_view>
 #include <iostream>
@@ -44,10 +45,9 @@ class CoordinationACC : public Colvar {
   bool firsttime;
 
   //used to get some calculations
-  myACC::fastCoord calculator;
+  ::myACC::fastCoordINLINE<float> calculator;
 public:
   explicit CoordinationACC(const ActionOptions&);
-  ~CoordinationACC();
 // active methods:
   void calculate() override;
   void prepare() override;
@@ -169,17 +169,13 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
       switchingFunction.set(nn,mm,r0,d0);
     }
 
-    calculator = myACC::fastCoord(natA,
-                                  natB,
-                                  nn,
-                                  mm,
-                                  1.0/switchingFunction.get_r0(),
-                                  switchingFunction.get_dmax());
+    calculator = ::myACC:: fastCoordINLINE<float>(natA,
+                                        natB,
+                                        nn,
+                                        mm,
+                                        1.0/switchingFunction.get_r0(),
+                                        switchingFunction.get_dmax());
   }
-}
-
-CoordinationACC::~CoordinationACC() {
-// destructor required to delete forward declared class
 }
 
 void CoordinationACC::prepare() {
@@ -210,38 +206,13 @@ void CoordinationACC::calculate() {
   double ncoord=0.;
   Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
-  {
 
-    std::vector<wFloat::Vector<float>> positions(getPositions().size());
-    for(auto i=0U; i<getPositions().size(); ++i) {
-      auto &tmp = getPosition(i);
-      positions[i][0] = tmp[0];
-      positions[i][1] = tmp[1];
-      positions[i][2] = tmp[2];
-    }
-    std::vector<wFloat::Vector<float>> derivatives(getPositions().size());
-    wFloat::Tensor<float> virial;
-    std::tie(ncoord,virial) =
-      calculator(positions.data(),getAbsoluteIndexes().data(),derivatives.data());
-
-    for(auto i=0U; i<getPositions().size(); ++i) {
-      deriv[i][0]=derivatives[i][0];
-      deriv[i][1]=derivatives[i][1];
-      deriv[i][2]=derivatives[i][2];
-    }
-
-    for(auto i=0U; i<3U; ++i) {
-      for(auto j=0U; j<3U; ++j) {
-        boxDev[i][j]=virial[i][j];
-      }
-    }
-  }
-
-  for(unsigned i=0; i<deriv.size(); ++i) {
-    setAtomsDerivatives(i,deriv[i]);
-  }
+  ::myACC::parallel(getPositions(),atomNumbers,calculator);
+  // for(unsigned i=0; i<deriv.size(); ++i) {
+  //   setAtomsDerivatives(i,deriv[i]);
+  // }
   setValue           (ncoord);
-  setBoxDerivatives  (boxDev);
+  // setBoxDerivatives  (boxDev);
 
 }
 } // namespace colvar
