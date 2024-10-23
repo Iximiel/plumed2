@@ -108,7 +108,6 @@ public:
       //   const v3 td = -dfunc * d;
       //   mydev += td;
     }
-    std::cout << myNcoord  <<" "<< natA<< std::endl;
     return myNcoord;
   }
 
