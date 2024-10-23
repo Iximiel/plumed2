@@ -5,9 +5,9 @@ include ./Makefile.conf
 DEPDIR := .deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 NVCXX = nvc++
-
-NVCCCFLAGS =  -acc -acc=gpu -gpu=cc75 --c++17 -Minfo=all -fast -Werror --diag_suppress probable_guiding_friend
-NVCCLDFLAGS = -shared -acc -acc=gpu -gpu=cc75
+ACCFLAGS=-acc -acc=gpu -gpu=cc7
+NVCCCFLAGS =  $(ACCFLAGS) --c++17 -Minfo=all -fast -Werror --diag_suppress probable_guiding_friend
+NVCCLDFLAGS = -shared $(ACCFLAGS)
 OBJS = CoordinationACC.o
 ACCOBJS = 
 
