@@ -170,11 +170,11 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
     }
 
     calculator = ::myACC:: fastCoordINLINE<float>(natA,
-                                        natB,
-                                        nn,
-                                        mm,
-                                        1.0/switchingFunction.get_r0(),
-                                        switchingFunction.get_dmax());
+                 natB,
+                 nn,
+                 mm,
+                 1.0/switchingFunction.get_r0(),
+                 switchingFunction.get_dmax());
   }
 }
 
@@ -203,15 +203,19 @@ void CoordinationACC::calculate() {
 // assert(sizeof(PLMD::AtomNumber)==sizeof(unsigned);
 //since AtomNumber wraps an unsigned
   std::vector<unsigned> atomNumbers(getNumberOfAtoms());
+  for (unsigned i=0; i<getNumberOfAtoms(); ++i) {
+    atomNumbers[i]=getAbsoluteIndexes()[i].index();
+  }
+
   double ncoord=0.;
   Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
 
-  ::myACC::parallel(getPositions(),atomNumbers,calculator);
+  ncoord=::myACC::parallelAccumulate(getPositions(),atomNumbers,calculator);
   // for(unsigned i=0; i<deriv.size(); ++i) {
   //   setAtomsDerivatives(i,deriv[i]);
   // }
-  setValue           (ncoord);
+  setValue           (ncoord/2.0);
   // setBoxDerivatives  (boxDev);
 
 }

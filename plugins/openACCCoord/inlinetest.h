@@ -14,8 +14,8 @@
 namespace myACC {
 
 using v3= PLMD::wFloat::Vector<float>;
-  using tens= PLMD::wFloat::Tensor<float>;
-  
+using tens= PLMD::wFloat::Tensor<float>;
+
 
 template <typename T>
 static inline std::pair<T,T> doReducedRational(const T rdist, const unsigned pow, T result=0.0) {
@@ -89,13 +89,12 @@ public:
     stretch = setStretch;
   }
   T operator()(v3 const xyz,
-   unsigned const realIndex_i, 
-   v3* const positions, 
-   const unsigned* const reaIndexes) const {
+               unsigned const realIndex_i,
+               v3* const positions,
+               const unsigned* const reaIndexes) const {
     T myNcoord=0.0;
 #pragma acc loop seq
     for (size_t j = 0; j < natA; j++) {
-
       if(realIndex_i==reaIndexes[j]) {
         continue;
       }
@@ -107,8 +106,8 @@ public:
 
       //   const v3 td = -dfunc * d;
       //   mydev += td;
-
     }
+    std::cout << myNcoord  <<" "<< natA<< std::endl;
     return myNcoord;
   }
 
@@ -117,9 +116,9 @@ public:
 
 
 template<class UnaryFunc>
-double parallel(const std::vector<PLMD::Vector>& dataIn,
-const std::vector<unsigned>reaIndexes, 
-UnaryFunc callable) {
+double parallelAccumulate(const std::vector<PLMD::Vector>& dataIn,
+                          const std::vector<unsigned>reaIndexes,
+                          UnaryFunc callable, double startingvalue=0.0) {
   unsigned nat=dataIn.size();
   std::vector<v3> wdata(dataIn.size());
   for(auto i=0U; i<dataIn.size(); ++i) {
@@ -127,34 +126,21 @@ UnaryFunc callable) {
     wdata[i][1] = dataIn[i][1];
     wdata[i][2] = dataIn[i][2];
   }
-  float ncoord;
+  float ncoord=startingvalue;
 
   // #pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat]) \
   //     copyout(derivatives[0:nat],virial[0:9],ncoord)
 #pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat],callable) \
-        copyout(ncoord)
+        copy(ncoord)
   {
-#pragma acc parallel
-    {
-      ncoord = 0.0f;
-      // virial[0] = 0.0f;
-      // virial[1] = 0.0f;
-      // virial[2] = 0.0f;
-      // virial[3] = 0.0f;
-      // virial[4] = 0.0f;
-      // virial[5] = 0.0f;
-      // virial[6] = 0.0f;
-      // virial[7] = 0.0f;
-      // virial[8] = 0.0f;
-    }
 #pragma acc parallel loop gang reduction(+:ncoord)
     for (size_t i = 0; i < nat; i++) {
       ncoord += callable(wdata[reaIndexes[i]],reaIndexes[i],wdata.data(),reaIndexes.data());
     }
 
   }
-  double output = ncoord;
-  return output;
+  startingvalue = ncoord;
+  return startingvalue;
 }
 
 }
