@@ -1,3 +1,24 @@
+/* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   Copyright (c) 2013-2024 The plumed team
+   (see the PEOPLE file at the root of the distribution for a list of names)
+
+   See http://www.plumed.org for more information.
+
+   This file is part of plumed, version 2.
+
+   plumed is free software: you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   plumed is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public License
+   along with plumed.  If not, see <http://www.gnu.org/licenses/>.
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #ifndef myACCinline_hxx
 #define myACCinline_hxx
 #include <cmath>
@@ -89,9 +110,9 @@ public:
     stretch = setStretch;
   }
   T operator()(unsigned i,
-               v3* const positions,
-               const unsigned* const reaIndexes) const {
-    unsigned realIndex_i = reaIndexes[i];
+               const std::vector<v3>&  positions,
+               const std::vector<PLMD::AtomNumber>&   reaIndexes) const {
+    auto realIndex_i = reaIndexes[i];
     v3 xyz = positions[i];
     T myNcoord=0.0;
 #pragma acc loop seq

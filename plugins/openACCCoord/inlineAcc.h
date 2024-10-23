@@ -1,3 +1,24 @@
+/* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   Copyright (c) 2013-2024 The plumed team
+   (see the PEOPLE file at the root of the distribution for a list of names)
+
+   See http://www.plumed.org for more information.
+
+   This file is part of plumed, version 2.
+
+   plumed is free software: you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   plumed is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public License
+   along with plumed.  If not, see <http://www.gnu.org/licenses/>.
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #ifndef plumed_parallel
 #define plumed_parallel
 #include <cmath>
@@ -16,13 +37,13 @@ namespace PLMD {
 
 namespace parallel {
 
-template<class UnaryFunc>
-double accumulate_sumOP(const std::vector<PLMD::Vector>& dataIn,
-                        const std::vector<unsigned>reaIndexes,
-                        UnaryFunc callable, double startingvalue=0.0) {
+template<typename T, typename I, class Callable>
+double accumulate_sumOP(const std::vector<T>& dataIn,
+                        const std::vector<I>&reaIndexes,
+                        Callable func, double startingvalue=0.0) {
 
-  using v3f= PLMD::wFloat::Vector<float>;
-  using tens= PLMD::wFloat::Tensor<float>;
+  using v3f = PLMD::wFloat::Vector<float>;
+
   unsigned nat=dataIn.size();
   std::vector<v3f> wdata(dataIn.size());
   for(auto i=0U; i<dataIn.size(); ++i) {
@@ -30,22 +51,50 @@ double accumulate_sumOP(const std::vector<PLMD::Vector>& dataIn,
     wdata[i][1] = dataIn[i][1];
     wdata[i][2] = dataIn[i][2];
   }
-  float ncoord=startingvalue;
+  float wval=startingvalue;
 
   // #pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat]) \
-  //     copyout(derivatives[0:nat],virial[0:9],ncoord)
-#pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat],callable) \
-        copy(ncoord)
+  //     copyout(derivatives[0:nat],virial[0:9],wval)
+#pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat],func) \
+        copy(wval)
   {
-#pragma acc parallel loop gang reduction(+:ncoord)
+#pragma acc parallel loop gang reduction(+:wval)
     for (size_t i = 0; i < nat; i++) {
-      ncoord += callable(i,wdata.data(),reaIndexes.data());
+      wval += func(i,wdata,reaIndexes);
     }
 
   }
-  startingvalue = ncoord;
+  startingvalue = wval;
   return startingvalue;
 }
+template<typename T, typename I, class Callable>
+double accumulate_sumOP(const std::vector<T>& dataIn,
+                        Callable func, double startingvalue=0.0) {
+
+  using v3f = PLMD::wFloat::Vector<float>;
+
+  unsigned nat=dataIn.size();
+  std::vector<v3f> wdata(dataIn.size());
+  for(auto i=0U; i<dataIn.size(); ++i) {
+    wdata[i][0] = dataIn[i][0];
+    wdata[i][1] = dataIn[i][1];
+    wdata[i][2] = dataIn[i][2];
+  }
+  float wval=startingvalue;
+
+#pragma acc data copyin(wdata[0:nat],func) \
+        copy(wval)
+  {
+#pragma acc parallel loop gang reduction(+:wval)
+    for (size_t i = 0; i < nat; i++) {
+      wval += func(i,wdata);
+    }
+
+  }
+  startingvalue = wval;
+  return startingvalue;
+}
+
 }// namespace parallel
 }//namespace PLMD
 #endif // plumed_parallel

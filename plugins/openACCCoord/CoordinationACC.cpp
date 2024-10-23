@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2013-2023 The plumed team
+   Copyright (c) 2013-2024 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -32,6 +32,7 @@
 
 #include <string_view>
 #include <iostream>
+#include <numeric>
 #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 
 namespace PLMD {
@@ -179,6 +180,8 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
   }
 }
 
+
+
 void CoordinationACC::prepare() {
   if(nl->getStride()>0) {
     if(firsttime || (getStep()%nl->getStride()==0)) {
@@ -198,21 +201,46 @@ double pairing(double distance,double&dfunc,unsigned i,unsigned j) {
   return 0.0;
 }
 
+template <class T>
+T mc(unsigned i,
+     const std::vector<PLMD::wFloat::Vector<T>>& positions,
+     const std::vector<PLMD::AtomNumber> & reaIndexes)  {
+  auto realIndex_i = reaIndexes[i];
+  using v3 = PLMD::wFloat::Vector<T>;
+  using mycalculator = ::myACC::calculatorReducedRationalFlexible<T>;
+  v3 xyz = positions[i];
+  T myNcoord=0.0;
+#pragma acc loop seq
+  for (size_t j = 0; j < 108; j++) {
+    if(realIndex_i==reaIndexes[j]) {
+      continue;
+    }
+    const v3 d=positions[j]-xyz;
+    const T dsq=d.modulo2();
+    const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,1.0,5.0, 1.0,0,10);
+
+    myNcoord +=t;
+
+    //   const v3 td = -dfunc * d;
+    //   mydev += td;
+  }
+  return myNcoord;
+}
+
 // calculator
 void CoordinationACC::calculate() {
   //I should exploit this:
 // assert(sizeof(PLMD::AtomNumber)==sizeof(unsigned);
 //since AtomNumber wraps an unsigned
   std::vector<unsigned> atomNumbers(getNumberOfAtoms());
-  for (unsigned i=0; i<getNumberOfAtoms(); ++i) {
-    atomNumbers[i]=getAbsoluteIndexes()[i].index();
-  }
 
   double ncoord=0.;
   Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
 
-  ncoord=PLMD::parallel::accumulate_sumOP(getPositions(),atomNumbers,calculator);
+  // ncoord=PLMD::parallel::accumulate_sumOP(getPositions(),getAbsoluteIndexes(),calculator);
+  ncoord=PLMD::parallel::accumulate_sumOP(getPositions(),getAbsoluteIndexes(),mc<float>);
+
   // for(unsigned i=0; i<deriv.size(); ++i) {
   //   setAtomsDerivatives(i,deriv[i]);
   // }
