@@ -39,7 +39,7 @@ double accumulate_sumOP(const std::vector<PLMD::Vector>& dataIn,
   {
 #pragma acc parallel loop gang reduction(+:ncoord)
     for (size_t i = 0; i < nat; i++) {
-      ncoord += callable(wdata[reaIndexes[i]],reaIndexes[i],wdata.data(),reaIndexes.data());
+      ncoord += callable(i,wdata.data(),reaIndexes.data());
     }
 
   }

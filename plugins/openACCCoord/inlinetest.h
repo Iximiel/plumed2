@@ -88,10 +88,11 @@ public:
     shift = setShift;
     stretch = setStretch;
   }
-  T operator()(v3 const xyz,
-               unsigned const realIndex_i,
+  T operator()(unsigned i,
                v3* const positions,
                const unsigned* const reaIndexes) const {
+    unsigned realIndex_i = reaIndexes[i];
+    v3 xyz = positions[i];
     T myNcoord=0.0;
 #pragma acc loop seq
     for (size_t j = 0; j < natA; j++) {
