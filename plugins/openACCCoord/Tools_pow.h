@@ -1,3 +1,5 @@
+#ifndef __PLUMED_tools_powFloat_h
+#define __PLUMED_tools_powFloat_h
 #include <type_traits>
 
 //PLMD::Tools is actually a class, so cit cannot be expanded,
@@ -41,3 +43,4 @@ T fastpow(T base, unsigned exp) {
 }
 } //namespace Tools
 } //namespace myACC
+#endif //__PLUMED_tools_powFloat_h
