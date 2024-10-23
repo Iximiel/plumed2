@@ -28,6 +28,7 @@
 // #include "plumed/tools/Communicator.h"
 // #include "fastCoord.hxx"
 #include "inlinetest.h"
+#include "inlineAcc.h"
 
 #include <string_view>
 #include <iostream>
@@ -211,7 +212,7 @@ void CoordinationACC::calculate() {
   Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
 
-  ncoord=::myACC::parallelAccumulate(getPositions(),atomNumbers,calculator);
+  ncoord=PLMD::parallel::accumulate_sumOP(getPositions(),atomNumbers,calculator);
   // for(unsigned i=0; i<deriv.size(); ++i) {
   //   setAtomsDerivatives(i,deriv[i]);
   // }

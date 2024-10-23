@@ -115,33 +115,5 @@ public:
 };
 
 
-template<class UnaryFunc>
-double parallelAccumulate(const std::vector<PLMD::Vector>& dataIn,
-                          const std::vector<unsigned>reaIndexes,
-                          UnaryFunc callable, double startingvalue=0.0) {
-  unsigned nat=dataIn.size();
-  std::vector<v3> wdata(dataIn.size());
-  for(auto i=0U; i<dataIn.size(); ++i) {
-    wdata[i][0] = dataIn[i][0];
-    wdata[i][1] = dataIn[i][1];
-    wdata[i][2] = dataIn[i][2];
-  }
-  float ncoord=startingvalue;
-
-  // #pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat]) \
-  //     copyout(derivatives[0:nat],virial[0:9],ncoord)
-#pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat],callable) \
-        copy(ncoord)
-  {
-#pragma acc parallel loop gang reduction(+:ncoord)
-    for (size_t i = 0; i < nat; i++) {
-      ncoord += callable(wdata[reaIndexes[i]],reaIndexes[i],wdata.data(),reaIndexes.data());
-    }
-
-  }
-  startingvalue = ncoord;
-  return startingvalue;
-}
-
 }
 #endif // myACCinline_hxx
