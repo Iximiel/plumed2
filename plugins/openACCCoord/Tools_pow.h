@@ -15,6 +15,7 @@ T fastpow(T base, unsigned exp) {
     base=1.0/base;
   }
   T result = 1.0;
+#pragma acc loop seq
   while (exp) {
     if (exp & 1) {
       result *= base;
