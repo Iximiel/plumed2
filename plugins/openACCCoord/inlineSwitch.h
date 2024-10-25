@@ -37,39 +37,6 @@ namespace myACC {
 using v3= PLMD::wFloat::Vector<float>;
 using tens= PLMD::wFloat::Tensor<float>;
 
-template <typename T>
-static inline std::pair<T,T> doReducedRational(const T rdist, const unsigned pow, T result=0.0) {
-  const T rNdist=myACC::Tools::fastpow(rdist, pow-1);
-  result=1.0/(1.0+rNdist*rdist);
-  const T dfunc = -rNdist*result*result*pow;
-  return {result,dfunc};
-}
-template <typename T>
-struct calculatorReducedRationalFlexible {
-  static std::pair<T,T> calculateSqr(const T distance2,
-                                     const T invr0_2,
-                                     const T dmax_2,
-                                     const T stretch,
-                                     const T shift,
-                                     const unsigned pow) {
-    // int mul = (distance2 <= dmax_2);
-    if (distance2 > dmax_2) {
-      return {0.0f,0.0f};
-    }
-    const T rdist = distance2*invr0_2;
-    auto [result,dfunc] = doReducedRational(rdist,pow/2);
-    dfunc*=2*invr0_2;
-    // stretch:
-    result=result*stretch+shift;
-    dfunc*=stretch;
-    return {result,dfunc};
-  }
-};
-
-
-
-using mycalculator = calculatorReducedRationalFlexible<float>;
-
 template<typename T>
 struct switchData {
   unsigned natA{0};
@@ -80,10 +47,10 @@ struct switchData {
   T shift{0.0};
   T stretch{1.0};
   switchData() = default;
-  // fastCoordINLINE(const fastCoordINLINE&) = default;
-  // fastCoordINLINE(fastCoordINLINE&&) = default;
-  // fastCoordINLINE& operator=(const fastCoordINLINE&) = default;
-  // fastCoordINLINE& operator=(fastCoordINLINE&&) = default;
+  // switchData(const switchData&) = default;
+  // switchData(switchData&&) = default;
+  // switchData& operator=(const switchData&) = default;
+  // switchData& operator=(switchData&&) = default;
   switchData(unsigned const natA_,
              unsigned const natB_,
              unsigned const N,
@@ -98,17 +65,43 @@ struct switchData {
 
   template <typename switchFunc>
   void setShiftAndStretch() {
-    const float s0=switchFunc::calculateSqr(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0,NN).first;
-    const float sd=switchFunc::calculateSqr(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0,NN).first;
+    const float s0=switchFunc::calculateSqr(0.0f,*this).first;
+    const float sd=switchFunc::calculateSqr(dmaxsq,*this).first;
 
     stretch=1.0f/(s0-sd);
     shift=-sd*stretch;
-
   }
-
-
-
 };
+
+template <typename T>
+static inline std::pair<T,T> doReducedRational(const T rdist, const unsigned power, T result=0.0) {
+  const T rNdist=myACC::Tools::fastpow(rdist, power-1);
+  result=1.0/(1.0+rNdist*rdist);
+  const T dfunc = -rNdist*result*result*power;
+  return {result,dfunc};
+}
+template <typename T>
+struct calculatorReducedRational {
+  static std::pair<T,T> calculateSqr(const T distance2,const switchData<T> params) {
+    // int mul = (distance2 <= dmax_2);
+    if (distance2 > params.dmaxsq) {
+      return {0.0f,0.0f};
+    }
+    const T rdist = distance2*params.invr0_2;
+    auto [result,dfunc] = doReducedRational(rdist,params.NN/2);
+    dfunc*=2*params.invr0_2;
+    // stretch:
+    result=result*params.stretch+params.shift;
+    dfunc*=params.stretch;
+    return {result,dfunc};
+  }
+};
+
+
+
+
+
+
 
 
 }

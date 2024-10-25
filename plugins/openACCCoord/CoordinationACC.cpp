@@ -177,7 +177,7 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
                      mm,
                      1.0/switchingFunction.get_r0(),
                      switchingFunction.get_dmax());
-    switchSettings.setShiftAndStretch<::myACC::calculatorReducedRationalFlexible<float>>();
+    switchSettings.setShiftAndStretch<::myACC::calculatorReducedRational<float>>();
   }
 }
 
@@ -231,12 +231,7 @@ const ::myACC::switchData<T> c)  {
     const v3 d=positions[j]-xyz;
     const T dsq=d.modulo2();
 
-    const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,
-                          c.invr0_2,
-                          c.dmaxsq,
-                          c.stretch,
-                          c.shift,
-                          c.NN);
+    const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,c);
     myNcoord +=t;
 
     const v3 td = -dfunc * d;
@@ -276,7 +271,7 @@ void CoordinationACC::calculate() {
                                           deriv,
                                           boxDev,
                                           switchSettings,
-                                          switchAlltoAll<float,::myACC::calculatorReducedRationalFlexible<float>>);
+                                          switchAlltoAll<float,::myACC::calculatorReducedRational<float>>);
 
   for(unsigned i=0; i<deriv.size(); ++i) {
     setAtomsDerivatives(i,deriv[i]);
