@@ -47,7 +47,7 @@ class CoordinationACC : public Colvar {
   bool firsttime;
 
   //used to get some calculations
-  ::myACC::fastCoordINLINE<float> calculator;
+  ::myACC::switchData<float> switchSettings;
 public:
   explicit CoordinationACC(const ActionOptions&);
 // active methods:
@@ -171,12 +171,13 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
       switchingFunction.set(nn,mm,r0,d0);
     }
 
-    calculator = ::myACC:: fastCoordINLINE<float>(natA,
-                 natB,
-                 nn,
-                 mm,
-                 1.0/switchingFunction.get_r0(),
-                 switchingFunction.get_dmax());
+    switchSettings = ::myACC:: switchData<float>(natA,
+                     natB,
+                     nn,
+                     mm,
+                     1.0/switchingFunction.get_r0(),
+                     switchingFunction.get_dmax());
+    switchSettings.setShiftAndStretch<::myACC::calculatorReducedRationalFlexible<float>>();
   }
 }
 
@@ -206,7 +207,7 @@ std::pair <T,PLMD::wFloat::Vector<T>> switchAlltoAll(unsigned i,
                                    const std::vector<PLMD::wFloat::Vector<T>>& positions,
                                    const std::vector<PLMD::AtomNumber> & reaIndexes,
                                    std::array<T,9>& myVirial,
-const ::myACC::fastCoordINLINE<T> c)  {
+const ::myACC::switchData<T> c)  {
   auto realIndex_i = reaIndexes[i];
   using v3 = PLMD::wFloat::Vector<T>;
 
@@ -274,7 +275,7 @@ void CoordinationACC::calculate() {
                                           reaIndexes,
                                           deriv,
                                           boxDev,
-                                          calculator,
+                                          switchSettings,
                                           switchAlltoAll<float,::myACC::calculatorReducedRationalFlexible<float>>);
 
   for(unsigned i=0; i<deriv.size(); ++i) {

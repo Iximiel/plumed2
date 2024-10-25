@@ -37,7 +37,6 @@ namespace myACC {
 using v3= PLMD::wFloat::Vector<float>;
 using tens= PLMD::wFloat::Tensor<float>;
 
-
 template <typename T>
 static inline std::pair<T,T> doReducedRational(const T rdist, const unsigned pow, T result=0.0) {
   const T rNdist=myACC::Tools::fastpow(rdist, pow-1);
@@ -67,20 +66,12 @@ struct calculatorReducedRationalFlexible {
   }
 };
 
-template <typename calculator>
-std::pair<float,float> getShiftAndStretch(float const invr0_2, float const dmaxsq, const unsigned pow) {
-  const float s0=calculator::calculateSqr(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0,pow).first;
-  const float sd=calculator::calculateSqr(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0,pow).first;
 
-  float const stretch=1.0f/(s0-sd);
-  float const shift=-sd*stretch;
-  return {shift,stretch};
-}
 
 using mycalculator = calculatorReducedRationalFlexible<float>;
 
 template<typename T>
-struct fastCoordINLINE {
+struct switchData {
   unsigned natA{0};
   unsigned natB{0};
   unsigned NN{0};
@@ -88,49 +79,33 @@ struct fastCoordINLINE {
   T dmaxsq{1.0};
   T shift{0.0};
   T stretch{1.0};
-public:
-  fastCoordINLINE() = default;
+  switchData() = default;
   // fastCoordINLINE(const fastCoordINLINE&) = default;
   // fastCoordINLINE(fastCoordINLINE&&) = default;
   // fastCoordINLINE& operator=(const fastCoordINLINE&) = default;
   // fastCoordINLINE& operator=(fastCoordINLINE&&) = default;
-  fastCoordINLINE(unsigned const natA_,
-                  unsigned const natB_,
-                  unsigned const N,
-                  unsigned const M,
-                  T const invr0_,
-                  T const dmax_)
+  switchData(unsigned const natA_,
+             unsigned const natB_,
+             unsigned const N,
+             unsigned const M,
+             T const invr0_,
+             T const dmax_)
     : natA(natA_),
       natB(natB_),
       NN(N),
       invr0_2(invr0_*invr0_),
-      dmaxsq(dmax_*dmax_) {
-    auto [setShift, setStretch] = getShiftAndStretch<mycalculator>(invr0_2, dmaxsq,NN);
-    shift = setShift;
-    stretch = setStretch;
-  }
-  T operator()(unsigned i,
-               const std::vector<v3>&  positions,
-               const std::vector<PLMD::AtomNumber>&   reaIndexes) const {
-    auto realIndex_i = reaIndexes[i];
-    v3 xyz = positions[i];
-    T myNcoord=0.0;
-#pragma acc loop seq
-    for (size_t j = 0; j < natA; j++) {
-      if(realIndex_i==reaIndexes[j]) {
-        continue;
-      }
-      const v3 d=positions[j]-xyz;
-      const float dsq=d.modulo2();
-      const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,invr0_2,dmaxsq, stretch,shift,NN);
+      dmaxsq(dmax_*dmax_) {}
 
-      myNcoord +=t;
+  template <typename switchFunc>
+  void setShiftAndStretch() {
+    const float s0=switchFunc::calculateSqr(0.0f,invr0_2,dmaxsq+1.0,1.0,0.0,NN).first;
+    const float sd=switchFunc::calculateSqr(dmaxsq,invr0_2,dmaxsq+1.0,1.0,0.0,NN).first;
 
-      //   const v3 td = -dfunc * d;
-      //   mydev += td;
-    }
-    return myNcoord;
+    stretch=1.0f/(s0-sd);
+    shift=-sd*stretch;
+
   }
+
 
 
 };
