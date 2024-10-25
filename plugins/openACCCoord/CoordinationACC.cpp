@@ -27,7 +27,7 @@
 
 // #include "plumed/tools/Communicator.h"
 // #include "fastCoord.hxx"
-#include "inlinetest.h"
+#include "inlineSwitch.h"
 #include "inlineAcc.h"
 
 #include <string_view>
