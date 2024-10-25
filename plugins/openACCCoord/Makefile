@@ -5,7 +5,7 @@ include ./Makefile.conf
 DEPDIR := .deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 NVCXX = nvc++
-ACCFLAGS=-acc -acc=gpu -gpu=cc7
+ACCFLAGS=-acc -acc=gpu -gpu=cc75
 NVCCCFLAGS =  $(ACCFLAGS) --c++17 -Minfo=all -fast -Werror --diag_suppress probable_guiding_friend
 NVCCLDFLAGS = -shared $(ACCFLAGS)
 OBJS = CoordinationACC.o
@@ -23,11 +23,6 @@ endif
 
 all: ACCCoordination.$(SOEXT)
 
-%.o: %.cpp $(DEPDIR)/%.d | $(DEPDIR)
-	@echo Compiling object $@
-	$(NVCXX) $(NVCCCFLAGS) -c  $(PLUMED_INCLUDE)  $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) -fPIC $< -o $@
-
-
 $(DEPDIR): ; @mkdir -p $@
 
 DEPFILES := $(OBJS:%.o=$(DEPDIR)/%.d) $(ACCOBJS:%.o=$(DEPDIR)/%.d)
@@ -35,22 +30,20 @@ DEPFILES := $(OBJS:%.o=$(DEPDIR)/%.d) $(ACCOBJS:%.o=$(DEPDIR)/%.d)
 $(DEPFILES):
 include $(wildcard $(DEPFILES))
 
-
-libswitchACC.$(SOEXT): $(ACCOBJS)
-	@echo Linking $@
-	# $(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -Wl,-soname,"$(notdir $@)" -o $@ $^
-	$(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -o $@ $^
+%.o: %.cpp $(DEPDIR)/%.d | $(DEPDIR)
+	@echo Compiling object $@
+	$(NVCXX) $(NVCCCFLAGS) -c $(PLUMED_INCLUDE) $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) -fPIC $< -o $@
 
 ACCCoordination.$(SOEXT): $(OBJS)
 	@echo Linking $@
-	$(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -shared $(ADDCLDFLAGS) -Wl,-soname,"$(notdir $@)" -o $@ $< $(DYNAMIC_LIBS) $(PLUMED_KERNEL) 
+	$(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -shared -Wl,-soname,"$(notdir $@)" -o $@ $< $(NVCCDYNAMIC_LIBS) $(PLUMED_KERNEL) 
 
 clean:
-	@rm -fv $(ACCOBJS) $(OBJS) ACCCoordination.$(SOEXT) libswitchACC.$(SOEXT)
+	@rm -fv $(ACCOBJS) $(OBJS) ACCCoordination.$(SOEXT)
 
 veryclean: clean
 	@echo removing dependency tracking
-	@rm -rf .deps
+	@rm -rf $(DEPDIR)
 
 check: all
 	$(MAKE) -C regtest

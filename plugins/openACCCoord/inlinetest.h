@@ -25,12 +25,12 @@
 #include <iostream>
 #include <utility>
 
-#include "plumed/tools/Tools.h"
 #include "plumed/tools/AtomNumber.h"
 
 #include "Vector.h"
 #include "Tensor.h"
 #include "Tools_pow.h"
+// #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 
 namespace myACC {
 
@@ -80,7 +80,7 @@ std::pair<float,float> getShiftAndStretch(float const invr0_2, float const dmaxs
 using mycalculator = calculatorReducedRationalFlexible<float>;
 
 template<typename T>
-class fastCoordINLINE {
+struct fastCoordINLINE {
   unsigned natA{0};
   unsigned natB{0};
   unsigned NN{0};

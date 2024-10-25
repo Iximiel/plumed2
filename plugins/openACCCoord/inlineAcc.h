@@ -21,12 +21,11 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #ifndef plumed_parallel
 #define plumed_parallel
-#include <cmath>
 #include <iostream>
 #include <utility>
 
-#include "plumed/tools/Tools.h"
-#include "plumed/tools/AtomNumber.h"
+#define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
+
 
 #include "Vector.h"
 #include "Tensor.h"
@@ -36,11 +35,43 @@
 namespace PLMD {
 
 namespace parallel {
+  
+
+template<typename T, typename I,typename S, class Callable>
+double accumulate_sumOP(const std::vector<T>& dataIn,
+                        const std::vector<I>& reaIndexes,
+                        const S support,
+                        Callable func,
+                        double startingvalue=0.0) {
+
+  using v3f = PLMD::wFloat::Vector<float>;
+
+  unsigned nat=dataIn.size();
+  std::vector<v3f> wdata(dataIn.size());
+  for(auto i=0U; i<dataIn.size(); ++i) {
+    wdata[i][0] = dataIn[i][0];
+    wdata[i][1] = dataIn[i][1];
+    wdata[i][2] = dataIn[i][2];
+  }
+  float wval=startingvalue;
+#pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat],support,func) \
+        copy(wval)
+  {
+#pragma acc parallel loop gang reduction(+:wval)
+    for (size_t i = 0; i < nat; i++) {
+      wval += func(i,wdata,reaIndexes,support);
+    }
+
+  }
+  startingvalue = wval;
+  return startingvalue;
+}
 
 template<typename T, typename I, class Callable>
 double accumulate_sumOP(const std::vector<T>& dataIn,
-                        const std::vector<I>&reaIndexes,
-                        Callable func, double startingvalue=0.0) {
+                        const std::vector<I>& reaIndexes,
+                        Callable func,
+                        double startingvalue=0.0) {
 
   using v3f = PLMD::wFloat::Vector<float>;
 
@@ -53,8 +84,6 @@ double accumulate_sumOP(const std::vector<T>& dataIn,
   }
   float wval=startingvalue;
 
-  // #pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat]) \
-  //     copyout(derivatives[0:nat],virial[0:9],wval)
 #pragma acc data copyin(wdata[0:nat],reaIndexes[0:nat],func) \
         copy(wval)
   {
@@ -67,9 +96,12 @@ double accumulate_sumOP(const std::vector<T>& dataIn,
   startingvalue = wval;
   return startingvalue;
 }
+
+
 template<typename T, typename I, class Callable>
 double accumulate_sumOP(const std::vector<T>& dataIn,
-                        Callable func, double startingvalue=0.0) {
+                        Callable func,
+                        double startingvalue=0.0) {
 
   using v3f = PLMD::wFloat::Vector<float>;
 

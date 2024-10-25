@@ -204,7 +204,8 @@ double pairing(double distance,double&dfunc,unsigned i,unsigned j) {
 template <class T>
 T mc(unsigned i,
      const std::vector<PLMD::wFloat::Vector<T>>& positions,
-     const std::vector<PLMD::AtomNumber> & reaIndexes)  {
+     const std::vector<PLMD::AtomNumber> & reaIndexes,
+     const ::myACC::fastCoordINLINE<T> c)  {
   auto realIndex_i = reaIndexes[i];
   using v3 = PLMD::wFloat::Vector<T>;
   using mycalculator = ::myACC::calculatorReducedRationalFlexible<T>;
@@ -217,8 +218,8 @@ T mc(unsigned i,
     }
     const v3 d=positions[j]-xyz;
     const T dsq=d.modulo2();
-    const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,1.0,5.0, 1.0,0,10);
-
+    
+    const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,c.invr0_2,c.dmaxsq, c.stretch,c.shift,c.NN);
     myNcoord +=t;
 
     //   const v3 td = -dfunc * d;
@@ -237,10 +238,15 @@ void CoordinationACC::calculate() {
   double ncoord=0.;
   Tensor boxDev;
   std::vector<Vector> deriv(getNumberOfAtoms());
-
+  std::vector<PLMD::AtomNumber> reaIndexes=getAbsoluteIndexes();
+  std::vector<PLMD::Vector> positions=getPositions();
+  // vdbg(ncoord);
   // ncoord=PLMD::parallel::accumulate_sumOP(getPositions(),getAbsoluteIndexes(),calculator);
-  ncoord=PLMD::parallel::accumulate_sumOP(getPositions(),getAbsoluteIndexes(),mc<float>);
-
+  // ncoord=PLMD::parallel::accumulate_sumOP(positions,reaIndexes,calculator);
+  ncoord=PLMD::parallel::accumulate_sumOP(positions,reaIndexes,calculator, mc<float>);
+  
+  // ncoord=PLMD::parallel::accumulate_sumOP(getPositions(),getAbsoluteIndexes(),mc<float>);
+  // vdbg(ncoord);
   // for(unsigned i=0; i<deriv.size(); ++i) {
   //   setAtomsDerivatives(i,deriv[i]);
   // }
