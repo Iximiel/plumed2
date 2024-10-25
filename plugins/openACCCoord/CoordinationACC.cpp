@@ -203,15 +203,25 @@ double pairing(double distance,double&dfunc,unsigned i,unsigned j) {
 
 template <class T>
 std::pair <T,PLMD::wFloat::Vector<T>> switchAlltoAll(unsigned i,
-     const std::vector<PLMD::wFloat::Vector<T>>& positions,
-     const std::vector<PLMD::AtomNumber> & reaIndexes,
-     const ::myACC::fastCoordINLINE<T> c)  {
+                                   const std::vector<PLMD::wFloat::Vector<T>>& positions,
+                                   const std::vector<PLMD::AtomNumber> & reaIndexes,
+                                   std::array<T,9>& myVirial,
+const ::myACC::fastCoordINLINE<T> c)  {
   auto realIndex_i = reaIndexes[i];
   using v3 = PLMD::wFloat::Vector<T>;
   using mycalculator = ::myACC::calculatorReducedRationalFlexible<T>;
   v3 xyz = positions[i];
-  v3 mydev(0.0,0.0,0.0);
-  T myNcoord=0.0;
+  v3 mydev(T(0.0),T(0.0),T(0.0));
+  T myNcoord=T(0.0);
+  myVirial[0]=T(0.0);
+  myVirial[1]=T(0.0);
+  myVirial[2]=T(0.0);
+  myVirial[3]=T(0.0);
+  myVirial[4]=T(0.0);
+  myVirial[5]=T(0.0);
+  myVirial[6]=T(0.0);
+  myVirial[7]=T(0.0);
+  myVirial[8]=T(0.0);
 #pragma acc loop seq
   for (size_t j = 0; j < 108; j++) {
     if(realIndex_i==reaIndexes[j]) {
@@ -219,12 +229,25 @@ std::pair <T,PLMD::wFloat::Vector<T>> switchAlltoAll(unsigned i,
     }
     const v3 d=positions[j]-xyz;
     const T dsq=d.modulo2();
-    
+
     const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,c.invr0_2,c.dmaxsq, c.stretch,c.shift,c.NN);
     myNcoord +=t;
 
-      const v3 td = -dfunc * d;
-      mydev += td;
+    const v3 td = -dfunc * d;
+    mydev += td;
+
+    if(i>j) {
+      myVirial[0]+=td[0]*d[0];
+      myVirial[1]+=td[0]*d[1];
+      myVirial[2]+=td[0]*d[2];
+      myVirial[3]+=td[1]*d[0];
+      myVirial[4]+=td[1]*d[1];
+      myVirial[5]+=td[1]*d[2];
+      myVirial[6]+=td[2]*d[0];
+      myVirial[7]+=td[2]*d[1];
+      myVirial[8]+=td[2]*d[2];
+    }
+
   }
   return {myNcoord,mydev};
 }
@@ -241,14 +264,14 @@ void CoordinationACC::calculate() {
   std::vector<Vector> deriv(getNumberOfAtoms());
   std::vector<PLMD::AtomNumber> reaIndexes=getAbsoluteIndexes();
   std::vector<PLMD::Vector> positions=getPositions();
-  
-  ncoord=PLMD::parallel::accumulate_sumOP(positions,reaIndexes,deriv,calculator, switchAlltoAll<float>);
-  
+
+  ncoord=PLMD::parallel::accumulate_sumOP(positions,reaIndexes,deriv,boxDev,calculator, switchAlltoAll<float>);
+
   for(unsigned i=0; i<deriv.size(); ++i) {
     setAtomsDerivatives(i,deriv[i]);
   }
   setValue           (ncoord/2.0);
-  // setBoxDerivatives  (boxDev);
+  setBoxDerivatives  (boxDev);
 
 }
 } // namespace colvar
