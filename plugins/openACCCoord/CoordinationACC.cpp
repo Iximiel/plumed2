@@ -201,7 +201,7 @@ double pairing(double distance,double&dfunc,unsigned i,unsigned j) {
   return 0.0;
 }
 
-template <class T>
+template <typename T, typename mycalculator>
 std::pair <T,PLMD::wFloat::Vector<T>> switchAlltoAll(unsigned i,
                                    const std::vector<PLMD::wFloat::Vector<T>>& positions,
                                    const std::vector<PLMD::AtomNumber> & reaIndexes,
@@ -209,7 +209,7 @@ std::pair <T,PLMD::wFloat::Vector<T>> switchAlltoAll(unsigned i,
 const ::myACC::fastCoordINLINE<T> c)  {
   auto realIndex_i = reaIndexes[i];
   using v3 = PLMD::wFloat::Vector<T>;
-  using mycalculator = ::myACC::calculatorReducedRationalFlexible<T>;
+
   v3 xyz = positions[i];
   v3 mydev(T(0.0),T(0.0),T(0.0));
   T myNcoord=T(0.0);
@@ -223,14 +223,19 @@ const ::myACC::fastCoordINLINE<T> c)  {
   myVirial[7]=T(0.0);
   myVirial[8]=T(0.0);
 #pragma acc loop seq
-  for (size_t j = 0; j < 108; j++) {
+  for (size_t j = 0; j < c.natA; j++) {
     if(realIndex_i==reaIndexes[j]) {
       continue;
     }
     const v3 d=positions[j]-xyz;
     const T dsq=d.modulo2();
 
-    const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,c.invr0_2,c.dmaxsq, c.stretch,c.shift,c.NN);
+    const auto [t,dfunc ]=mycalculator::calculateSqr(dsq,
+                          c.invr0_2,
+                          c.dmaxsq,
+                          c.stretch,
+                          c.shift,
+                          c.NN);
     myNcoord +=t;
 
     const v3 td = -dfunc * d;
@@ -265,7 +270,12 @@ void CoordinationACC::calculate() {
   std::vector<PLMD::AtomNumber> reaIndexes=getAbsoluteIndexes();
   std::vector<PLMD::Vector> positions=getPositions();
 
-  ncoord=PLMD::parallel::accumulate_sumOP(positions,reaIndexes,deriv,boxDev,calculator, switchAlltoAll<float>);
+  ncoord=PLMD::parallel::accumulate_sumOP(positions,
+                                          reaIndexes,
+                                          deriv,
+                                          boxDev,
+                                          calculator,
+                                          switchAlltoAll<float,::myACC::calculatorReducedRationalFlexible<float>>);
 
   for(unsigned i=0; i<deriv.size(); ++i) {
     setAtomsDerivatives(i,deriv[i]);
