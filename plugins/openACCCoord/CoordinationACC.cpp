@@ -177,7 +177,12 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
                      mm,
                      1.0/switchingFunction.get_r0(),
                      switchingFunction.get_dmax());
-    switchSettings.setShiftAndStretch<::myACC::calculatorReducedRational<float>>();
+    {
+      auto [stretch,shift] = ::myACC::getShiftAndStretch<::myACC::calculatorReducedRational<float>>(switchSettings);
+
+      switchSettings.stretch=stretch;
+      switchSettings.shift=shift;
+    }
   }
 }
 

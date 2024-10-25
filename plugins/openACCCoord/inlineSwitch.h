@@ -39,13 +39,14 @@ using tens= PLMD::wFloat::Tensor<float>;
 
 template<typename T>
 struct switchData {
+  using precision = T;
   unsigned natA{0};
   unsigned natB{0};
   unsigned NN{0};
   T invr0_2{1.0};
   T dmaxsq{1.0};
-  T shift{0.0};
   T stretch{1.0};
+  T shift{0.0};
   switchData() = default;
   // switchData(const switchData&) = default;
   // switchData(switchData&&) = default;
@@ -63,15 +64,20 @@ struct switchData {
       invr0_2(invr0_*invr0_),
       dmaxsq(dmax_*dmax_) {}
 
-  template <typename switchFunc>
-  void setShiftAndStretch() {
-    const float s0=switchFunc::calculateSqr(0.0f,*this).first;
-    const float sd=switchFunc::calculateSqr(dmaxsq,*this).first;
-
-    stretch=1.0f/(s0-sd);
-    shift=-sd*stretch;
-  }
 };
+
+template <typename switchFunc,
+          typename dataType,
+          typename precision=typename dataType::precision>
+std::pair<precision,precision> getShiftAndStretch(dataType const x) {
+  const precision s0=switchFunc::calculateSqr(0.0f,x).first;
+  const precision sd=switchFunc::calculateSqr(x.dmaxsq,x).first;
+
+  const precision stretch=1.0f/(s0-sd);
+  const precision shift=-sd*stretch;
+
+  return {stretch,shift};
+}
 
 template <typename T>
 static inline std::pair<T,T> doReducedRational(const T rdist, const unsigned power, T result=0.0) {
