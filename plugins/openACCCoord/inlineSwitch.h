@@ -115,8 +115,8 @@ static inline std::pair<T,T> doRational(const T rdist,
                                         const unsigned N,
                                         const unsigned M,
                                         const T secDev,
-                                        T dfunc=0.0,
-                                        T result=0.0) {
+                                        T dfunc,
+                                        T result) {
   if(!((rdist > lessThanOne<T>) && (rdist < moreThanOne<T>))) {
     const T rNdist=myACC::Tools::fastpow(rdist,N-1);
     const T rMdist=myACC::Tools::fastpow(rdist,M-1);
@@ -169,13 +169,14 @@ struct rationalData {
   T stretch{1.0};
   T shift{0.0};
   T centerVal{0.0};
+  T secondDev{0.0};
   T centerDev{0.0};
   rationalData() = default;
 
   rationalData(unsigned const natA_,
                unsigned const natB_,
-               unsigned const N,
-               unsigned const M,
+               int const N,
+               int const M,
                T const invr0_,
                T const d0_,
                T const dmax_)
@@ -188,6 +189,7 @@ struct rationalData {
       dmax(dmax_),
       dmaxsq(dmax*dmax),
       centerVal(static_cast<T>(NN)/MM),
+      secondDev(((N * (M * M - 3.0* M * (-1 + N ) + N *(-3 + 2* N )))/(6.0* M ))),
       centerDev(0.5*NN*(NN-MM)/static_cast<T>(MM)) {}
 
 };
@@ -209,7 +211,7 @@ struct calculatorRational
     T dfunc=0.0;
     if (rdist>0.0) {
       std::tie(result,dfunc) = doRational(rdist, params.NN,
-                                          params.MM,params.centerDev,params.centerVal);
+                                          params.MM,params.secondDev,params.centerDev,params.centerVal);
       dfunc*=params.invr0;
       dfunc/=distance;
     }
