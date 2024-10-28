@@ -6,6 +6,8 @@
 // an forthe way I am compiling with openACC the better thing may be not include
 // things that are not in std
 namespace myACC {
+template <typename T>
+constexpr T epsilon(std::numeric_limits<T>::epsilon());
 namespace Tools {
 template <typename T>
 constexpr inline

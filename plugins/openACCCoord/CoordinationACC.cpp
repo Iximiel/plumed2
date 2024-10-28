@@ -33,13 +33,16 @@
 #include <string_view>
 #include <iostream>
 #include <numeric>
+#include <variant>
 #define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 
 namespace PLMD {
 namespace colvar {
-
+template <typename T>
+using mySWD= std::variant<::myACC::rationalData<T>,::myACC::switchData<T>>;
 
 class CoordinationACC : public Colvar {
+
   bool pbc;
   bool serial;
   std::unique_ptr<NeighborList> nl;
@@ -47,7 +50,7 @@ class CoordinationACC : public Colvar {
   bool firsttime;
 
   //used to get some calculations
-  ::myACC::switchData<float> switchSettings;
+  mySWD<float> switchSettings;
 public:
   explicit CoordinationACC(const ActionOptions&);
 // active methods:
@@ -83,7 +86,6 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
   serial(false),
   invalidateList(true),
   firsttime(true) {
-
   parseFlag("SERIAL",serial);
 
   std::vector<AtomNumber> ga_lista,gb_lista;
@@ -165,24 +167,40 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
       parse("D_0",d0);
       parse("NN",nn);
       parse("MM",mm);
-      if (mm!=0 || nn%2!=0 || d0!=0.0) {
-        error("Sorry, but current implementation accepts only NN=even, MM=0 and D_0=0.0");
-      }
       switchingFunction.set(nn,mm,r0,d0);
     }
-
-    switchSettings = ::myACC:: switchData<float>(natA,
-                     natB,
-                     nn,
-                     mm,
-                     1.0/switchingFunction.get_r0(),
-                     switchingFunction.get_dmax());
-    {
-      auto [stretch,shift] = ::myACC::getShiftAndStretch<::myACC::calculatorReducedRational<float>>(switchSettings);
-
-      switchSettings.stretch=stretch;
-      switchSettings.shift=shift;
+    if (mm!=0 || nn%2!=0 || switchingFunction.get_d0()!=0.0) {
+      switchSettings = ::myACC::rationalData<float>(natA,
+                       natB,
+                       nn,
+                       mm,
+                       1.0/switchingFunction.get_r0(),
+                       switchingFunction.get_d0(),
+                       switchingFunction.get_dmax());
+    } else {
+      switchSettings = ::myACC::switchData<float>(natA,
+                       natB,
+                       nn,
+                       mm,
+                       1.0/switchingFunction.get_r0(),
+                       switchingFunction.get_dmax());
     }
+
+    std::visit([](auto& data) {
+      using T = std::decay_t<decltype(data)>;
+      float stretch=1.0;
+      float shift=0.0;
+      if constexpr (std::is_same_v<T, ::myACC::switchData<float>>) {
+        std::tie(stretch,shift) = ::myACC::getShiftAndStretch<::myACC::calculatorReducedRational<float>>(data);
+      } else if constexpr (std::is_same_v<T, ::myACC::rationalData<float>>) {
+        std::tie(stretch,shift) = ::myACC::getShiftAndStretch<::myACC::calculatorRational<float>>(data);
+      }/* else {
+        static_assert(false, "non-exhaustive visitor!");
+      }*/
+      data.stretch=stretch;
+      data.shift=shift;
+    },
+    switchSettings);
   }
 }
 
@@ -207,12 +225,12 @@ double pairing(double distance,double&dfunc,unsigned i,unsigned j) {
   return 0.0;
 }
 
-template <typename T, typename mycalculator>
+template <typename mycalculator, typename dataContainer,typename T=typename dataContainer::precision>
 std::pair <T,PLMD::wFloat::Vector<T>> switchAlltoAll(unsigned i,
                                    const std::vector<PLMD::wFloat::Vector<T>>& positions,
                                    const std::vector<PLMD::AtomNumber> & reaIndexes,
                                    std::array<T,9>& myVirial,
-const ::myACC::switchData<T> c)  {
+const dataContainer c)  {
   auto realIndex_i = reaIndexes[i];
   using v3 = PLMD::wFloat::Vector<T>;
 
@@ -270,13 +288,24 @@ void CoordinationACC::calculate() {
   std::vector<Vector> deriv(getNumberOfAtoms());
   std::vector<PLMD::AtomNumber> reaIndexes=getAbsoluteIndexes();
   std::vector<PLMD::Vector> positions=getPositions();
-
-  ncoord=PLMD::parallel::accumulate_sumOP(positions,
-                                          reaIndexes,
-                                          deriv,
-                                          boxDev,
-                                          switchSettings,
-                                          switchAlltoAll<float,::myACC::calculatorReducedRational<float>>);
+  std::visit([&](auto data) {
+    using T = std::decay_t<decltype(data)>;
+    if constexpr (std::is_same_v<T, ::myACC::switchData<float>>) {
+      ncoord=PLMD::parallel::accumulate_sumOP(positions,
+                                              reaIndexes,
+                                              deriv,
+                                              boxDev,
+                                              data,
+                                              switchAlltoAll<::myACC::calculatorReducedRational<float>,T>);
+    } else if constexpr (std::is_same_v<T, ::myACC::rationalData<float>>) {
+      ncoord=PLMD::parallel::accumulate_sumOP(positions,
+                                              reaIndexes,
+                                              deriv,
+                                              boxDev,
+                                              data,
+                                              switchAlltoAll<::myACC::calculatorRational<float>,T>);
+    }
+  },switchSettings);
 
   for(unsigned i=0; i<deriv.size(); ++i) {
     setAtomsDerivatives(i,deriv[i]);
