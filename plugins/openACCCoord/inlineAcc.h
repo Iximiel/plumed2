@@ -36,6 +36,31 @@ namespace PLMD {
 
 namespace parallel {
 
+  /**
+   @brief Accumulate the sum of a function that takes as an input a
+   vector of positions, a vector of atom numbers, and a support
+   structure.
+
+   @param dataIn The input data. read only
+   @param reaIndexes The atom numbers. read only
+   @param dataOut The output data (usually the derivative).
+   @param virialOut The output virial.
+   @param support the parameters of the function
+   @param func The function to accumulate.
+   @param startingvalue The starting value for the accumulation.
+
+   @return The accumulated sum.
+   
+   
+   the function must have the following signature: func(i,wdata,realIndexes,myVirial,support)
+    - i is the index of the atom
+    - realIndexes is the vector of atom numbers
+    - myVirial is the output virial that will be accumulated along  with the returned value of func
+    - support is the struct that contains the parameters of the function
+
+   the idea is to implement a different version of this function/file for each different
+   acceleration protocol to be used (openaCC, sycl, openMP, etc)
+   */
 template<typename T, typename I,typename S, class Callable>
 double accumulate_sumOP(const std::vector<T>& dataIn,
                         const std::vector<I>& reaIndexes,

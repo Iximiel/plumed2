@@ -185,7 +185,7 @@ CoordinationACC::CoordinationACC(const ActionOptions&ao):
                        1.0/switchingFunction.get_r0(),
                        switchingFunction.get_dmax());
     }
-
+  
     std::visit([](auto& data) {
       using T = std::decay_t<decltype(data)>;
       float stretch=1.0;
@@ -231,6 +231,12 @@ std::pair <T,PLMD::wFloat::Vector<T>> switchAlltoAll(unsigned i,
                                    const std::vector<PLMD::AtomNumber> & reaIndexes,
                                    std::array<T,9>& myVirial,
 const dataContainer c)  {
+  //this is the function that will be inlined in the accelerated loop in accumulate_sumOP
+  //the precision used in the dataContainer is the one used in the calculation
+  //in this case we calculate the distance from the atom i to the others and we accumulate the values in this loop
+  //
+  //I think it could be easier to work if we use the MemoryView/mdMemoryView classes implemented in Pbc.h
+
   auto realIndex_i = reaIndexes[i];
   using v3 = PLMD::wFloat::Vector<T>;
 
