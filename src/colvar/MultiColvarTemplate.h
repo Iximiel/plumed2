@@ -45,12 +45,10 @@ enum class scaledComponents {
 
 
 //TODO: test this
-class Ouput
-{
-  //these are const pointers to non const data,meaning YOU can't change the pointer
-  std::vector<double> * vals_=nullptr;
+class Ouput final {
+  std::vector<double>* vals_=nullptr;
   std::vector<std::vector<Vector> >* derivs_=nullptr;
-  std::vector<Tensor> * virial_=nullptr;
+  std::vector<Tensor>* virial_=nullptr;
   Ouput()=default;
 public:
 //const because the data in the class is not changing: we are modifying data pointed by the const pointers
@@ -60,9 +58,15 @@ public:
   Ouput(std::vector<double>& vals,
         std::vector<std::vector<Vector> >& derivs,
         std::vector<Tensor>& virial)
-    : vals_(&vals), derivs_(&derivs), virial_(&virial) {}
-  Ouput(Ouput const& other) : vals_(other.vals_), derivs_(other.derivs_), virial_(other.virial_) {};
-  Ouput(Ouput && other) noexcept : Ouput() {
+    : vals_(&vals),
+    derivs_(&derivs),
+    virial_(&virial) {}
+  Ouput(Ouput const& other) 
+  : vals_(other.vals_),
+  derivs_(other.derivs_),
+  virial_(other.virial_) {};
+  Ouput(Ouput && other) noexcept
+  : Ouput() {
     swap(*this, other);
   };
   // the input is initialized as copy or move ctor
@@ -78,6 +82,58 @@ public:
     std::swap(a.virial_, b.virial_);
   }
   ~Ouput() {}//this does not own anything
+};
+
+class Input final {  
+  std::vector<double>* masses_=nullptr;
+  std::vector<double>* charges_=nullptr;
+  std::vector<Vector>* positions_=nullptr;
+  Input()=default;
+public:
+//const because the data in the class is not changing: we are modifying data pointed by the const pointers
+  std::vector<double>&masses() const {return *masses_;}
+  std::vector<double>&charges() const {return *charges_;}
+  std::vector<Vector>&positions() const {return *positions_;}  
+  Input(std::vector<double>& masses,
+        std::vector<double>& charges,
+        std::vector<Vector>& positions)
+    : masses_(&masses),
+    charges_(&charges),
+    positions_(&positions) {}
+  Input(Input const& other) 
+  : masses_(other.masses_),
+  charges_(other.charges_),
+  positions_(other.positions_) {};
+  Input(Input && other) noexcept
+  : Input() {
+    swap(*this, other);
+  };
+  // the input is initialized as copy or move ctor
+  Input& operator=(Input other) =delete;
+  friend void swap(Input& a, Input& b) noexcept {
+    std::swap(a.masses_, b.masses_);
+    std::swap(a.charges_, b.charges_);
+    std::swap(a.positions_, b.positions_);
+  }
+  //returns an input with only positions
+  static Input justPositions(const std::vector<Vector>& positions) {
+    auto in = Input();
+    in.positions_=&positions;
+    return in;
+  }
+  //returns an input with only masses
+  static Input justMasses(const std::vector<double>& masses) {
+    auto in = Input();
+    in.masses_=&masses;
+    return in;
+  }
+  //returns an input with only charges
+  static Input justCharges(const std::vector<double>& charges) {
+    auto in = Input();
+    in.charges_=&charges;
+    return in;
+  }
+  ~Input() {}//this does not own anything
 };
 
 } // namespace multiColvars
@@ -97,7 +153,9 @@ To setup a CV compatible with multicolvartemplate you need to add
    - these functions will need to match the foloowing signatures (withour the constness of the non const& arguments):
    - `static void parseAtomList( int num, std::vector<AtomNumber>& t, ActionAtomistic* aa );`
    - `Modetype getModeAndSetupValues( ActionWithValue* av )`
-   - `static void calculateCV( Modetype mode, const std::vector<double>& masses, const std::vector<double>& charges, const std::vector<Vector>& pos, PLMD::colvars::multiColvars::Ouput out, const ActionAtomistic* aa )
+   - `static void calculateCV( Modetype mode, PLMD::colvar::multiColvars::Input in, PLMD::colvar::multiColvars::Ouput out, const ActionAtomistic* aa )
+     - the input variable contain the references to position, masses, charges
+     - the output variable contain the references to value, derivs, virial,and acts as a return argument
      - this function will be called by MultiColvarTemplate to calculate the CV value on the inputs
      - to avoid code repetitition you should change ::calculate() to call this function
      - By default all the inputs are const ref, but the constedness can be changed, since the MulticolvarTemplate will pass the plain references
@@ -110,17 +168,12 @@ To setup a CV compatible with multicolvartemplate you need to add
   static void parseAtomList( int num, std::vector<AtomNumber>& t, ActionAtomistic* aa ); \
   static Modetype getModeAndSetupValues( ActionWithValue* av )
 #define MULTICOLVAR_SETTINGS_CALCULATE_CONST() static void calculateCV( Modetype mode, \
-                          const std::vector<double>& masses, \
-                          const std::vector<double>& charges, \
-                          const std::vector<Vector>& pos, \
+                          PLMD::colvar::multiColvars::Input in, \
                           PLMD::colvar::multiColvars::Ouput out, \
                           const ActionAtomistic* aa )
 
 #define MULTICOLVAR_DEFAULT(type) MULTICOLVAR_SETTINGS_BASE(type); \
           MULTICOLVAR_SETTINGS_CALCULATE_CONST()
-
-
-
 //^no ';' here so that the macro will "consume" it and not generate a double semicolon error
 
 template <class CV>
@@ -285,7 +338,7 @@ void MultiColvarTemplate<CV>::performTask( const unsigned& task_index, MultiValu
     }
   }
   // Calculate the CVs using the method in the Colvar
-  CV::calculateCV( mode, mass, charge, fpositions, multiColvars::Ouput{values, derivs, virial}, this );
+  CV::calculateCV( mode, multiColvars::Input{mass, charge, fpositions}, multiColvars::Ouput{values, derivs, virial}, this );
   for(unsigned i=0; i<values.size(); ++i) myvals.setValue( i, values[i] );
   // Finish if there are no derivatives
   if( doNotCalculateDerivatives() ) return;
