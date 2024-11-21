@@ -176,7 +176,7 @@ void SelectMassCharge<mq>::calculate() {
   std::vector<std::vector<Vector> > derivsdummy;
   std::vector<Tensor> virialdummy;
   std::vector<double> vals(1);
- 
+
   if constexpr( mq == MC::Mass ) {
     std::vector<double> mass{getMass(theAtom.index())};
     calculateCV( {}, multiColvars::Input::justMasses(mass), multiColvars::Ouput(vals, derivsdummy, virialdummy), this );
@@ -197,9 +197,9 @@ void SelectMassCharge<mq>::calculate() {
 }
 
 template <MC mq>
-void SelectMassCharge<mq>::calculateCV( Modetype /*mode*/, 
-                          multiColvars::Input const in,
-                          multiColvars::Ouput out, const ActionAtomistic* aa ) {
+void SelectMassCharge<mq>::calculateCV( Modetype /*mode*/,
+                                        multiColvars::Input const in,
+                                        multiColvars::Ouput out, const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   if constexpr(mq == MC::Mass)  {
     vals[0]= in.masses()[0];

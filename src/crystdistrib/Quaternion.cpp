@@ -173,12 +173,12 @@ void Quaternion::calculate() {
 
 // calculator
 void Quaternion::calculateCV( Modetype /*mode*/,
-PLMD::colvar::multiColvars::Input const in,
+                              PLMD::colvar::multiColvars::Input const in,
                               PLMD::colvar::multiColvars::Ouput out, const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();
-  auto pos = in.positions();
+  const auto & pos = in.positions();
   //declarations
   Vector vec1_comp = delta( pos[0], pos[1] ); //components between atom 1 and 2
   Vector vec2_comp = delta( pos[0], pos[2] ); //components between atom 1 and 3

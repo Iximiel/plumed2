@@ -138,12 +138,12 @@ void Plane::calculate() {
 }
 
 void Plane::calculateCV( Modetype /*mode*/,
-multiColvars::Input const in,
-multiColvars::Ouput out, const ActionAtomistic* aa ) {
+                         multiColvars::Input const in,
+                         multiColvars::Ouput out, const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();
-  auto pos = in.positions();
+  const auto & = in.positions();
   Vector d1=delta( pos[1], pos[0] );
   Vector d2=delta( pos[2], pos[3] );
   Vector cp = crossProduct( d1, d2 );

@@ -237,12 +237,12 @@ void Torsion::calculate() {
 }
 
 void Torsion::calculateCV( Modetype mode,
-multiColvars::Input const in,
+                           multiColvars::Input const in,
                            multiColvars::Ouput out, const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();
-auto pos = in.positions();
+  const auto & = in.positions();
   Vector d0=delta(pos[1],pos[0]);
   Vector d1=delta(pos[3],pos[2]);
   Vector d2=delta(pos[5],pos[4]);

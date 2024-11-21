@@ -86,7 +86,7 @@ public:
   MULTICOLVAR_DEFAULT(multiColvars::components);
 private:
   std::vector<AtomNumber> ga_lista;
-  std::vector<double> value;  
+  std::vector<double> value;
   std::vector<double> charges;
   std::vector<std::vector<Vector> > derivs;
   std::vector<Tensor> virial;
@@ -174,7 +174,7 @@ void Dipole::calculate()
   unsigned N=getNumberOfAtoms();
   for(unsigned i=0; i<N; ++i) charges[i]=getCharge(i);
   auto inputs = multiColvars::Input::justPositions(getPositions())
-  .addCharges(charges);
+                .addCharges(charges);
   calculateCV( components, inputs, multiColvars::Ouput(value, derivs, virial), this );
   if(components == Modetype::noComponents) {
     for(unsigned i=0; i<N; i++) setAtomsDerivatives(i,derivs[0][i]);
@@ -196,9 +196,9 @@ void Dipole::calculate()
 }
 
 void Dipole::calculateCV( Modetype mode,
-multiColvars::Input const in,
-multiColvars::Ouput out,
-const ActionAtomistic* aa ) {
+                          multiColvars::Input const in,
+                          multiColvars::Ouput out,
+                          const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();

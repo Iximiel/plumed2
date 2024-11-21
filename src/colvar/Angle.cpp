@@ -176,9 +176,9 @@ void Angle::calculate() {
 }
 
 void Angle::calculateCV( Modetype /*mode*/,
-multiColvars::Input const in,
+                         multiColvars::Input const in,
                          multiColvars::Ouput out,
-                          const ActionAtomistic* aa ) {
+                         const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();

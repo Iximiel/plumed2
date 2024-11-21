@@ -214,13 +214,13 @@ void Position::calculate() {
   }
 }
 
-void Position::calculateCV( Modetype mode, 
-      multiColvars::Input const in,
+void Position::calculateCV( Modetype mode,
+                            multiColvars::Input const in,
                             multiColvars::Ouput out, const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();
-  auto pos = in.positions();
+  const auto & = in.positions();
   ////////////////////////////////////////////////////////////////////////////
   //why here there is not the distance from 000 treatment??????
   ///////////////////////////////////////////////////////////////////////////

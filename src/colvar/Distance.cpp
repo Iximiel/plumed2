@@ -277,12 +277,12 @@ void Distance::calculate() {
 }
 
 void Distance::calculateCV( Modetype mode,
-multiColvars::Input const in,
+                            multiColvars::Input const in,
                             multiColvars::Ouput out, const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();
-  auto pos = in.positions();
+  const auto & = in.positions();
   Vector distance=delta(pos[0],pos[1]);
   const double value=distance.modulo();
   const double invvalue=1.0/value;

@@ -62,14 +62,14 @@ public:
         std::vector<std::vector<Vector> >& derivs,
         std::vector<Tensor>& virial)
     : vals_(&vals),
-    derivs_(&derivs),
-    virial_(&virial) {}
-  Ouput(Ouput const& other) 
-  : vals_(other.vals_),
-  derivs_(other.derivs_),
-  virial_(other.virial_) {};
+      derivs_(&derivs),
+      virial_(&virial) {}
+  Ouput(Ouput const& other)
+    : vals_(other.vals_),
+      derivs_(other.derivs_),
+      virial_(other.virial_) {};
   Ouput(Ouput && other) noexcept
-  : Ouput() {
+    : Ouput() {
     swap(*this, other);
   };
   // the input is initialized as copy or move ctor
@@ -106,24 +106,24 @@ public:
   std::vector<Vector>&var_positions() const {return *std::get<std::vector<Vector>*>(positions_);}
   //references to constant data, must ALWAYS work
   const std::vector<double>&masses() const {
-    if(cvd const * p=std::get_if<cvd>(&masses_)){
+    if(cvd const * p=std::get_if<cvd>(&masses_)) {
       return **p;
-      }
-      //get_if takes a ptr, get takes a ref...
+    }
+    //get_if takes a ptr, get takes a ref...
     return *std::get<vd>(masses_);
-    }
+  }
   const std::vector<double>&charges() const {
-    if(cvd const* p=std::get_if<cvd>(&charges_)){
+    if(cvd const* p=std::get_if<cvd>(&charges_)) {
       return **p;
-      }
-      //get_if takes a ptr, get takes a ref...
-    return *std::get<vd>(charges_);
     }
+    //get_if takes a ptr, get takes a ref...
+    return *std::get<vd>(charges_);
+  }
   const std::vector<Vector>&positions() const {
-    if(cvv const* p=std::get_if<cvv>(&positions_)){
+    if(cvv const* p=std::get_if<cvv>(&positions_)) {
       return **p;
-      }
-      //get_if takes a ptr, get takes a ref...
+    }
+    //get_if takes a ptr, get takes a ref...
     return *std::get<vv>(positions_);
   }
   template<typename masses_T, typename charges_T, typename positions_T>
@@ -131,18 +131,18 @@ public:
         charges_T& charges,
         positions_T& positions)
     : masses_(&masses),
-    charges_(&charges),
-    positions_(&positions) {
-      static_assert(std::is_same_v<masses_T,    std::vector<double>> || std::is_same_v<masses_T,    const std::vector<double>>);
-      static_assert(std::is_same_v<charges_T,   std::vector<double>> || std::is_same_v<charges_T,   const std::vector<double>>);
-      static_assert(std::is_same_v<positions_T, std::vector<Vector>> || std::is_same_v<positions_T, const std::vector<Vector>>);
-    }
-  Input(Input const& other) 
-  : masses_(other.masses_),
-  charges_(other.charges_),
-  positions_(other.positions_) {};
+      charges_(&charges),
+      positions_(&positions) {
+    static_assert(std::is_same_v<masses_T,    std::vector<double>> || std::is_same_v<masses_T,    const std::vector<double>>);
+    static_assert(std::is_same_v<charges_T,   std::vector<double>> || std::is_same_v<charges_T,   const std::vector<double>>);
+    static_assert(std::is_same_v<positions_T, std::vector<Vector>> || std::is_same_v<positions_T, const std::vector<Vector>>);
+  }
+  Input(Input const& other)
+    : masses_(other.masses_),
+      charges_(other.charges_),
+      positions_(other.positions_) {};
   Input(Input && other) noexcept
-  : Input() {
+    : Input() {
     swap(*this, other);
   };
   //with the builder pattern I ma not need the ubercomplex ctor  and the just things that I set up...

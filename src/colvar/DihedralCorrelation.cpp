@@ -130,8 +130,8 @@ void DihedralCorrelation::calculate() {
   setBoxDerivatives( virial[0] );
 }
 
-void DihedralCorrelation::calculateCV(Modetype  /*mode*/, 
-multiColvars::Input const in,
+void DihedralCorrelation::calculateCV(Modetype  /*mode*/,
+                                      multiColvars::Input const in,
                                       multiColvars::Ouput out, const ActionAtomistic* aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
