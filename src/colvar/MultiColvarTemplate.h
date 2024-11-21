@@ -145,6 +145,32 @@ public:
   : Input() {
     swap(*this, other);
   };
+  //with the builder pattern I ma not need the ubercomplex ctor  and the just things that I set up...
+  Input& addCharges(std::vector<double>& charges) {
+    charges_=&charges;
+    return *this;
+  }
+  Input& addCharges(const std::vector<double>& charges) {
+    charges_=&charges;
+    return *this;
+  }
+  Input& addMasses(std::vector<double>& masses) {
+    masses_=&masses;
+    return *this;
+  }
+  Input& addMasses(const std::vector<double>& masses) {
+    masses_=&masses;
+    return *this;
+  }
+  Input& addPositions(std::vector<Vector>& positions) {
+    positions_=&positions;
+    return *this;
+  }
+  Input& addPositions(const std::vector<Vector>& positions) {
+    positions_=&positions;
+    return *this;
+  }
+
   // the input is initialized as copy or move ctor
   Input& operator=(Input other) =delete;
   friend void swap(Input& a, Input& b) noexcept {
