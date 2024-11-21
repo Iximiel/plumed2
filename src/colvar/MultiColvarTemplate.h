@@ -22,6 +22,9 @@
 #ifndef __PLUMED_colvar_MultiColvarTemplate_h
 #define __PLUMED_colvar_MultiColvarTemplate_h
 
+#include <variant>
+#include <type_traits>
+
 #include "core/ActionWithVector.h"
 
 namespace PLMD {
@@ -84,22 +87,56 @@ public:
   ~Ouput() {}//this does not own anything
 };
 
-class Input final {  
-  std::vector<double>* masses_=nullptr;
-  std::vector<double>* charges_=nullptr;
-  std::vector<Vector>* positions_=nullptr;
+class Input final {
+  using vd=std::vector<double>*;
+  using cvd = const std::vector<double>*;
+  using vv=std::vector<Vector>*;
+  using cvv = const std::vector<Vector>*;
+  std::variant<std::vector<double>*,const std::vector<double>*> masses_;
+  std::variant<std::vector<double>*,const std::vector<double>*> charges_;
+  std::variant<std::vector<Vector>*,const std::vector<Vector>*> positions_;
   Input()=default;
 public:
 //const because the data in the class is not changing: we are modifying data pointed by the const pointers
-  std::vector<double>&masses() const {return *masses_;}
-  std::vector<double>&charges() const {return *charges_;}
-  std::vector<Vector>&positions() const {return *positions_;}  
-  Input(std::vector<double>& masses,
-        std::vector<double>& charges,
-        std::vector<Vector>& positions)
+//get_if return nullptr on error
+//get throws on error
+//references to variable data, work only if the data passed is a reference to variable data
+  std::vector<double>&var_masses() const {return *std::get<std::vector<double>*>(masses_);}
+  std::vector<double>&var_charges() const {return *std::get<std::vector<double>*>(charges_);}
+  std::vector<Vector>&var_positions() const {return *std::get<std::vector<Vector>*>(positions_);}
+  //references to constant data, must ALWAYS work
+  const std::vector<double>&masses() const {
+    if(cvd const * p=std::get_if<cvd>(&masses_)){
+      return **p;
+      }
+      //get_if takes a ptr, get takes a ref...
+    return *std::get<vd>(masses_);
+    }
+  const std::vector<double>&charges() const {
+    if(cvd const* p=std::get_if<cvd>(&charges_)){
+      return **p;
+      }
+      //get_if takes a ptr, get takes a ref...
+    return *std::get<vd>(charges_);
+    }
+  const std::vector<Vector>&positions() const {
+    if(cvv const* p=std::get_if<cvv>(&positions_)){
+      return **p;
+      }
+      //get_if takes a ptr, get takes a ref...
+    return *std::get<vv>(positions_);
+  }
+  template<typename masses_T, typename charges_T, typename positions_T>
+  Input(masses_T& masses,
+        charges_T& charges,
+        positions_T& positions)
     : masses_(&masses),
     charges_(&charges),
-    positions_(&positions) {}
+    positions_(&positions) {
+      static_assert(std::is_same_v<masses_T,    std::vector<double>> || std::is_same_v<masses_T,    const std::vector<double>>);
+      static_assert(std::is_same_v<charges_T,   std::vector<double>> || std::is_same_v<charges_T,   const std::vector<double>>);
+      static_assert(std::is_same_v<positions_T, std::vector<Vector>> || std::is_same_v<positions_T, const std::vector<Vector>>);
+    }
   Input(Input const& other) 
   : masses_(other.masses_),
   charges_(other.charges_),
@@ -121,14 +158,29 @@ public:
     in.positions_=&positions;
     return in;
   }
+  static Input justPositions(std::vector<Vector>& positions) {
+    auto in = Input();
+    in.positions_=&positions;
+    return in;
+  }
   //returns an input with only masses
   static Input justMasses(const std::vector<double>& masses) {
     auto in = Input();
     in.masses_=&masses;
     return in;
   }
+  static Input justMasses(std::vector<double>& masses) {
+    auto in = Input();
+    in.masses_=&masses;
+    return in;
+  }
   //returns an input with only charges
   static Input justCharges(const std::vector<double>& charges) {
+    auto in = Input();
+    in.charges_=&charges;
+    return in;
+  }
+  static Input justCharges(std::vector<double>& charges) {
     auto in = Input();
     in.charges_=&charges;
     return in;
@@ -338,7 +390,7 @@ void MultiColvarTemplate<CV>::performTask( const unsigned& task_index, MultiValu
     }
   }
   // Calculate the CVs using the method in the Colvar
-  CV::calculateCV( mode, multiColvars::Input{mass, charge, fpositions}, multiColvars::Ouput{values, derivs, virial}, this );
+  CV::calculateCV( mode, multiColvars::Input(mass, charge, fpositions), multiColvars::Ouput{values, derivs, virial}, this );
   for(unsigned i=0; i<values.size(); ++i) myvals.setValue( i, values[i] );
   // Finish if there are no derivatives
   if( doNotCalculateDerivatives() ) return;
