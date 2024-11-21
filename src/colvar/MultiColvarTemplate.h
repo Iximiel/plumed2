@@ -92,9 +92,9 @@ class Input final {
   using cvd = const std::vector<double>*;
   using vv=std::vector<Vector>*;
   using cvv = const std::vector<Vector>*;
-  std::variant<std::vector<double>*,const std::vector<double>*> masses_;
-  std::variant<std::vector<double>*,const std::vector<double>*> charges_;
-  std::variant<std::vector<Vector>*,const std::vector<Vector>*> positions_;
+  std::variant<std::monostate,std::vector<double>*,const std::vector<double>*> masses_;
+  std::variant<std::monostate,std::vector<double>*,const std::vector<double>*> charges_;
+  std::variant<std::monostate,std::vector<Vector>*,const std::vector<Vector>*> positions_;
   Input()=default;
 public:
 //const because the data in the class is not changing: we are modifying data pointed by the const pointers
