@@ -174,7 +174,7 @@ void Quaternion::calculate() {
 // calculator
 void Quaternion::calculateCV( Modetype /*mode*/,
                               PLMD::colvar::multiColvars::Input const in,
-                              PLMD::colvar::multiColvars::Ouput out, const ActionAtomistic* aa ) {
+                              PLMD::colvar::multiColvars::Ouput out, PLMD::colvar::multiColvars::AtomicInfo ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();

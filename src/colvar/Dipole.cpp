@@ -198,7 +198,7 @@ void Dipole::calculate()
 void Dipole::calculateCV( Modetype mode,
                           multiColvars::Input const in,
                           multiColvars::Ouput out,
-                          const ActionAtomistic* aa ) {
+                          PLMD::colvar::multiColvars::AtomicInfo ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();

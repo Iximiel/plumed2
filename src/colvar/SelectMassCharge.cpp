@@ -199,7 +199,8 @@ void SelectMassCharge<mq>::calculate() {
 template <MC mq>
 void SelectMassCharge<mq>::calculateCV( Modetype /*mode*/,
                                         multiColvars::Input const in,
-                                        multiColvars::Ouput out, const ActionAtomistic* aa ) {
+                                        multiColvars::Ouput out,
+                                        multiColvars::AtomicInfo const) {
   auto & vals=out.vals();
   if constexpr(mq == MC::Mass)  {
     vals[0]= in.masses()[0];

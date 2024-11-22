@@ -278,7 +278,8 @@ void Distance::calculate() {
 
 void Distance::calculateCV( Modetype mode,
                             multiColvars::Input const in,
-                            multiColvars::Ouput out, const ActionAtomistic* aa ) {
+                            multiColvars::Ouput out,
+                            PLMD::colvar::multiColvars::AtomicInfo aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();
@@ -305,15 +306,15 @@ void Distance::calculateCV( Modetype mode,
   break;
 
   case Modetype::scaledComponents: {
-    Vector d=aa->getPbc().realToScaled(distance);
-    derivs[0][0] = matmul(aa->getPbc().getInvBox(),Vector(-1,0,0));
-    derivs[0][1] = matmul(aa->getPbc().getInvBox(),Vector(+1,0,0));
+    Vector d=aa.getPbc().realToScaled(distance);
+    derivs[0][0] = matmul(aa.getPbc().getInvBox(),Vector(-1,0,0));
+    derivs[0][1] = matmul(aa.getPbc().getInvBox(),Vector(+1,0,0));
     vals[0] = Tools::pbc(d[0]);
-    derivs[1][0] = matmul(aa->getPbc().getInvBox(),Vector(0,-1,0));
-    derivs[1][1] = matmul(aa->getPbc().getInvBox(),Vector(0,+1,0));
+    derivs[1][0] = matmul(aa.getPbc().getInvBox(),Vector(0,-1,0));
+    derivs[1][1] = matmul(aa.getPbc().getInvBox(),Vector(0,+1,0));
     vals[1] = Tools::pbc(d[1]);
-    derivs[2][0] = matmul(aa->getPbc().getInvBox(),Vector(0,0,-1));
-    derivs[2][1] = matmul(aa->getPbc().getInvBox(),Vector(0,0,+1));
+    derivs[2][0] = matmul(aa.getPbc().getInvBox(),Vector(0,0,-1));
+    derivs[2][1] = matmul(aa.getPbc().getInvBox(),Vector(0,0,+1));
     vals[2] = Tools::pbc(d[2]);
   }
   break;

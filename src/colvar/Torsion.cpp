@@ -238,7 +238,8 @@ void Torsion::calculate() {
 
 void Torsion::calculateCV( Modetype mode,
                            multiColvars::Input const in,
-                           multiColvars::Ouput out, const ActionAtomistic* aa ) {
+                           multiColvars::Ouput out,
+                           multiColvars::AtomicInfo const /*ai*/ ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();

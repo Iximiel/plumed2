@@ -216,7 +216,8 @@ void Position::calculate() {
 
 void Position::calculateCV( Modetype mode,
                             multiColvars::Input const in,
-                            multiColvars::Ouput out, const ActionAtomistic* aa ) {
+                            multiColvars::Ouput out,
+                            multiColvars::AtomicInfo const aa ) {
   auto & vals=out.vals();
   auto & derivs=out.derivs();
   auto & virial=out.virial();
@@ -227,18 +228,22 @@ void Position::calculateCV( Modetype mode,
   switch (mode)
   {
   case Modetype::scaled: {
-    Vector d=aa->getPbc().realToScaled(pos[0]);
+    Vector d=aa.getPbc().realToScaled(pos[0]);
     vals[0]=Tools::pbc(d[0]); vals[1]=Tools::pbc(d[1]); vals[2]=Tools::pbc(d[2]);
-    derivs[0][0]=matmul(aa->getPbc().getInvBox(),Vector(+1,0,0));
-    derivs[1][0]=matmul(aa->getPbc().getInvBox(),Vector(0,+1,0));
-    derivs[2][0]=matmul(aa->getPbc().getInvBox(),Vector(0,0,+1));
+    derivs[0][0]=matmul(aa.getPbc().getInvBox(),Vector(+1,0,0));
+    derivs[1][0]=matmul(aa.getPbc().getInvBox(),Vector(0,+1,0));
+    derivs[2][0]=matmul(aa.getPbc().getInvBox(),Vector(0,0,+1));
   }
   break;
 
   case Modetype::plain: {
     for(unsigned i=0; i<3; ++i) vals[i]=pos[0][i];
-    derivs[0][0]=Vector(+1,0,0); derivs[1][0]=Vector(0,+1,0); derivs[2][0]=Vector(0,0,+1);
-    virial[0]=Tensor(pos[0],Vector(-1,0,0)); virial[1]=Tensor(pos[0],Vector(0,-1,0)); virial[2]=Tensor(pos[0],Vector(0,0,-1));
+    derivs[0][0]=Vector(+1,0,0);
+    derivs[1][0]=Vector(0,+1,0);
+    derivs[2][0]=Vector(0,0,+1);
+    virial[0]=Tensor(pos[0],Vector(-1,0,0));
+    virial[1]=Tensor(pos[0],Vector(0,-1,0));
+    virial[2]=Tensor(pos[0],Vector(0,0,-1));
   }
   }
 }

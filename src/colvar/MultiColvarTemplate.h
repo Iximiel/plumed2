@@ -88,10 +88,7 @@ public:
 };
 
 class Input final {
-  using vd=std::vector<double>*;
-  using cvd = const std::vector<double>*;
-  using vv=std::vector<Vector>*;
-  using cvv = const std::vector<Vector>*;
+  //monostate grants the default constructor to be empry and to not refer to nullptr in the getters
   std::variant<std::monostate,std::vector<double>*,const std::vector<double>*> masses_;
   std::variant<std::monostate,std::vector<double>*,const std::vector<double>*> charges_;
   std::variant<std::monostate,std::vector<Vector>*,const std::vector<Vector>*> positions_;
@@ -105,31 +102,32 @@ public:
   std::vector<Vector>&var_positions() const {return *std::get<std::vector<Vector>*>(positions_);}
   //references to constant data, must ALWAYS work
   const std::vector<double>&masses() const {
-    if(auto *p=std::get_if<cvd>(&masses_)) {
+    if(auto *p=std::get_if< const std::vector<double>*>(&masses_)) {
       return **p;
     }
-    //get_if takes a ptr, get takes a ref...
+    //`get_if` takes a ptr, return a ptr, but `get` takes a ref, return a ref...
     //this throws if there is no data
-    return *std::get<vd>(masses_);
+    return *std::get<std::vector<double>*>(masses_);
   }
   const std::vector<double>&charges() const {
-    if(auto *p=std::get_if<cvd>(&charges_)) {
+    if(auto *p=std::get_if<const std::vector<double>*>(&charges_)) {
       return **p;
     }
     //get_if takes a ptr, get takes a ref...
     //this throws if there is no data
-    return *std::get<vd>(charges_);
+    return *std::get<std::vector<double>*>(charges_);
   }
   const std::vector<Vector>&positions() const {
-    if(auto *p=std::get_if<cvv>(&positions_)) {
+    if(auto *p=std::get_if<const std::vector<Vector>*>(&positions_)) {
       return **p;
     }
     //get_if takes a ptr, get takes a ref...
     //this throws if there is no data
-    return *std::get<vv>(positions_);
+    return *std::get<std::vector<Vector>*>(positions_);
   }
 
   Input()=default;
+  //this should work with any combination of refs and const refs
   template<typename masses_T, typename charges_T, typename positions_T>
   Input(masses_T& masses,
         charges_T& charges,
@@ -137,9 +135,9 @@ public:
     : masses_(&masses),
       charges_(&charges),
       positions_(&positions) {
-    static_assert(std::is_same_v<masses_T,    std::vector<double>> || std::is_same_v<masses_T,    const std::vector<double>>);
-    static_assert(std::is_same_v<charges_T,   std::vector<double>> || std::is_same_v<charges_T,   const std::vector<double>>);
-    static_assert(std::is_same_v<positions_T, std::vector<Vector>> || std::is_same_v<positions_T, const std::vector<Vector>>);
+    static_assert(std::is_same_v<masses_T,    std::vector<double>> || std::is_same_v<masses_T,    const std::vector<double>>,"masses should be a std::vector<double>");
+    static_assert(std::is_same_v<charges_T,   std::vector<double>> || std::is_same_v<charges_T,   const std::vector<double>>,"charges should be a std::vector<double>");
+    static_assert(std::is_same_v<positions_T, std::vector<Vector>> || std::is_same_v<positions_T, const std::vector<Vector>>,"positions should be a std::vector<Vector>");
   }
   Input(Input const& other)
     : masses_(other.masses_),
@@ -185,6 +183,19 @@ public:
   ~Input() {}//this does not own anything
 };
 
+//this  thing WILL be reworked
+class AtomicInfo {
+  const Pbc& pbc;
+public:
+//I do not think that I could set up something more compatible than this
+  template<typename action>
+  AtomicInfo( const action* aa  )
+    :pbc(aa->getPbc()) {}
+  AtomicInfo( const AtomicInfo & other ) = default;
+  AtomicInfo( AtomicInfo && other ) = default;
+  const Pbc & getPbc() const {return pbc;}
+};
+
 } // namespace multiColvars
 
 /*MANUAL DRAFT
@@ -219,7 +230,7 @@ To setup a CV compatible with multicolvartemplate you need to add
 #define MULTICOLVAR_SETTINGS_CALCULATE_CONST() static void calculateCV( Modetype mode, \
                           PLMD::colvar::multiColvars::Input in, \
                           PLMD::colvar::multiColvars::Ouput out, \
-                          const ActionAtomistic* aa )
+                          PLMD::colvar::multiColvars::AtomicInfo ai )
 
 #define MULTICOLVAR_DEFAULT(type) MULTICOLVAR_SETTINGS_BASE(type); \
           MULTICOLVAR_SETTINGS_CALCULATE_CONST()
@@ -228,7 +239,7 @@ To setup a CV compatible with multicolvartemplate you need to add
 template <class CV>
 class MultiColvarTemplate : public ActionWithVector {
 private:
-  using Modetype =typename CV::Modetype;
+  using Modetype = typename CV::Modetype;
 /// An index that decides what we are calculating
   Modetype mode;
 /// Are we using pbc to calculate the CVs
@@ -388,9 +399,23 @@ void MultiColvarTemplate<CV>::performTask( const unsigned& task_index, MultiValu
   }
   // Calculate the CVs using the method in the Colvar
   CV::calculateCV( mode, multiColvars::Input(mass, charge, fpositions), multiColvars::Ouput{values, derivs, virial}, this );
-  for(unsigned i=0; i<values.size(); ++i) myvals.setValue( i, values[i] );
+  //#pragma acc data copyin(mass,charge, positons,mode) copyout(values,derivs,virial)
+  //{
+  //"this" must become a trivially copiable type
+  //#pragma acc parallel loop collapse(2)
+  //for(unsigned i=0; i<ntask; ++i) {
+  //the atomic info tha I set up can be set up like mode and made a personalized class to move into the gpu everithing that is needed, or set up to get the referenceces from the action
+  //CV::calculateCV( mode, multiColvars::Input(mass, charge, fpositions), multiColvars::Ouput{values, derivs, virial}, this );
+  //}
+  //}
+
+  for(unsigned i=0; i<values.size(); ++i) {
+    myvals.setValue( i, values[i] );
+  }
   // Finish if there are no derivatives
-  if( doNotCalculateDerivatives() ) return;
+  if( doNotCalculateDerivatives() ) {
+    return;
+  }
 
   // Now transfer the derivatives to the underlying MultiValue
   for(unsigned i=0; i<ablocks.size(); ++i) {
@@ -403,9 +428,15 @@ void MultiColvarTemplate<CV>::performTask( const unsigned& task_index, MultiValu
     // Check for duplicated indices during update to avoid double counting
     bool newi=true;
     for(unsigned j=0; j<i; ++j) {
-      if( ablocks[j][task_index]==ablocks[i][task_index] ) { newi=false; break; }
+      //maybe
+      if( ablocks[j][task_index]==ablocks[i][task_index] ) {
+        newi=false;
+        break;
+      }
     }
-    if( !newi ) continue;
+    if( !newi ) {
+      continue;
+    }
     for(int j=0; j<getNumberOfComponents(); ++j) {
       myvals.updateIndex( j, base );
       myvals.updateIndex( j, base + 1 );
@@ -423,6 +454,6 @@ void MultiColvarTemplate<CV>::performTask( const unsigned& task_index, MultiValu
   }
 }
 
-}
-}
+} // namespace colvar
+} // namespace PLMD
 #endif
