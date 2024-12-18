@@ -27,6 +27,151 @@
 
 namespace PLMD {
 
+#define MAKEABITMASK(enumtype,inttype) \
+enumtype operator|(enumtype a, enumtype b) {return static_cast<enumtype>(static_cast<inttype>(a) | static_cast<inttype>(b));}\
+enumtype operator&(enumtype a, enumtype b) {return static_cast<enumtype>(static_cast<inttype>(a) & static_cast<inttype>(b));}
+  
+MAKEABITMASK(Keywords::componentType,int)
+MAKEABITMASK(Keywords::argType,int)
+
+std::string to_string(Keywords::argType at) {
+  //the simple cases
+  switch (at) {
+  case Keywords::argType::scalar:
+    return  "scalar";
+
+  case Keywords::argType::grid:
+    return  "grid";
+
+  case Keywords::argType::vector:
+    return  "vector";
+
+  case Keywords::argType::matrix:
+    return  "matrix";
+  }
+  //the not simple cases
+  {
+    std::string ret="";
+    std::string next="";
+    if((at & Keywords::argType::scalar) == Keywords::argType::scalar){
+      ret+="scalar";
+      next="/";
+    }
+    if((at & Keywords::argType::grid) == Keywords::argType::grid){
+      ret+=next+"grid";
+      next="/";
+    }
+    if((at & Keywords::argType::vector) == Keywords::argType::vector){
+      ret+=next+"vector";
+      next="/";
+    }
+    if((at & Keywords::argType::matrix) == Keywords::argType::matrix){
+      ret+=next+"matrix";
+    }
+    return ret;
+  }
+  //the return is outsids so the compile should block the compilation
+  //when expanding the enum without updating the to_string
+  return "";
+}
+
+Keywords::argType stoat(std::string_view str) {
+  using namespace std::literals;
+  if(auto pos = str.find("/"sv);pos!=str.npos) {
+    //here we can express that we do not want certain combinations
+    auto val=stoat(str.substr(0,pos));
+    return val | stoat(str.substr(pos+1));
+  }
+  if (str == "scalar") {
+    return Keywords::argType::scalar;
+  }
+  if (str == "grid") {
+    return Keywords::argType::grid;
+  }
+  if (str == "vector") {
+    return Keywords::argType::vector;
+  }
+  if (str == "matrix") {
+    return Keywords::argType::matrix;
+  }
+  // Handle the case where the string does not match any enum value.
+  plumed_massert(false,"invalid argType specifier " + std::string(str));  
+}
+
+std::string to_string(Keywords::componentType at) {
+  switch (at) {
+  case Keywords::componentType::scalar:
+    return  "scalar";
+
+  case Keywords::componentType::grid:
+    return  "grid";
+
+  case Keywords::componentType::vector:
+    return  "vector";
+
+  case Keywords::componentType::matrix:
+    return  "matrix";
+
+  case Keywords::componentType::atom:
+    return  "atom";
+  }
+  //the not simple cases
+  {
+    std::string ret="";
+    std::string next="";
+    if((at & Keywords::componentType::scalar) == Keywords::componentType::scalar){
+      ret+="scalar";
+      next="/";
+    }
+    if((at & Keywords::componentType::grid) == Keywords::componentType::grid){
+      ret+=next+"grid";
+      next="/";
+    }
+    if((at & Keywords::componentType::vector) == Keywords::componentType::vector){
+      ret+=next+"vector";
+      next="/";
+    }
+    if((at & Keywords::componentType::matrix) == Keywords::componentType::matrix){
+      ret+=next+"matrix";
+      next="/";
+    }
+    //I actually do not think this is necessary
+    if((at & Keywords::componentType::atom) == Keywords::componentType::atom){
+      ret+=next+"atom";
+    } 
+    return ret;
+  }
+  //the return is outsids so the compile should block the compilation
+  //when expanding the enum without updating the to_string
+  return "";
+}
+
+inline Keywords::componentType stoct(std::string_view str) {
+  using namespace std::literals;
+  if(auto pos = str.find("/"sv);pos!=str.npos) {
+    //here we can express that we do not want certain combinations
+    auto val=stoct(str.substr(0,pos));
+    return val | stoct(str.substr(pos+1));
+  }
+  if (str == "scalar") {
+    return Keywords::componentType::scalar;
+  }
+  if (str == "grid") {
+    return Keywords::componentType::grid;
+  }
+  if (str == "vector") {
+    return Keywords::componentType::vector;
+  }
+  if (str == "matrix") {
+    return Keywords::componentType::matrix;
+  }
+  if (str == "atom") {
+    return Keywords::componentType::atom;
+  }
+
+  plumed_massert(false,"invalid componentType specifier " + std::string(str));  
+}
+
 Keywords::KeyType::KeyType( const std::string& type ) {
   if( type=="compulsory" ) {
     style=compulsory;
@@ -197,14 +342,54 @@ void Keywords::add( const std::string & t, const std::string & k, const std::str
   keys.push_back(k);
 }
 
-void Keywords::addInputKeyword( const std::string & t, const std::string & k, const std::string & ttt, const std::string & d ) {
-  if( exists(k) ) { remove(k); argument_types[k] = ttt; } else { argument_types.insert( std::pair<std::string,std::string>(k,ttt) ); }
-  add( t, k, d );
+void Keywords::addInputKeyword( const std::string & typekey,
+                                const std::string & key,
+                                const std::string & datatype,
+                                const std::string & docstring ) {
+  if( exists(key) ) {
+    remove(key);
+  }
+  //insert({k,datatype}) Inserts element(s) into the container, if the container doesn't already contain an element with an equivalent key.[cit.]
+  //operator[] inserts if the key doesn't exist, or overwrites if it does
+  argument_types[key] = stoat( datatype);
+  add( typekey, key, docstring );
 }
 
-void Keywords::addInputKeyword( const std::string & t, const std::string & k, const std::string & ttt, const std::string& def, const std::string & d ) {
-  if( exists(k) ) { remove(k); argument_types[k] = ttt; } else { argument_types.insert( std::pair<std::string,std::string>(k,ttt) ); }
-  add( t, k, def, d );
+void Keywords::addInputKeyword( const std::string & typekey,
+                                const std::string & key,
+                                argType datatype,
+                                const std::string & docstring ) {
+  if( exists(key) ) {
+    remove(key);
+  }
+  //insert({k,datatype}) Inserts element(s) into the container, if the container doesn't already contain an element with an equivalent key.[cit.]
+  //operator[] inserts if the key doesn't exist, or overwrites if it does
+  argument_types[key] = datatype;
+  add( typekey, key, docstring );
+}
+
+void Keywords::addInputKeyword( const std::string & keyType,
+                                const std::string & key,
+                                const std::string & datatype,
+                                const std::string & defaultV,
+                                const std::string & docstring ) {
+  if( exists(key) ) {
+    remove(key);
+  }
+  argument_types[key] = stoat( datatype);
+  add( keyType, key, defaultV, docstring );
+}
+
+void Keywords::addInputKeyword( const std::string & keyType,
+                                const std::string & key,
+                                argType datatype,
+                                const std::string & defaultV,
+                                const std::string & docstring ) {
+  if( exists(key) ) {
+    remove(key);
+  }
+  argument_types[key] = datatype;
+  add( keyType, key, defaultV, docstring );
 }
 
 void Keywords::add( const std::string & t, const std::string & k, const std::string &  def, const std::string & d ) {
@@ -228,24 +413,41 @@ void Keywords::addFlag( const std::string & k, const bool def, const std::string
 }
 
 void Keywords::remove( const std::string & k ) {
-  bool found=false; unsigned j=0, n=0;
+  bool found=false;
+  unsigned j=0, n=0;
 
   while(true) {
-    for(j=0; j<keys.size(); j++) if(keys[j]==k)break;
-    for(n=0; n<reserved_keys.size(); n++) if(reserved_keys[n]==k)break;
+    //TODO: use std::find?
+    //ASK: why the while?
+    for(j=0; j<keys.size(); j++) {
+      if(keys[j]==k) {
+        break;
+      }
+    }
+    for(n=0; n<reserved_keys.size(); n++) {
+      if(reserved_keys[n]==k) {
+        break;
+      }
+    }
     if(j<keys.size()) {
       keys.erase(keys.begin()+j);
       found=true;
     } else if(n<reserved_keys.size()) {
       reserved_keys.erase(reserved_keys.begin()+n);
       found=true;
-    } else break;
+    } else
+      break;
   }
   // Delete documentation, type and so on from the description
-  types.erase(k); documentation.erase(k); allowmultiple.erase(k); booldefs.erase(k); numdefs.erase(k);
+  types.erase(k);
+  documentation.erase(k);
+  allowmultiple.erase(k);
+  booldefs.erase(k);
+  numdefs.erase(k);
   // Remove any output comonents that this keyword creates
   for(const auto& dkey : ckey ) {
-    if( dkey.second==k ) removeOutputComponent( dkey.first );
+    if( dkey.second==k )
+      removeOutputComponent( dkey.first );
   }
   plumed_massert(found,"You are trying to forbid " + k + " a keyword that isn't there"); // You have tried to forbid a keyword that isn't there
 }
@@ -626,7 +828,7 @@ void Keywords::addOutputComponent( const std::string& name, const std::string& k
 
   ckey.insert( std::pair<std::string,std::string>(name,key) );
   cdocs.insert( std::pair<std::string,std::string>(name,descr) );
-  ctypes.insert( std::pair<std::string,std::string>(name,type) );
+  ctypes.insert( std::pair<std::string,componentType>(name,stoct(type)) );
   cnames.push_back(name);
 }
 
@@ -644,9 +846,9 @@ void Keywords::setValueDescription( const std::string& type, const std::string& 
   if( !outputComponentExists(".#!value") ) {
     ckey.insert( std::pair<std::string,std::string>(".#!value","default") );
     cdocs.insert( std::pair<std::string,std::string>(".#!value",descr) );
-    ctypes.insert( std::pair<std::string,std::string>(".#!value",type) );
+    ctypes.insert( std::pair<std::string,componentType>(".#!value",stoct (type)) );
     cnames.push_back(".#!value");
-  } else { cdocs[".#!value"] = descr; ctypes[".#!value"] = type; }
+  } else { cdocs[".#!value"] = descr; ctypes[".#!value"] = stoct(type); }
 }
 
 bool Keywords::outputComponentExists( const std::string& name ) const {
@@ -676,26 +878,26 @@ bool Keywords::componentHasCorrectType( const std::string& name, const std::size
   else if( num!=std::string::npos ) sname=name.substr(0,num);
   else sname=name;
 
-  if( thisactname=="CENTER" && ctypes.find(sname)->second=="atom" ) return true;
+  if( thisactname=="CENTER" && ctypes.find(sname)->second== componentType::atom ) return true;
 
   if( rank==0 ) {
-    return (ctypes.find(sname)->second.find("scalar")!=std::string::npos);
+    return (ctypes.find(sname)->second == componentType::scalar);
   } else if( hasderiv ) {
-    return (ctypes.find(sname)->second.find("grid")!=std::string::npos);
+    return (ctypes.find(sname)->second == componentType::grid);
   } else if( rank==1 ) {
-    return (ctypes.find(sname)->second.find("vector")!=std::string::npos);
+    return (ctypes.find(sname)->second == componentType::vector);
   } else if( rank==2 ) {
-    return (ctypes.find(sname)->second.find("matrix")!=std::string::npos);
+    return (ctypes.find(sname)->second == componentType::matrix );
   }
   return false;
 }
 
 bool Keywords::checkArgumentType( const std::size_t& rank, const bool& hasderiv ) const {
   for(auto const& x : argument_types ) {
-    if( rank==0 && x.second.find("scalar")!=std::string::npos ) return true;
-    if( hasderiv && x.second.find("grid")!=std::string::npos ) return true;
-    if( rank==1 && x.second.find("vector")!=std::string::npos ) return true;
-    if( rank==2 && x.second.find("matrix")!=std::string::npos ) return true;
+    if( rank==0  && x.second == argType::scalar ) return true;
+    if( hasderiv && x.second == argType::grid) return true;
+    if( rank==1  && x.second == argType::vector ) return true;
+    if( rank==2  && x.second == argType::matrix ) return true;
   }
   plumed_merror("WARNING: type for input argument has not been specified");
   return false;
@@ -703,7 +905,7 @@ bool Keywords::checkArgumentType( const std::size_t& rank, const bool& hasderiv 
 
 std::string Keywords::getArgumentType( const std::string& name ) const {
   if( argument_types.find(name)==argument_types.end() ) return "";
-  return argument_types.find(name)->second;
+  return to_string(argument_types.find(name)->second);
 }
 
 std::string Keywords::getOutputComponentFlag( const std::string& name ) const {
@@ -711,7 +913,7 @@ std::string Keywords::getOutputComponentFlag( const std::string& name ) const {
 }
 
 std::string Keywords::getOutputComponentType( const std::string& name ) const {
-  return ctypes.find(name)->second;
+  return to_string( ctypes.find(name)->second);
 }
 
 std::string Keywords::getOutputComponentDescription( const std::string& name ) const {

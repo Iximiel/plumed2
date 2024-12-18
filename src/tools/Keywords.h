@@ -23,6 +23,7 @@
 #define __PLUMED_tools_Keywords_h
 #include <vector>
 #include <string>
+#include <string_view>
 #include <set>
 #include <map>
 
@@ -56,9 +57,13 @@ class Keywords {
       return "";
     }
   };
+
   friend class Action;
   friend class ActionShortcut;
   friend class ActionRegister;
+public:
+  enum class argType {scalar=1,grid=1<<2,vector=1<<3,matrix=1<<4};
+  enum class componentType {scalar=1,grid=1<<2,vector=1<<3,matrix=1<<4,atom=1<<5};
 private:
 /// Is this an action or driver (this bool affects what style==atoms does in print)
   bool isaction;
@@ -77,7 +82,7 @@ private:
 /// The documentation for the keywords
   std::map<std::string,std::string> documentation;
 /// The type for the arguments in this action
-  std::map<std::string,std::string> argument_types;
+  std::map<std::string,argType> argument_types;
 /// The default values for the flags (are they on or of)
   std::map<std::string,bool> booldefs;
 /// The default values (if there are default values) for compulsory keywords
@@ -93,7 +98,7 @@ private:
 /// The documentation for a particular component
   std::map<std::string,std::string> cdocs;
 /// The type of a particular component
-  std::map<std::string,std::string> ctypes;
+  std::map<std::string,componentType> ctypes;
 /// The list of actions that are needed by this action
   std::vector<std::string> neededActions;
 /// List of suffixes that can be used with this action
@@ -185,8 +190,15 @@ public:
 /// Check that type for component has been documented correctly
   bool componentHasCorrectType( const std::string& name, const std::size_t& rank, const bool& hasderiv ) const ;
 /// Create the documentation for a keyword that reads arguments
-  void addInputKeyword( const std::string & t, const std::string & k, const std::string & ttt, const std::string & d );
-  void addInputKeyword( const std::string & t, const std::string & k, const std::string & ttt, const std::string& def, const std::string & d );
+  [[deprecated("Please specify the data type for the argument from scalar/vector/matrix/grid with the Keywords::argType enum")]]
+  void addInputKeyword( const std::string & keyType, const std::string & key, const std::string & dataType, const std::string & docstring );
+  /// Create the documentation for a keyword that reads arguments
+  void addInputKeyword( const std::string & keyType, const std::string & key, argType dataType, const std::string & docstring );
+  /// Create the documentation for a keyword that reads arguments
+  [[deprecated("Please specify the data type for the argument from scalar/vector/matrix/grid with the Keywords::argType enum")]]
+  void addInputKeyword( const std::string & keyType, const std::string & key, const std::string & dataType, const std::string& defaultValue, const std::string & docstring );
+  /// Create the documentation for a keyword that reads arguments
+  void addInputKeyword( const std::string & keyType, const std::string & key, argType dataType, const std::string& defaultValue, const std::string & docstring );
 /// Check the documentation of the argument types
   bool checkArgumentType( const std::size_t& rank, const bool& hasderiv ) const ;
 /// Get the valid types that can be used as argument for this keyword
@@ -219,6 +231,25 @@ public:
   void setDisplayName( const std::string& name );
 };
 
-}
+std::string to_string(Keywords::argType at);
+/**
+ * Converts a string to the corresponding Keywords::argType.
+ *
+ * @param str The string to convert.
+ * @return The Keywords::argType corresponding to the string.
+ * @throws std::invalid_argument If the string does not match any enum value.
+ */
+Keywords::argType stoat(std::string_view str);
+std::string to_string(Keywords::componentType at);
+
+/**
+ * Converts a string to the corresponding Keywords::componentType.
+ * @param str The string to convert.
+ * @return The Keywords::componentType corresponding to the string.
+ * @throws std::invalid_argument if the string does not match any enum value.
+ */
+Keywords::componentType stoct(std::string_view str) ;
+
+} // namespace PLMD
 
 #endif
