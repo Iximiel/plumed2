@@ -28,6 +28,7 @@
 #include <map>
 
 #include "Exception.h"
+#include "BitmaskEnum.h"
 
 namespace PLMD {
 
@@ -229,6 +230,20 @@ public:
   std::string getDisplayName() const ;
 /// Set the display name
   void setDisplayName( const std::string& name );
+};
+
+template<>
+struct BitmaskEnum< Keywords::componentType > {
+  static constexpr bool has_valid = true;
+  static constexpr bool has_bit_or = true;
+  static constexpr bool has_bit_and = true;
+};
+
+template<>
+struct BitmaskEnum< Keywords::argType > {
+  static constexpr bool has_valid = true;
+  static constexpr bool has_bit_or = true;
+  static constexpr bool has_bit_and = true;
 };
 
 std::string to_string(Keywords::argType at);

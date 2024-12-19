@@ -27,13 +27,6 @@
 
 namespace PLMD {
 
-#define MAKEABITMASK(enumtype,inttype) \
-enumtype operator|(enumtype a, enumtype b) {return static_cast<enumtype>(static_cast<inttype>(a) | static_cast<inttype>(b));}\
-enumtype operator&(enumtype a, enumtype b) {return static_cast<enumtype>(static_cast<inttype>(a) & static_cast<inttype>(b));}
-  
-MAKEABITMASK(Keywords::componentType,int)
-MAKEABITMASK(Keywords::argType,int)
-
 std::string to_string(Keywords::argType at) {
   //the simple cases
   switch (at) {
@@ -53,19 +46,19 @@ std::string to_string(Keywords::argType at) {
   {
     std::string ret="";
     std::string next="";
-    if((at & Keywords::argType::scalar) == Keywords::argType::scalar){
+    if(valid(at & Keywords::argType::scalar)) {
       ret+="scalar";
       next="/";
     }
-    if((at & Keywords::argType::grid) == Keywords::argType::grid){
+    if(valid(at & Keywords::argType::grid)) {
       ret+=next+"grid";
       next="/";
     }
-    if((at & Keywords::argType::vector) == Keywords::argType::vector){
+    if(valid(at & Keywords::argType::vector)) {
       ret+=next+"vector";
       next="/";
     }
-    if((at & Keywords::argType::matrix) == Keywords::argType::matrix){
+    if(valid(at & Keywords::argType::matrix)) {
       ret+=next+"matrix";
     }
     return ret;
@@ -77,7 +70,7 @@ std::string to_string(Keywords::argType at) {
 
 Keywords::argType stoat(std::string_view str) {
   using namespace std::literals;
-  if(auto pos = str.find("/"sv);pos!=str.npos) {
+  if(auto pos = str.find("/"sv); pos!=str.npos) {
     //here we can express that we do not want certain combinations
     auto val=stoat(str.substr(0,pos));
     return val | stoat(str.substr(pos+1));
@@ -95,7 +88,7 @@ Keywords::argType stoat(std::string_view str) {
     return Keywords::argType::matrix;
   }
   // Handle the case where the string does not match any enum value.
-  plumed_massert(false,"invalid argType specifier " + std::string(str));  
+  plumed_massert(false,"invalid argType specifier " + std::string(str));
 }
 
 std::string to_string(Keywords::componentType at) {
@@ -119,26 +112,26 @@ std::string to_string(Keywords::componentType at) {
   {
     std::string ret="";
     std::string next="";
-    if((at & Keywords::componentType::scalar) == Keywords::componentType::scalar){
+    if(valid(at & Keywords::componentType::scalar)) {
       ret+="scalar";
       next="/";
     }
-    if((at & Keywords::componentType::grid) == Keywords::componentType::grid){
+    if(valid(at & Keywords::componentType::grid)) {
       ret+=next+"grid";
       next="/";
     }
-    if((at & Keywords::componentType::vector) == Keywords::componentType::vector){
+    if(valid(at & Keywords::componentType::vector)) {
       ret+=next+"vector";
       next="/";
     }
-    if((at & Keywords::componentType::matrix) == Keywords::componentType::matrix){
+    if(valid(at & Keywords::componentType::matrix)) {
       ret+=next+"matrix";
       next="/";
     }
     //I actually do not think this is necessary
-    if((at & Keywords::componentType::atom) == Keywords::componentType::atom){
+    if(valid(at & Keywords::componentType::atom)) {
       ret+=next+"atom";
-    } 
+    }
     return ret;
   }
   //the return is outsids so the compile should block the compilation
@@ -148,7 +141,7 @@ std::string to_string(Keywords::componentType at) {
 
 inline Keywords::componentType stoct(std::string_view str) {
   using namespace std::literals;
-  if(auto pos = str.find("/"sv);pos!=str.npos) {
+  if(auto pos = str.find("/"sv); pos!=str.npos) {
     //here we can express that we do not want certain combinations
     auto val=stoct(str.substr(0,pos));
     return val | stoct(str.substr(pos+1));
@@ -169,7 +162,7 @@ inline Keywords::componentType stoct(std::string_view str) {
     return Keywords::componentType::atom;
   }
 
-  plumed_massert(false,"invalid componentType specifier " + std::string(str));  
+  plumed_massert(false,"invalid componentType specifier " + std::string(str));
 }
 
 Keywords::KeyType::KeyType( const std::string& type ) {
