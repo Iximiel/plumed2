@@ -85,8 +85,9 @@ private:
   std::vector<std::string> keys;
 /// The names of the reserved keywords
   std::vector<std::string> reserved_keys;
+  //std::less<void> make some magic and makes find and [] work with string_view
 /// Whether the keyword is compulsory, optional...
-  std::map<std::string,KeyType> types;
+  std::map<std::string,KeyType,std::less<void>> types;
 /// Do we allow stuff like key1, key2 etc
   std::map<std::string,bool> allowmultiple;
 /// The documentation for the keywords
@@ -151,17 +152,17 @@ public:
 /// Get the ith keyword
   std::string get( const unsigned k ) const ;
 /// Add a new keyword of type t with name k and description d
-  void add( const std::string & keytype, const std::string & key, const std::string & docstring );
+  void add( std::string_view keytype, std::string_view key, std::string_view docstring );
 /// Add a new compulsory keyword (t must equal compulsory) with name k, default value def and description d
-  void add( const std::string & keytype, const std::string & key, const std::string & defaultValue, const std::string & docstring );
+  void add( std::string_view keytype, std::string_view key, std::string_view defaultValue, std::string_view docstring );
 /// Add a falg with name k that is by default on if def is true and off if def is false.  d should provide a description of the flag
   void addFlag( const std::string & k, const bool def, const std::string & d );
 /// Remove the keyword with name k
   void remove( const std::string & k );
 /// Check if there is a keyword with name k
-  bool exists( const std::string & k ) const ;
+  bool exists( std::string_view k ) const ;
 /// Check the keyword k has been reserved
-  bool reserved( const std::string & k ) const ;
+  bool reserved( std::string_view k ) const ;
 /// Get the type for the keyword with string k
   std::string getStyle( const std::string & k ) const ;
 /// Check if the keyword with name k has style t
@@ -177,7 +178,7 @@ public:
 /// Add keywords from one keyword object to another
   void add( const Keywords& keys );
 /// Copy the keywords data
-  void copyData( std::vector<std::string>& kk, std::vector<std::string>& rk, std::map<std::string,KeyType>& tt, std::map<std::string,bool>& am,
+  void copyData( std::vector<std::string>& kk, std::vector<std::string>& rk, std::map<std::string,KeyType,std::less<void>>& tt, std::map<std::string,bool>& am,
                  std::map<std::string,std::string>& docs, std::map<std::string,bool>& bools, std::map<std::string,std::string>& nums,
                  std::map<std::string,std::string>& atags, std::vector<std::string>& cnam, std::map<std::string,std::string>& ck,
                  std::map<std::string,std::string>& cd ) const ;

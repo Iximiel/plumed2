@@ -24,7 +24,7 @@
 #include "Tools.h"
 #include <iostream>
 #include <iomanip>
-
+#include <algorithm>
 namespace PLMD {
 
 std::string to_string(Keywords::argType at) {
@@ -203,7 +203,9 @@ void Keywords::add( const Keywords& newkeys ) {
   newkeys.copyData( keys, reserved_keys, types, allowmultiple, documentation, booldefs, numdefs, atomtags, cnames, ckey, cdocs  );
 }
 
-void Keywords::copyData( std::vector<std::string>& kk, std::vector<std::string>& rk, std::map<std::string,KeyType>& tt, std::map<std::string,bool>& am,
+void Keywords::copyData( std::vector<std::string>& kk,
+                         std::vector<std::string>& rk,
+                         std::map<std::string,KeyType,std::less<void>>& tt, std::map<std::string,bool>& am,
                          std::map<std::string,std::string>& docs, std::map<std::string,bool>& bools, std::map<std::string,std::string>& nums,
                          std::map<std::string,std::string>& atags, std::vector<std::string>& cnam, std::map<std::string,std::string>& ck,
                          std::map<std::string,std::string>& cd ) const {
@@ -310,8 +312,10 @@ void Keywords::reset_style( const std::string & k, const std::string & style ) {
   if( (types.find(k)->second).isAtomList() ) atomtags.insert( std::pair<std::string,std::string>(k,style) );
 }
 
-void Keywords::add( const std::string & keytype, const std::string & key, const std::string & docstring ) {
-  std::string t_type=keytype;
+void Keywords::add(std::string_view keytype,
+                   std::string_view key,
+                   std::string_view docstring ) {
+  std::string t_type{keytype};
   bool isNumbered = keytype=="numbered";
   if( isNumbered ) {
     t_type="optional";
@@ -319,11 +323,11 @@ void Keywords::add( const std::string & keytype, const std::string & key, const 
   //let's fail asap in case of typo
   auto type = KeyType(t_type);
   plumed_massert( !exists(key) && (!type.isFlag()) && !reserved(key) && (!type.isVessel()),
-                  "keyword " + key + " has already been registered");
+                  "keyword " + std::string(key) + " has already been registered");
   std::string fd;
   fd=docstring;
   if( isNumbered ) {
-    fd += ". You can use multiple instances of this keyword i.e. " + key +"1, " + key + "2, " + key + "3...";
+    fd += ". You can use multiple instances of this keyword i.e. " + std::string(key) +"1, " + std::string(key) + "2, " + std::string(key) + "3...";
   } else {
     if( (types.find(key)->second).isAtomList() ) {
       //keytype may be "residues" or something like "atoms-3"
@@ -336,7 +340,7 @@ void Keywords::add( const std::string & keytype, const std::string & key, const 
     fd += ".  For more information on how to specify lists of atoms see \\ref Group";
   }
   documentation.insert( std::pair<std::string,std::string>(key,fd) );
-  keys.push_back(key);
+  keys.emplace_back(key);
 }
 
 void Keywords::addInputKeyword( const std::string & typekey,
@@ -379,17 +383,20 @@ void Keywords::addInputKeyword( const std::string & keyType,
   add( keyType, key, defaultV, docstring );
 }
 
-void Keywords::add( const std::string & keytype, const std::string & key, const std::string &  defaultValue, const std::string & docstring ) {
+void Keywords::add( std::string_view keytype,
+                    std::string_view key,
+                    std::string_view  defaultValue,
+                    std::string_view docstring ) {
   //let's fail asap in case of typo
   auto type = KeyType(keytype);
   // An optional keyword can't have a default
   plumed_massert( !exists(key) && !reserved(key) &&
-                  (type.isCompulsory() || type.isHidden() ), "failing on keyword " + key );
-  types.insert(  {key, type} );
-  documentation.insert( std::pair<std::string,std::string>(key,"( default=" + defaultValue + " ) " + docstring) );
+                  (type.isCompulsory() || type.isHidden() ), "failing on keyword " + std::string(key) );
+  types.insert(  std::pair<std::string,KeyType> {key, type} );
+  documentation.insert( std::pair<std::string,std::string>(key,"( default=" + std::string(defaultValue) + " ) " + std::string(docstring) ));
   allowmultiple.insert( std::pair<std::string,bool>(key,false) );
   numdefs.insert( std::pair<std::string,std::string>(key,defaultValue) );
-  keys.push_back(key);
+  keys.emplace_back(key);
 }
 
 void Keywords::addFlag( const std::string & k, const bool def, const std::string & d ) {
@@ -463,18 +470,12 @@ std::string Keywords::getKeyword( const unsigned i ) const {
   return keys[i];
 }
 
-bool Keywords::exists( const std::string & k ) const {
-  for(unsigned i=0; i<keys.size(); ++i) {
-    if( keys[i]==k ) return true;
-  }
-  return false;
+bool Keywords::exists( std::string_view k ) const {
+  return std::find(keys.begin(), keys.end(), k) != keys.end();
 }
 
-bool Keywords::reserved( const std::string & k ) const {
-  for(unsigned i=0; i<reserved_keys.size(); ++i) {
-    if( reserved_keys[i]==k ) return true;
-  }
-  return false;
+bool Keywords::reserved( std::string_view k ) const {
+  return std::find(reserved_keys.begin(), reserved_keys.end(), k) != reserved_keys.end();
 }
 
 void Keywords::print_template(const std::string& actionname, bool include_optional) const {
