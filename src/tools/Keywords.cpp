@@ -346,13 +346,7 @@ void Keywords::addInputKeyword( const std::string & typekey,
                                 const std::string & key,
                                 const std::string & datatype,
                                 const std::string & docstring ) {
-  if( exists(key) ) {
-    remove(key);
-  }
-  //insert({k,datatype}) Inserts element(s) into the container, if the container doesn't already contain an element with an equivalent key.[cit.]
-  //operator[] inserts if the key doesn't exist, or overwrites if it does
-  argument_types[key] = stoat( datatype);
-  add( typekey, key, docstring );
+  addInputKeyword(typekey,key,stoat(datatype),docstring);
 }
 
 void Keywords::addInputKeyword( const std::string & typekey,
@@ -373,11 +367,7 @@ void Keywords::addInputKeyword( const std::string & keyType,
                                 const std::string & datatype,
                                 const std::string & defaultV,
                                 const std::string & docstring ) {
-  if( exists(key) ) {
-    remove(key);
-  }
-  argument_types[key] = stoat( datatype);
-  add( keyType, key, defaultV, docstring );
+  addInputKeyword(keyType,key,stoat(datatype),defaultV,docstring);
 }
 
 void Keywords::addInputKeyword( const std::string & keyType,
