@@ -896,23 +896,23 @@ bool Keywords::componentHasCorrectType( const std::string& name, const std::size
   if( thisactname=="CENTER" && ctypes.find(sname)->second== componentType::atom ) return true;
 
   if( rank==0 ) {
-    return (ctypes.find(sname)->second == componentType::scalar);
+    return (valid(ctypes.find(sname)->second | componentType::scalar));
   } else if( hasderiv ) {
-    return (ctypes.find(sname)->second == componentType::grid);
+    return (valid(ctypes.find(sname)->second | componentType::grid));
   } else if( rank==1 ) {
-    return (ctypes.find(sname)->second == componentType::vector);
+    return (valid(ctypes.find(sname)->second | componentType::vector));
   } else if( rank==2 ) {
-    return (ctypes.find(sname)->second == componentType::matrix );
+    return (valid(ctypes.find(sname)->second | componentType::matrix ));
   }
   return false;
 }
 
 bool Keywords::checkArgumentType( const std::size_t& rank, const bool& hasderiv ) const {
   for(auto const& x : argument_types ) {
-    if( rank==0  && x.second == argType::scalar ) return true;
-    if( hasderiv && x.second == argType::grid) return true;
-    if( rank==1  && x.second == argType::vector ) return true;
-    if( rank==2  && x.second == argType::matrix ) return true;
+    if( rank==0  && valid(x.second | argType::scalar)) return true;
+    if( hasderiv && valid(x.second | argType::grid)) return true;
+    if( rank==1  && valid(x.second | argType::vector)) return true;
+    if( rank==2  && valid(x.second | argType::matrix)) return true;
   }
   plumed_merror("WARNING: type for input argument has not been specified");
   return false;
