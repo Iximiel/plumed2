@@ -165,40 +165,30 @@ inline Keywords::componentType stoct(std::string_view str) {
   plumed_massert(false,"invalid componentType specifier " + std::string(str));
 }
 
-Keywords::KeyType::KeyType( const std::string& type ) {
+Keywords::KeyType::keyStyle Keywords::KeyType::keyStyleFromString(std::string_view type ) {
   if( type=="compulsory" ) {
-    style=compulsory;
+    return keyStyle::compulsory;
   } else if( type=="flag" ) {
-    style=flag;
+    return keyStyle::flag;
   } else if( type=="optional" ) {
-    style=optional;
-  } else if( type.find("atoms")!=std::string::npos || type.find("residues")!=std::string::npos ) {
-    style=atoms;
+    return keyStyle::optional;
+    //this is special: some atoms keywords have extra characters usually a "-" followed by a number
+  } else if( type.find("atoms")!=type.npos || type.find("residues")!=type.npos) {
+    return keyStyle::atoms;
   } else if( type=="hidden" ) {
-    style=hidden;
+    return keyStyle::hidden;
   } else if( type=="vessel" ) {
-    style=vessel;
+    return keyStyle::vessel;
   } else {
-    plumed_massert(false,"invalid keyword specifier " + type);
+    plumed_massert(false,"invalid keyword specifier " + std::string(type));
   }
 }
 
+Keywords::KeyType::KeyType( const std::string& type )
+  : style(keyStyleFromString(type)) {}
+
 void Keywords::KeyType::setStyle( const std::string& type ) {
-  if( type=="compulsory" ) {
-    style=compulsory;
-  } else if( type=="flag" ) {
-    style=flag;
-  } else if( type=="optional" ) {
-    style=optional;
-  } else if( type.find("atoms")!=std::string::npos || type.find("residues")!=std::string::npos ) {
-    style=atoms;
-  } else if( type=="hidden" ) {
-    style=hidden;
-  } else if( type=="vessel" ) {
-    style=vessel;
-  } else {
-    plumed_massert(false,"invalid keyword specifier " + type);
-  }
+  style=keyStyleFromString(type);
 }
 
 std::string Keywords::getStyle( const std::string & k ) const {

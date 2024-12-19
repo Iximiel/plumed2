@@ -37,25 +37,32 @@ class Log;
 /// This class holds the keywords and their documentation
 class Keywords {
 /// This class lets me pass keyword types easily
-  class KeyType {
-  public:
-    enum {hidden,compulsory,flag,optional,atoms,vessel} style;
+  struct KeyType {
+    enum class keyStyle {hidden,compulsory,flag,optional,atoms,vessel} style;
+    static keyStyle keyStyleFromString(std::string_view type );
     explicit KeyType( const std::string& type );
     void setStyle( const std::string& type );
-    bool isCompulsory() const { return (style==compulsory); }
-    bool isFlag() const { return (style==flag); }
-    bool isOptional() const { return (style==optional); }
-    bool isAtomList() const { return (style==atoms); }
-    bool isVessel() const { return (style==vessel); }
+    bool isCompulsory() const { return (style==keyStyle::compulsory); }
+    bool isFlag() const { return (style==keyStyle::flag); }
+    bool isOptional() const { return (style==keyStyle::optional); }
+    bool isAtomList() const { return (style==keyStyle::atoms); }
+    bool isVessel() const { return (style==keyStyle::vessel); }
     std::string toString() const {
-      if(style==compulsory) return "compulsory";
-      else if(style==optional) return "optional";
-      else if(style==atoms) return "atoms";
-      else if(style==flag) return "flag";
-      else if(style==hidden) return "hidden";
-      else if(style==vessel) return "vessel";
-      else plumed_assert(0);
-      return "";
+      //if you add a style and you forget to update this function the compiler will refuse to compile
+      switch(style) {
+      case keyStyle::compulsory:
+        return "compulsory";
+      case keyStyle::optional:
+        return "optional";
+      case keyStyle::atoms:
+        return "atoms";
+      case keyStyle::flag:
+        return "flag";
+      case keyStyle::hidden:
+        return "hidden";
+      case keyStyle::vessel:
+        return "vessel";
+      }
     }
   };
 
