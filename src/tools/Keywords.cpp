@@ -205,9 +205,14 @@ void Keywords::add( const Keywords& newkeys ) {
 
 void Keywords::copyData( std::vector<std::string>& kk,
                          std::vector<std::string>& rk,
-                         std::map<std::string,KeyType,std::less<void>>& tt, std::map<std::string,bool>& am,
-                         std::map<std::string,std::string>& docs, std::map<std::string,bool>& bools, std::map<std::string,std::string>& nums,
-                         std::map<std::string,std::string>& atags, std::vector<std::string>& cnam, std::map<std::string,std::string>& ck,
+                         std::map<std::string,KeyType,std::less<void>>& tt,
+                         std::map<std::string,bool>& am,
+                         std::map<std::string,std::string>& docs,
+                         std::map<std::string,bool>& bools,
+                         std::map<std::string,std::string>& nums,
+                         std::map<std::string,std::string>& atags,
+                         std::vector<std::string>& cnam,
+                         std::map<std::string,std::string>& ck,
                          std::map<std::string,std::string>& cd ) const {
   for(unsigned i=0; i<keys.size(); ++i) {
     std::string thiskey=keys[i];
@@ -250,41 +255,56 @@ void Keywords::copyData( std::vector<std::string>& kk,
   }
 }
 
-void Keywords::reserve( const std::string & t, const std::string & k, const std::string & d ) {
-  plumed_assert( !exists(k) && !reserved(k) );
-  std::string fd, lowkey=k;
-  // Convert to lower case
+#define NUMBERED_DOCSTRING(key) ". You can use multiple instances of this keyword i.e. " + std::string(key) +"1, " + std::string(key) + "2, " + std::string(key) + "3..."
+void Keywords::reserve( const std::string & keytype,
+                        const std::string & key,
+                        const std::string & docstring ) {
+  plumed_assert( !exists(key) && !reserved(key) );
+  std::string t_type{keytype};
+  bool isNumbered = keytype=="numbered";
+  if( isNumbered ) {
+    t_type="optional";
+  }
+  //let's fail asap in case of typo
+  auto type = KeyType(t_type);
+  plumed_assert( !exists(key) && !reserved(key) );
+
+  std::string fd{docstring};
+  bool allowMultiple= false;
+  if( type.isVessel() ) {
+    // Convert to lower case
+  std::string lowkey{key};
   std::transform(lowkey.begin(),lowkey.end(),lowkey.begin(),[](unsigned char c) { return std::tolower(c); });
-// Remove any underscore characters
-  for(unsigned i=0;; ++i) {
-    std::size_t num=lowkey.find_first_of("_");
-    if( num==std::string::npos ) break;
-    lowkey.erase( lowkey.begin() + num, lowkey.begin() + num + 1 );
-  }
-  if( t=="vessel" ) {
-    fd = d + " The final value can be referenced using <em>label</em>." + lowkey;
-    if(d.find("flag")==std::string::npos) fd += ".  You can use multiple instances of this keyword i.e. " +
-          k +"1, " + k + "2, " + k + "3...  The corresponding values are then "
-          "referenced using <em>label</em>."+ lowkey +"-1,  <em>label</em>." + lowkey +
-          "-2,  <em>label</em>." + lowkey + "-3...";
-    allowmultiple.insert( std::pair<std::string,bool>(k,true) );
-    types.insert( std::pair<std::string,KeyType>(k,KeyType("vessel")) );
-  } else if( t=="numbered" ) {
-    fd = d + ". You can use multiple instances of this keyword i.e. " + k +"1, " + k + "2, " + k + "3...";
-    allowmultiple.insert( std::pair<std::string,bool>(k,true) );
-    types.insert( std::pair<std::string,KeyType>(k,KeyType("optional")) );
+  // Remove any underscore characters
+  lowkey.erase(std::remove(lowkey.begin(), lowkey.end(), '_'), lowkey.end());
+
+    fd += " The final value can be referenced using <em>label</em>." + lowkey;
+    if(docstring.find("flag")==std::string::npos) {
+      fd += NUMBERED_DOCSTRING(key) "  The corresponding values are then "
+            "referenced using <em>label</em>."+ lowkey +"-1,  <em>label</em>." + lowkey +
+            "-2,  <em>label</em>." + lowkey + "-3...";
+    }
+    allowMultiple = true;
+  } else if( isNumbered ) {
+    fd += NUMBERED_DOCSTRING(key);
+    allowMultiple = true;
   } else {
-    fd = d;
-    if( t=="atoms" && isaction ) fd = d + ".  For more information on how to specify lists of atoms see \\ref Group";
-    allowmultiple.insert( std::pair<std::string,bool>(k,false) );
-    types.insert( std::pair<std::string,KeyType>(k,KeyType(t)) );
-    if( (types.find(k)->second).isAtomList() ) atomtags.insert( std::pair<std::string,std::string>(k,t) );
+    //if( type.isAtomList() && isaction ) {//<- why not this? atoms could also be "residues" or "atoms-n"
+    if( keytype=="atoms" && isaction ) {
+      fd += ".  For more information on how to specify lists of atoms see \\ref Group";
+    }
+    if( type.isAtomList() ){
+      atomtags.insert( std::pair<std::string,std::string>(key,keytype) );
+    }
+  
   }
-  documentation.insert( std::pair<std::string,std::string>(k,fd) );
-  reserved_keys.push_back(k);
+  types.insert( std::pair<std::string,KeyType>(key,type) );
+  allowmultiple.insert( std::pair<std::string,bool>(key,allowMultiple) );
+  documentation.insert( std::pair<std::string,std::string>(key,fd) );
+  reserved_keys.emplace_back(key);
 }
 
-void Keywords::reserveFlag( const std::string & k, const bool def, const std::string & d ) {
+void Keywords::reserveFlag(const std::string & k, const bool def, const std::string & d ) {
   plumed_assert( !exists(k) && !reserved(k) );
   std::string defstr;
   if( def ) { defstr="( default=on ) "; } else { defstr="( default=off ) "; }
@@ -297,11 +317,14 @@ void Keywords::reserveFlag( const std::string & k, const bool def, const std::st
   reserved_keys.push_back(k);
 }
 
-void Keywords::use( const std::string & k ) {
-  plumed_massert( reserved(k), "the " + k + " keyword is not reserved");
-  for(unsigned i=0; i<reserved_keys.size(); ++i) {
-    if(reserved_keys[i]==k) keys.push_back( reserved_keys[i] );
-  }
+void Keywords::use(std::string_view  k ) {
+  plumed_massert( reserved(k), "the " + std::string(k) + " keyword is not reserved");
+  keys.emplace_back(k);
+  //reserved(k) verifies reserved_keys[i]==k, so no need to traverse again the reserved keys?
+  //since, from reserve(), the reserved keys are unique (shall we use a set?)
+  // for(unsigned i=0; i<reserved_keys.size(); ++i) {
+  //   if(reserved_keys[i]==k) keys.push_back( reserved_keys[i] );
+  // }
 }
 
 void Keywords::reset_style( const std::string & k, const std::string & style ) {
@@ -327,7 +350,7 @@ void Keywords::add(std::string_view keytype,
   std::string fd;
   fd=docstring;
   if( isNumbered ) {
-    fd += ". You can use multiple instances of this keyword i.e. " + std::string(key) +"1, " + std::string(key) + "2, " + std::string(key) + "3...";
+    fd += NUMBERED_DOCSTRING(key);
   } else {
     if( (types.find(key)->second).isAtomList() ) {
       //keytype may be "residues" or something like "atoms-3"

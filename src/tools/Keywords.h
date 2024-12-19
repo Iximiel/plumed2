@@ -144,12 +144,12 @@ public:
 /// Print a file containing the list of keywords for a particular action (used for spell checking)
   void print_spelling() const ;
 /// Reserve a keyword
-  void reserve( const std::string & t, const std::string & k, const std::string & d );
+  void reserve( const std::string & keytype, const std::string & key, const std::string & docstring );
 /// Reserve a flag
   void reserveFlag( const std::string & k, const bool def, const std::string & d );
 /// Use one of the reserved keywords
-  void use( const std::string  & k );
-/// Get the ith keyword
+  void use( std::string_view k );
+/// Get the ith keyword std::string_view
   std::string get( const unsigned k ) const ;
 /// Add a new keyword of type t with name k and description d
   void add( std::string_view keytype, std::string_view key, std::string_view docstring );
@@ -201,12 +201,12 @@ public:
 /// Check that type for component has been documented correctly
   bool componentHasCorrectType( const std::string& name, const std::size_t& rank, const bool& hasderiv ) const ;
 /// Create the documentation for a keyword that reads arguments
-  [[deprecated("Please specify the data type for the argument from scalar/vector/matrix/grid with the Keywords::argType enum")]]
+  //[[deprecated("Please specify the data type for the argument from scalar/vector/matrix/grid with the Keywords::argType enum")]]
   void addInputKeyword( const std::string & keyType, const std::string & key, const std::string & dataType, const std::string & docstring );
   /// Create the documentation for a keyword that reads arguments
   void addInputKeyword( const std::string & keyType, const std::string & key, argType dataType, const std::string & docstring );
   /// Create the documentation for a keyword that reads arguments
-  [[deprecated("Please specify the data type for the argument from scalar/vector/matrix/grid with the Keywords::argType enum")]]
+  //[[deprecated("Please specify the data type for the argument from scalar/vector/matrix/grid with the Keywords::argType enum")]]
   void addInputKeyword( const std::string & keyType, const std::string & key, const std::string & dataType, const std::string& defaultValue, const std::string & docstring );
   /// Create the documentation for a keyword that reads arguments
   void addInputKeyword( const std::string & keyType, const std::string & key, argType dataType, const std::string& defaultValue, const std::string & docstring );
