@@ -40,13 +40,15 @@ class Keywords {
   struct KeyType {
     enum class keyStyle {hidden,compulsory,flag,optional,atoms,vessel} style;
     static keyStyle keyStyleFromString(std::string_view type );
-    explicit KeyType( const std::string& type );
-    void setStyle( const std::string& type );
+    explicit KeyType( keyStyle type );
+    explicit KeyType( std::string_view type );
+    void setStyle( std::string_view type );
     bool isCompulsory() const { return (style==keyStyle::compulsory); }
     bool isFlag() const { return (style==keyStyle::flag); }
     bool isOptional() const { return (style==keyStyle::optional); }
     bool isAtomList() const { return (style==keyStyle::atoms); }
     bool isVessel() const { return (style==keyStyle::vessel); }
+    bool isHidden() const { return (style==keyStyle::hidden); }
     std::string toString() const {
       //if you add a style and you forget to update this function the compiler will refuse to compile
       switch(style) {
@@ -149,9 +151,9 @@ public:
 /// Get the ith keyword
   std::string get( const unsigned k ) const ;
 /// Add a new keyword of type t with name k and description d
-  void add( const std::string & t, const std::string & k, const std::string & d );
+  void add( const std::string & keytype, const std::string & key, const std::string & docstring );
 /// Add a new compulsory keyword (t must equal compulsory) with name k, default value def and description d
-  void add( const std::string & t, const std::string & k, const std::string & def, const std::string & d );
+  void add( const std::string & keytype, const std::string & key, const std::string & defaultValue, const std::string & docstring );
 /// Add a falg with name k that is by default on if def is true and off if def is false.  d should provide a description of the flag
   void addFlag( const std::string & k, const bool def, const std::string & d );
 /// Remove the keyword with name k

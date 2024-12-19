@@ -184,10 +184,13 @@ Keywords::KeyType::keyStyle Keywords::KeyType::keyStyleFromString(std::string_vi
   }
 }
 
-Keywords::KeyType::KeyType( const std::string& type )
+Keywords::KeyType::KeyType( std::string_view type )
   : style(keyStyleFromString(type)) {}
 
-void Keywords::KeyType::setStyle( const std::string& type ) {
+Keywords::KeyType::KeyType( Keywords::KeyType::keyStyle type )
+  : style(type) {}
+
+void Keywords::KeyType::setStyle( std::string_view type ) {
   style=keyStyleFromString(type);
 }
 
@@ -283,7 +286,7 @@ void Keywords::reserveFlag( const std::string & k, const bool def, const std::st
   plumed_assert( !exists(k) && !reserved(k) );
   std::string defstr;
   if( def ) { defstr="( default=on ) "; } else { defstr="( default=off ) "; }
-  types.insert( std::pair<std::string,KeyType>(k,KeyType("flag")) );
+  types.insert( std::pair<std::string,KeyType>(k,KeyType::keyStyle::flag) );
   std::string fd,lowkey=k; std::transform(lowkey.begin(),lowkey.end(),lowkey.begin(),[](unsigned char c) { return std::tolower(c); });
   fd=defstr + d;
   documentation.insert( std::pair<std::string,std::string>(k,fd) );
@@ -307,22 +310,33 @@ void Keywords::reset_style( const std::string & k, const std::string & style ) {
   if( (types.find(k)->second).isAtomList() ) atomtags.insert( std::pair<std::string,std::string>(k,style) );
 }
 
-void Keywords::add( const std::string & t, const std::string & k, const std::string & d ) {
-  plumed_massert( !exists(k) && t!="flag" && !reserved(k) && t!="vessel", "keyword " + k + " has already been registered");
-  std::string fd;
-  if( t=="numbered" ) {
-    fd=d + ". You can use multiple instances of this keyword i.e. " + k +"1, " + k + "2, " + k + "3...";
-    allowmultiple.insert( std::pair<std::string,bool>(k,true) );
-    types.insert( std::pair<std::string,KeyType>(k, KeyType("optional")) );
-  } else {
-    fd=d;
-    allowmultiple.insert( std::pair<std::string,bool>(k,false) );
-    types.insert( std::pair<std::string,KeyType>(k,KeyType(t)) );
-    if( (types.find(k)->second).isAtomList() ) atomtags.insert( std::pair<std::string,std::string>(k,t) );
+void Keywords::add( const std::string & keytype, const std::string & key, const std::string & docstring ) {
+  std::string t_type=keytype;
+  bool isNumbered = keytype=="numbered";
+  if( isNumbered ) {
+    t_type="optional";
   }
-  if( t=="atoms" && isaction ) fd = d + ".  For more information on how to specify lists of atoms see \\ref Group";
-  documentation.insert( std::pair<std::string,std::string>(k,fd) );
-  keys.push_back(k);
+  //let's fail asap in case of typo
+  auto type = KeyType(t_type);
+  plumed_massert( !exists(key) && (!type.isFlag()) && !reserved(key) && (!type.isVessel()),
+                  "keyword " + key + " has already been registered");
+  std::string fd;
+  fd=docstring;
+  if( isNumbered ) {
+    fd += ". You can use multiple instances of this keyword i.e. " + key +"1, " + key + "2, " + key + "3...";
+  } else {
+    if( (types.find(key)->second).isAtomList() ) {
+      //keytype may be "residues" or something like "atoms-3"
+      atomtags.insert( std::pair<std::string,std::string>(key,keytype) );
+    }
+  }
+  allowmultiple.insert( std::pair<std::string,bool>(key,isNumbered) );
+  types.insert( std::pair<std::string,KeyType>(key, type) );
+  if( type.isAtomList() && isaction ) {
+    fd += ".  For more information on how to specify lists of atoms see \\ref Group";
+  }
+  documentation.insert( std::pair<std::string,std::string>(key,fd) );
+  keys.push_back(key);
 }
 
 void Keywords::addInputKeyword( const std::string & typekey,
@@ -365,13 +379,17 @@ void Keywords::addInputKeyword( const std::string & keyType,
   add( keyType, key, defaultV, docstring );
 }
 
-void Keywords::add( const std::string & t, const std::string & k, const std::string &  def, const std::string & d ) {
-  plumed_massert( !exists(k) && !reserved(k) &&  (t=="compulsory" || t=="hidden" ), "failing on keyword " + k ); // An optional keyword can't have a default
-  types.insert(  std::pair<std::string,KeyType>(k, KeyType(t)) );
-  documentation.insert( std::pair<std::string,std::string>(k,"( default=" + def + " ) " + d) );
-  allowmultiple.insert( std::pair<std::string,bool>(k,false) );
-  numdefs.insert( std::pair<std::string,std::string>(k,def) );
-  keys.push_back(k);
+void Keywords::add( const std::string & keytype, const std::string & key, const std::string &  defaultValue, const std::string & docstring ) {
+  //let's fail asap in case of typo
+  auto type = KeyType(keytype);
+  // An optional keyword can't have a default
+  plumed_massert( !exists(key) && !reserved(key) &&
+                  (type.isCompulsory() || type.isHidden() ), "failing on keyword " + key );
+  types.insert(  {key, type} );
+  documentation.insert( std::pair<std::string,std::string>(key,"( default=" + defaultValue + " ) " + docstring) );
+  allowmultiple.insert( std::pair<std::string,bool>(key,false) );
+  numdefs.insert( std::pair<std::string,std::string>(key,defaultValue) );
+  keys.push_back(key);
 }
 
 void Keywords::addFlag( const std::string & k, const bool def, const std::string & d ) {
