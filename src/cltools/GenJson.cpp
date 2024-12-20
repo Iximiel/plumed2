@@ -157,8 +157,9 @@ int GenJson::main(FILE* in, FILE*out,Communicator& pc) {
     actionRegister().getKeywords( action_names[i], keys );
     std::cout<<"    \"displayname\" : \""<<keys.getDisplayName()<<"\",\n";
     std::cout<<"    \"syntax\" : {"<<std::endl;
+    auto keywords = keys.getKeys();
     for(unsigned j=0; j<keys.size(); ++j) {
-      std::string defa = "", desc = keys.getKeywordDescription( keys.getKeyword(j) );
+      std::string defa = "", desc = keys.getKeywordDescription( keywords[j] );
       if( desc.find("default=")!=std::string::npos ) {
         std::size_t defstart = desc.find_first_of("="), brac=desc.find_first_of(")");
         defa = desc.substr(defstart+1,brac-defstart-2);
@@ -167,15 +168,15 @@ int GenJson::main(FILE* in, FILE*out,Communicator& pc) {
       std::size_t dot=desc.find_first_of(".");
       std::string mydescrip = desc.substr(0,dot);
       if( mydescrip.find("\\")!=std::string::npos ) {
-        error("found invalid backslash character documentation for keyword " + keys.getKeyword(j) + " in action " + action_names[i] );
+        error("found invalid backslash character documentation for keyword " + keywords[j] + " in action " + action_names[i] );
       }
-      std::string argtype = keys.getArgumentType( keys.getKeyword(j) );
+      std::string argtype = keys.getArgumentType( keywords[j] );
       if( argtype.length()>0 ) {
-        std::cout<<"       \""<<keys.getKeyword(j)<<"\" : { \"type\": \""<<keys.getStyle(keys.getKeyword(j))<<"\", \"description\": \""<<mydescrip<<"\", \"multiple\": "<<keys.numbered( keys.getKeyword(j) )<<", \"argtype\": \""<<argtype<<"\"}";
+        std::cout<<"       \""<<keywords[j]<<"\" : { \"type\": \""<<keys.getStyle(keywords[j])<<"\", \"description\": \""<<mydescrip<<"\", \"multiple\": "<<keys.numbered( keywords[j] )<<", \"argtype\": \""<<argtype<<"\"}";
       } else if( defa.length()>0 ) {
-        std::cout<<"       \""<<keys.getKeyword(j)<<"\" : { \"type\": \""<<keys.getStyle(keys.getKeyword(j))<<"\", \"description\": \""<<mydescrip<<"\", \"multiple\": "<<keys.numbered( keys.getKeyword(j) )<<", \"default\": \""<<defa<<"\"}";
+        std::cout<<"       \""<<keywords[j]<<"\" : { \"type\": \""<<keys.getStyle(keywords[j])<<"\", \"description\": \""<<mydescrip<<"\", \"multiple\": "<<keys.numbered( keywords[j] )<<", \"default\": \""<<defa<<"\"}";
       } else {
-        std::cout<<"       \""<<keys.getKeyword(j)<<"\" : { \"type\": \""<<keys.getStyle(keys.getKeyword(j))<<"\", \"description\": \""<<mydescrip<<"\", \"multiple\": "<<keys.numbered( keys.getKeyword(j) )<<"}";
+        std::cout<<"       \""<<keywords[j]<<"\" : { \"type\": \""<<keys.getStyle(keywords[j])<<"\", \"description\": \""<<mydescrip<<"\", \"multiple\": "<<keys.numbered( keywords[j] )<<"}";
       }
       if( j==keys.size()-1 && !keys.exists("HAS_VALUES") ) {
         std::cout<<std::endl;
