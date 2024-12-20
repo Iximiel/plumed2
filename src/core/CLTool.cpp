@@ -72,9 +72,11 @@ bool CLTool::readCommandLineArgs( int argc, char**argv, FILE*out ) {
   std::string prefix(""), a(""), thiskey;
 
   // Set all flags to default false
-  for(unsigned k=0; k<keywords.size(); ++k) {
-    thiskey=keywords.get(k);
-    if( keywords.style(thiskey,"flag") ) inputData.insert(std::pair<std::string,std::string>(thiskey,"false"));
+  const auto keys=keywords.getKeys();
+  for(unsigned k=0; k<keys.size(); ++k) {
+    thiskey=keys[k];
+    if( keywords.style(thiskey,"flag") )
+      inputData.insert(std::pair<std::string,std::string>(thiskey,"false"));
   }
 
   // Read command line arguments
@@ -86,8 +88,8 @@ bool CLTool::readCommandLineArgs( int argc, char**argv, FILE*out ) {
       printhelp=true;
     } else {
       bool found=false;
-      for(unsigned k=0; k<keywords.size(); ++k) {
-        thiskey=keywords.get(k);
+      for(unsigned k=0; k<keys.size(); ++k) {
+        thiskey=keys[k];
         if( keywords.style(thiskey,"flag") ) {
           if( a==thiskey ) { found=true; inputData[thiskey]="true"; }
         } else {
@@ -127,8 +129,9 @@ bool CLTool::readCommandLineArgs( int argc, char**argv, FILE*out ) {
 
 void CLTool::setRemainingToDefault(FILE* out) {
   std::string def, thiskey;
-  for(unsigned k=0; k<keywords.size(); ++k) {
-    thiskey=keywords.get(k);
+  const auto keys=keywords.getKeys();
+  for(unsigned k=0; k<keys.size(); ++k) {
+    thiskey=keys[k];
     if( keywords.style(thiskey,"compulsory") ) {
       if( inputData.count(thiskey)==0 ) {
         if( keywords.getDefaultValue(thiskey,def) ) {
@@ -186,8 +189,9 @@ bool CLTool::readInputFile( int argc, char**argv, FILE* in, FILE*out ) {
     if(line.length()==0) continue;
     std::sscanf(line.c_str(),"%255s",buffer);
     std::string keyword=buffer; bool found=false;
-    for(unsigned i=0; i<keywords.size(); ++i) {
-      std::string thiskey=keywords.get(i);
+    const auto keys=keywords.getKeys();
+    for(unsigned i=0; i<keys.size(); ++i) {
+      std::string thiskey=keys[i];
       if(thiskey==keyword) {
         found=true;
         std::size_t keypos=line.find_first_of(keyword)+keyword.length();

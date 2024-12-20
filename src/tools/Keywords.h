@@ -22,6 +22,7 @@
 #ifndef __PLUMED_tools_Keywords_h
 #define __PLUMED_tools_Keywords_h
 #include <vector>
+#include <set>
 #include <string>
 #include <string_view>
 #include <set>
@@ -69,7 +70,7 @@ class Keywords {
   };
 
   friend class Action;
-  friend class ActionShortcut;
+  // friend class ActionShortcut;
   friend class ActionRegister;
 public:
   enum class argType {scalar=1,grid=1<<2,vector=1<<3,matrix=1<<4};
@@ -82,9 +83,16 @@ private:
 /// The name of the action that has this set of keywords
   std::string thisactname;
 /// The names of the allowed keywords
-  std::vector<std::string> keys;
+  std::set<std::string> keys;
+  // struct key{
+  //   KeyType type;
+  //   bool allowmultiple;
+  //   std::string defaultValue;
+  //   std::string docstring;
+  //}
+
 /// The names of the reserved keywords
-  std::vector<std::string> reserved_keys;
+  std::set<std::string> reserved_keys;
   //std::less<void> make some magic and makes find and [] work with string_view
 /// Whether the keyword is compulsory, optional...
   std::map<std::string,KeyType,std::less<void>> types;
@@ -100,10 +108,15 @@ private:
   std::map<std::string,std::string> numdefs;
 /// The tags for atoms - we use this so the manual can differentiate between different ways of specifying atoms
   std::map<std::string,std::string> atomtags;
+  // stuct component{
+  //   componentType type;
+  //   std::string key;
+  //   std::string docstring;
+  // }
 /// The string that should be printed out to describe how the components work for this particular action
   std::string cstring;
 /// The names of all the possible components for an action
-  std::vector<std::string> cnames;
+  std::set<std::string> cnames;
 /// The keyword that turns on a particular component
   std::map<std::string,std::string> ckey;
 /// The documentation for a particular component
@@ -131,8 +144,12 @@ public:
   unsigned size() const;
 /// Check if numbered keywords are allowed for this action
   bool numbered( const std::string & k ) const ;
+  /// Copy of the keys
+  std::vector<std::string> getKeys() const;
 /// Return the ith keyword
-  std::string getKeyword( const unsigned i ) const ;
+  // std::string getKeyword( const unsigned i ) const ;
+  /// Get the ith keyword string
+  // std::string get( const unsigned k ) const ;
 /// Get the documentation for a particular keyword
   std::string getKeywordDocs( const std::string& key ) const ;
 /// Print the documentation to the log file (used by PLMD::Action::error)
@@ -149,8 +166,6 @@ public:
   void reserveFlag( const std::string & k, const bool def, const std::string & d );
 /// Use one of the reserved keywords
   void use( std::string_view k );
-/// Get the ith keyword std::string_view
-  std::string get( const unsigned k ) const ;
 /// Add a new keyword of type t with name k and description d
   void add( std::string_view keytype, std::string_view key, std::string_view docstring );
 /// Add a new compulsory keyword (t must equal compulsory) with name k, default value def and description d
@@ -178,9 +193,9 @@ public:
 /// Add keywords from one keyword object to another
   void add( const Keywords& keys );
 /// Copy the keywords data
-  void copyData( std::vector<std::string>& kk, std::vector<std::string>& rk, std::map<std::string,KeyType,std::less<void>>& tt, std::map<std::string,bool>& am,
+  void copyData( std::set<std::string>& kk, std::set<std::string>& rk, std::map<std::string,KeyType,std::less<void>>& tt, std::map<std::string,bool>& am,
                  std::map<std::string,std::string>& docs, std::map<std::string,bool>& bools, std::map<std::string,std::string>& nums,
-                 std::map<std::string,std::string>& atags, std::vector<std::string>& cnam, std::map<std::string,std::string>& ck,
+                 std::map<std::string,std::string>& atags, std::set<std::string>& cnam, std::map<std::string,std::string>& ck,
                  std::map<std::string,std::string>& cd ) const ;
 /// Clear everything from the keywords object.
 /// Not actually needed if your Keywords object is going out of scope.
@@ -226,20 +241,34 @@ public:
   std::string getKeywordDescription( const std::string& name ) const ;
 /// Remove a component with a particular name from the keywords
   void removeComponent( const std::string& name );
-/// Reference to keys
-  std::vector<std::string> getKeys() const { return keys; }
 /// Get the description of a particular keyword
   std::string getTooltip( const std::string& name ) const ;
 /// Note that another actions is required to create this shortcut
   void needsAction( const std::string& name );
+/// Check if the requested action is in the list of the needed actions
+  bool isActionNeeded( std::string_view name ) const ;
 /// Add a suffix to the list of action name suffixes to test for
   void addActionNameSuffix( const std::string& suffix );
+// @todo: I need to confront someone about the readabilityof this
+/// Check that 'name' is among the possible suffixes
+  /** more or less it does this:
+   ```
+    for(unsigned j=0 ; j<actionNameSuffixes.size(); ++j) {
+        if( (basename + actionNameSuffixes[j])==name ) {
+          return true
+      }
+    }
+    ```
+   */
+  bool isActionSuffixed( std::string_view name, std::string_view basename) const ;
 /// Get the list of keywords that are needed by this action
   const std::vector<std::string>& getNeededKeywords() const ;
 /// Return the name of the action that has this set of keywords
   std::string getDisplayName() const ;
 /// Set the display name
   void setDisplayName( const std::string& name );
+  //get components names
+  const std::set<std::string>& componentNames() const ;
 };
 
 template<>

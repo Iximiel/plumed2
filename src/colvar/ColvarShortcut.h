@@ -38,8 +38,9 @@ template <class T>
 void ColvarShortcut<T>::registerKeywords(Keywords& keys ) {
   T::registerKeywords( keys ); keys.remove("NO_ACTION_LOG");
   unsigned nkeys = keys.size();
+  const auto mykeys = keys.getKeys();
   for(unsigned i=0; i<nkeys; ++i) {
-    if( keys.style( keys.get(i), "atoms" ) ) keys.reset_style( keys.get(i), "numbered" );
+    if( keys.style( mykeys[i], "atoms" ) ) keys.reset_style( mykeys[i], "numbered" );
   }
   keys.addActionNameSuffix("_SCALAR"); keys.addActionNameSuffix("_VECTOR");
 }
@@ -57,11 +58,12 @@ ColvarShortcut<T>::ColvarShortcut(const ActionOptions&ao):
       scalar=false;
     }
   }
+  const auto mykeys = keywords.getKeys();
   for(unsigned i=0; i<nkeys; ++i) {
-    if( keywords.style( keywords.get(i), "atoms" ) ) {
-      std::string inpt; parseNumbered( keywords.get(i), 1, inpt );
+    if( keywords.style( mykeys[i], "atoms" ) ) {
+      std::string inpt; parseNumbered( mykeys[i], 1, inpt );
       if( inpt.length()>0 ) {
-        readInputLine( getShortcutLabel() + ": " + getName() + "_VECTOR " + keywords.get(i) + "1=" + inpt + " " + convertInputLineToString() );
+        readInputLine( getShortcutLabel() + ": " + getName() + "_VECTOR " + mykeys[i] + "1=" + inpt + " " + convertInputLineToString() );
         scalar=false; break;
       }
     }

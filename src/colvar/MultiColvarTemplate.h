@@ -53,8 +53,10 @@ template <class T>
 void MultiColvarTemplate<T>::registerKeywords(Keywords& keys ) {
   T::registerKeywords( keys );
   unsigned nkeys = keys.size();
+  const auto mykeys = keys.getKeys();
   for(unsigned i=0; i<nkeys; ++i) {
-    if( keys.style( keys.get(i), "atoms" ) ) keys.reset_style( keys.get(i), "numbered" );
+    if( keys.style( mykeys[i], "atoms" ) )
+      keys.reset_style( mykeys[i], "numbered" );
   }
   if( keys.outputComponentExists(".#!value") ) keys.setValueDescription("vector","the " + keys.getDisplayName() + " for each set of specified atoms");
 }
