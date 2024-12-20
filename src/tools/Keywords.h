@@ -194,11 +194,6 @@ public:
   void reset_style( const std::string & k, const std::string & style );
 /// Add keywords from one keyword object to another
   void add( const Keywords& keys );
-/// Copy the keywords data
-  void copyData( std::set<std::string>& kk, std::set<std::string>& rk, std::map<std::string,KeyType,std::less<void>>& tt, std::map<std::string,bool>& am,
-                 std::map<std::string,std::string>& docs, std::map<std::string,bool>& bools, std::map<std::string,std::string>& nums,
-                 std::map<std::string,std::string>& atags, std::set<std::string>& cnam, std::map<std::string,std::string>& ck,
-                 std::map<std::string,std::string>& cd ) const ;
 /// Clear everything from the keywords object.
 /// Not actually needed if your Keywords object is going out of scope.
   void destroyData();

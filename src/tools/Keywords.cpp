@@ -208,67 +208,62 @@ std::string Keywords::getStyle( const std::string & k ) const {
 
 void Keywords::add( const Keywords& newkeys ) {
   //copies data from
-  newkeys.copyData( keys, reserved_keys, types, allowmultiple, documentation, booldefs, numdefs, atomtags, cnames, ckey, cdocs  );
-}
-
-void Keywords::copyData( std::set<std::string>& kk,
-                         std::set<std::string>& rk,
-                         std::map<std::string,KeyType,std::less<void>>& tt,
-                         std::map<std::string,bool>& am,
-                         std::map<std::string,std::string>& docs,
-                         std::map<std::string,bool>& bools,
-                         std::map<std::string,std::string>& nums,
-                         std::map<std::string,std::string>& atags,
-                         std::set<std::string>& cnam,
-                         std::map<std::string,std::string>& ck,
-                         std::map<std::string,std::string>& cd ) const {
-
-  for(std::string thiskey:keys) {
+  // newkeys.copyData( keys, reserved_keys, types, allowmultiple, documentation, booldefs, numdefs, atomtags, cnames, components  );
+  for(std::string thiskey:newkeys.keys) {
     //in c++20 we'll use .contains
-    plumed_massert( kk.count(thiskey)==0, "keyword " + thiskey + " is in twice" );
-    plumed_massert( rk.count(thiskey)==0, "keyword " + thiskey + " is in twice" );
-    kk.emplace( thiskey );
-    plumed_massert( types.count( thiskey ), "no type data on keyword " + thiskey + " to copy" );
-    tt.insert( std::pair<std::string,KeyType>( thiskey,types.find(thiskey)->second) );
-    if( (types.find(thiskey)->second).isAtomList() ) {
-      atags.insert( std::pair<std::string,std::string>( thiskey,atomtags.find(thiskey)->second) );
+    plumed_massert( keys.count(thiskey)==0, "keyword " + thiskey + " is in twice" );
+    plumed_massert( reserved_keys.count(thiskey)==0, "keyword " + thiskey + " is in twice" );
+
+    plumed_massert( newkeys.types.count( thiskey )!=0, "no type data on keyword " + thiskey + " to copy" );
+    plumed_massert( newkeys.allowmultiple.count( thiskey )!=0, "no numbered data on keyword " + thiskey + " to copy" );
+    plumed_massert( newkeys.documentation.count( thiskey )!=0, "no documentation for keyword " + thiskey + " to copy" );
+
+    keys.emplace( thiskey );
+
+    types.insert( std::pair<std::string,KeyType>( thiskey,newkeys.types.at(thiskey)) );
+    if( (types.at(thiskey)).isAtomList() ) {
+      atomtags.insert( std::pair<std::string,std::string>( thiskey,newkeys.atomtags.at(thiskey)) );
     }
-    plumed_massert( allowmultiple.count( thiskey ), "no numbered data on keyword " + thiskey + " to copy" );
-    am.insert( std::pair<std::string,bool>(thiskey,allowmultiple.find(thiskey)->second) );
-    plumed_massert( documentation.count( thiskey ), "no documentation for keyword " + thiskey + " to copy" );
-    docs.insert( std::pair<std::string,std::string>(thiskey,documentation.find(thiskey)->second) );
-    if( booldefs.count( thiskey ) ) {
-      bools.insert( std::pair<std::string,bool>( thiskey,booldefs.find(thiskey)->second) );
+    allowmultiple.insert( std::pair<std::string,bool>(thiskey,newkeys.allowmultiple.at(thiskey)) );
+    documentation.insert( std::pair<std::string,std::string>(thiskey,newkeys.documentation.at(thiskey)) );
+    if( newkeys.booldefs.count( thiskey ) ) {
+      booldefs.insert( std::pair<std::string,bool>( thiskey,newkeys.booldefs.at(thiskey)) );
     }
-    if( numdefs.count( thiskey ) ) {
-      nums.insert( std::pair<std::string,std::string>( thiskey,numdefs.find(thiskey)->second) );
+    if( newkeys.numdefs.count( thiskey ) ) {
+      numdefs.insert( std::pair<std::string,std::string>( thiskey,newkeys.numdefs.at(thiskey)) );
     }
   }
-  for (std::string thiskey : reserved_keys) {
+  for (std::string thiskey : newkeys.reserved_keys) {
     //in c++20 we'll use .contains
-    plumed_massert( kk.count(thiskey)==0, "keyword " + thiskey + " is in twice" );
-    plumed_massert( rk.count(thiskey)==0, "keyword " + thiskey + " is in twice" );
-    rk.emplace( thiskey );
-    plumed_massert( types.count( thiskey ), "no type data on keyword " + thiskey + " to copy" );
-    tt.insert( std::pair<std::string,KeyType>( thiskey,types.find(thiskey)->second) );
-    if( (types.find(thiskey)->second).isAtomList() ) {
-      atags.insert( std::pair<std::string,std::string>( thiskey,atomtags.find(thiskey)->second) );
+    plumed_massert( keys.count(thiskey)==0, "keyword " + thiskey + " is in twice" );
+    plumed_massert( reserved_keys.count(thiskey)==0, "keyword " + thiskey + " is in twice" );
+
+    plumed_massert( newkeys.types.count( thiskey )!=0, "no type data on keyword " + thiskey + " to copy" );
+    plumed_massert( newkeys.allowmultiple.count( thiskey )!=0, "no numbered data on keyword " + thiskey + " to copy" );
+    plumed_massert( newkeys.documentation.count( thiskey )!=0, "no documentation for keyword " + thiskey + " to copy" );
+
+    reserved_keys.emplace( thiskey );
+
+    types.insert( std::pair<std::string,KeyType>( thiskey,newkeys.types.at(thiskey)) );
+    if( (types.at(thiskey)).isAtomList() ) {
+      atomtags.insert( std::pair<std::string,std::string>( thiskey,newkeys.atomtags.at(thiskey)) );
     }
-    plumed_massert( allowmultiple.count( thiskey ), "no numbered data on keyword " + thiskey + " to copy" );
-    am.insert( std::pair<std::string,bool>(thiskey,allowmultiple.find(thiskey)->second) );
-    plumed_massert( documentation.count( thiskey ), "no documentation for keyword " + thiskey + " to copy" );
-    docs.insert( std::pair<std::string,std::string>(thiskey,documentation.find(thiskey)->second) );
-    if( booldefs.count( thiskey ) ) {
-      bools.insert( std::pair<std::string,bool>( thiskey,booldefs.find(thiskey)->second) );
+
+    allowmultiple.insert( std::pair<std::string,bool>(thiskey,newkeys.allowmultiple.at(thiskey)) );
+
+    documentation.insert( std::pair<std::string,std::string>(thiskey,newkeys.documentation.at(thiskey)) );
+    if( newkeys.booldefs.count( thiskey ) ) {
+      booldefs.insert( std::pair<std::string,bool>( thiskey,newkeys.booldefs.at(thiskey)) );
     }
-    if( numdefs.count( thiskey ) ) {
-      nums.insert( std::pair<std::string,std::string>( thiskey,numdefs.find(thiskey)->second) );
+    if( newkeys.numdefs.count( thiskey ) ) {
+      numdefs.insert( std::pair<std::string,std::string>( thiskey,newkeys.numdefs.at(thiskey)) );
     }
   }
-  for (std::string thisnam : cnames) {
-    plumed_massert( comps.find(thisnam)!=comps.end(), "keyword " + thisnam + " is in twice" );
-    cnam.push_back( thisnam );
-    comps[thisnam]=components.at(thisnam);
+  for (std::string thisnam : newkeys.cnames) {
+    plumed_massert( components.find(thisnam)!=components.end(), "keyword for component" + thisnam + " is in twice" );
+    cnames.push_back( thisnam );
+    components[thisnam]=newkeys.components.at(thisnam);
+    //these asserts now are obsolete due the way compontents are created now
     // plumed_massert( ckey.count( thisnam ), "no keyword data on component " + thisnam + " to copy" );
     // plumed_massert( cdocs.count( thisnam ), "no documentation on component " + thisnam + " to copy" );
   }
