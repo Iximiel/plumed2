@@ -266,13 +266,11 @@ void Keywords::copyData( std::set<std::string>& kk,
     }
   }
   for (std::string thisnam : cnames) {
-    //in c++20 we'll use .contains
-    plumed_massert( cnam.count(thisnam)==0, "keyword " + thisnam + " is in twice" );
-    cnam.emplace( thisnam );
-    plumed_massert( ckey.count( thisnam ), "no keyword data on component " + thisnam + " to copy" );
-    ck.insert( std::pair<std::string,std::string>( thisnam, ckey.find(thisnam)->second) );
-    plumed_massert( cdocs.count( thisnam ), "no documentation on component " + thisnam + " to copy" );
-    cd.insert( std::pair<std::string,std::string>( thisnam, cdocs.find(thisnam)->second) );
+    plumed_massert( comps.find(thisnam)!=comps.end(), "keyword " + thisnam + " is in twice" );
+    cnam.push_back( thisnam );
+    comps[thisnam]=components.at(thisnam);
+    // plumed_massert( ckey.count( thisnam ), "no keyword data on component " + thisnam + " to copy" );
+    // plumed_massert( cdocs.count( thisnam ), "no documentation on component " + thisnam + " to copy" );
   }
 }
 
@@ -464,7 +462,7 @@ void Keywords::remove( const std::string & k ) {
     reserved_keys.erase(k);
     found=true;
   }
-
+  plumed_massert(found,"You are trying to forbid " + k + " a keyword that isn't there");
   // Delete documentation, type and so on from the description
   types.erase(k);
   documentation.erase(k);
@@ -472,11 +470,16 @@ void Keywords::remove( const std::string & k ) {
   booldefs.erase(k);
   numdefs.erase(k);
   // Remove any output comonents that this keyword creates
-  for(const auto& dkey : ckey ) {
-    if( dkey.second==k )
-      removeOutputComponent( dkey.first );
+  //we need the double loop because we should not remove and iterate on the map at the same time
+  std::vector<std::string> markForRemoval{};
+  for(const auto& dkey : components ) {
+    if( dkey.second.key==k ) {
+      markForRemoval.push_back(dkey.first);
+    }
   }
-  plumed_massert(found,"You are trying to forbid " + k + " a keyword that isn't there");
+  for(const auto& toremove : markForRemoval ) {
+    removeOutputComponent( toremove );
+  }
 }
 
 bool Keywords::numbered( const std::string & k ) const {
@@ -572,8 +575,9 @@ void Keywords::print_html() const {
 // This is the part that outputs the details of the components
   if( cnames.size()>0 ) {
     unsigned ndef=0;
+    //running on the order of insertion
     for(const auto& cname : cnames) {
-      if(ckey.find(cname)->second=="default") ndef++;
+      if(components.at(cname).key=="default") ndef++;
     }
 
     if( ndef>0 ) {
@@ -583,11 +587,11 @@ void Keywords::print_html() const {
       std::printf("<tr> <td width=5%%> <b> Quantity </b> </td> <td> <b> Description </b> </td> </tr>\n");
       unsigned nndef=0;
       for(const auto& cname : cnames) {
-        //plumed_assert( ckey.find(cname)->second=="default" );
-        if( ckey.find(cname)->second!="default" ) { nndef++; continue; }
+        //plumed_assert( components.at(cname).key=="default" );
+        if( components.at(cname).key!="default" ) { nndef++; continue; }
         std::printf("<tr>\n");
         std::printf("<td width=15%%> <b> %s </b></td>\n",cname.c_str() );
-        std::printf("<td> %s </td>\n",(cdocs.find(cname)->second).c_str() );
+        std::printf("<td> %s </td>\n",(components.at(cname).docstring).c_str() );
         std::printf("</tr>\n");
       }
       std::cout<<"</table>\n\n";
@@ -597,11 +601,11 @@ void Keywords::print_html() const {
         std::cout<<" <table align=center frame=void width=95%% cellpadding=5%%> \n";
         std::printf("<tr> <td width=5%%> <b> Quantity </b> </td> <td> <b> Keyword </b> </td> <td> <b> Description </b> </td> </tr>\n");
         for(const auto& cname : cnames) {
-          if( ckey.find(cname)->second!="default") {
+          if( components.at(cname).key!="default") {
             std::printf("<tr>\n");
             std::printf("<td width=5%%> <b> %s </b></td> <td width=10%%> <b> %s </b> </td> \n",
-                        cname.c_str(),(ckey.find(cname)->second).c_str() );
-            std::printf("<td> %s </td>\n",(cdocs.find(cname)->second).c_str() );
+                        cname.c_str(),(components.at(cname).key).c_str() );
+            std::printf("<td> %s </td>\n",(components.at(cname).docstring).c_str() );
             std::printf("</tr>\n");
           }
         }
@@ -610,8 +614,8 @@ void Keywords::print_html() const {
     } else {
       unsigned nregs=0;
       for(const auto& cname : cnames) {
-        if( exists(ckey.find(cname)->second) )
-         nregs++;
+        if( exists(components.at(cname).key) )
+          nregs++;
       }
       if( nregs>0 ) {
         std::cout<<"\\par Description of components\n\n";
@@ -619,11 +623,11 @@ void Keywords::print_html() const {
         std::cout<<" <table align=center frame=void width=95%% cellpadding=5%%> \n";
         std::printf("<tr> <td width=5%%> <b> Quantity </b> </td> <td> <b> Keyword </b> </td> <td> <b> Description </b> </td> </tr>\n");
         for(const auto& cname : cnames) {
-          if( exists(ckey.find(cname)->second) ) {
+          if( exists(components.at(cname).key) ) {
             std::printf("<tr>\n");
             std::printf("<td width=5%%> <b> %s </b></td> <td width=10%%> <b> %s </b> </td> \n",
-                        cname.c_str(),(ckey.find(cname)->second).c_str() );
-            std::printf("<td> %s </td>\n",(cdocs.find(cname)->second).c_str() );
+                        cname.c_str(),(components.at(cname).key).c_str() );
+            std::printf("<td> %s </td>\n",(components.at(cname).docstring).c_str() );
             std::printf("</tr>\n");
           }
         }
@@ -635,7 +639,7 @@ void Keywords::print_html() const {
   unsigned nkeys=0;
   for(const auto& key : keys) {
     if ( (types.find(key)->second).isAtomList() )
-    nkeys++;
+      nkeys++;
   }
   if( nkeys>0 ) {
     if(isaction && isatoms) std::cout<<"\\par The atoms involved can be specified using\n\n";
@@ -827,7 +831,9 @@ void Keywords::destroyData() {
   keys.clear(); reserved_keys.clear(); types.clear();
   allowmultiple.clear(); documentation.clear();
   booldefs.clear(); numdefs.clear(); atomtags.clear();
-  ckey.clear(); cdocs.clear(); ckey.clear();
+  components.clear();
+  //cname was missing before, it is wanted or not?
+  cnames.clear();
 }
 
 void Keywords::setComponentsIntroduction( const std::string& instr ) {
@@ -845,7 +851,8 @@ void Keywords::addOutputComponent( const std::string& name, const std::string& k
 
   std::size_t num2=name.find_first_of("_");
   if( num2!=std::string::npos ) {
-    char uu = '_'; plumed_massert( std::count(name.begin(),name.end(), uu)==1, "underscore is reserved character in component names and there should only be one");
+    char uu = '_';
+    plumed_massert( std::count(name.begin(),name.end(), uu)==1, "underscore is reserved character in component names and there should only be one");
     plumed_massert( num2==0, "underscore is reserved character in component names that has special meaning");
   }
   if( key=="default" ) {
@@ -853,28 +860,24 @@ void Keywords::addOutputComponent( const std::string& name, const std::string& k
               "be referenced elsewhere in the input by using this Action's label followed by a "
               "dot and the name of the quantity required from the list below.";
   }
-
-  ckey.insert( std::pair<std::string,std::string>(name,key) );
-  cdocs.insert( std::pair<std::string,std::string>(name,descr) );
-  ctypes.insert( std::pair<std::string,componentType>(name,stoct(type)) );
-  cnames.emplace(name);
-}
-
-void Keywords::removeOutputComponent( const std::string& name ) {
-  unsigned j=0;
-  if(cnames.count(name)==1) {
-    cnames.erase(name);
-  }
-  cdocs.erase(name);
+  components[name] = component()
+                     .setKey(key)
+                     .setDocstring(descr)
+                     .setType(stoct(type));
+  cnames.emplace_back(name);
 }
 
 void Keywords::setValueDescription( const std::string& type, const std::string& descr ) {
   if( !outputComponentExists(".#!value") ) {
-    ckey.insert( std::pair<std::string,std::string>(".#!value","default") );
-    cdocs.insert( std::pair<std::string,std::string>(".#!value",descr) );
-    ctypes.insert( std::pair<std::string,componentType>(".#!value",stoct (type)) );
-    cnames.insert(".#!value");
-  } else { cdocs[".#!value"] = descr; ctypes[".#!value"] = stoct(type); }
+    components[".#!value"] =component()
+                            .setKey("default")
+                            .setDocstring(descr)
+                            .setType(stoct(type));
+    cnames.emplace_back(".#!value");
+  } else {
+    components[".#!value"].docstring = descr;
+    components[".#!value"].type = stoct(type);
+  }
 }
 
 bool Keywords::outputComponentExists( const std::string& name ) const {
@@ -888,7 +891,7 @@ bool Keywords::outputComponentExists( const std::string& name ) const {
   else if( num!=std::string::npos ) sname=name.substr(0,num);
   else sname=name;
 
-  return cnames.count(sname)==1;
+  return components.find(sname)!=components.end();
 }
 
 bool Keywords::componentHasCorrectType( const std::string& name, const std::size_t& rank, const bool& hasderiv ) const {
@@ -901,16 +904,16 @@ bool Keywords::componentHasCorrectType( const std::string& name, const std::size
   else if( num!=std::string::npos ) sname=name.substr(0,num);
   else sname=name;
 
-  if( thisactname=="CENTER" && ctypes.find(sname)->second== componentType::atom ) return true;
+  if( thisactname=="CENTER" && components.at(sname).type== componentType::atom ) return true;
 
   if( rank==0 ) {
-    return (valid(ctypes.find(sname)->second | componentType::scalar));
+    return (valid(components.at(sname).type | componentType::scalar));
   } else if( hasderiv ) {
-    return (valid(ctypes.find(sname)->second | componentType::grid));
+    return (valid(components.at(sname).type | componentType::grid));
   } else if( rank==1 ) {
-    return (valid(ctypes.find(sname)->second | componentType::vector));
+    return (valid(components.at(sname).type | componentType::vector));
   } else if( rank==2 ) {
-    return (valid(ctypes.find(sname)->second | componentType::matrix ));
+    return (valid(components.at(sname).type | componentType::matrix ));
   }
   return false;
 }
@@ -932,40 +935,78 @@ std::string Keywords::getArgumentType( const std::string& name ) const {
 }
 
 std::string Keywords::getOutputComponentFlag( const std::string& name ) const {
-  return ckey.find(name)->second;
+  return components.find(name)->second.key;
 }
 
 std::string Keywords::getOutputComponentType( const std::string& name ) const {
-  return to_string( ctypes.find(name)->second);
+  return to_string( components.find(name)->second.type);
 }
 
 std::string Keywords::getOutputComponentDescription( const std::string& name ) const {
   std::string checkname = name; std::size_t hyp=name.find_first_of("-");
   if( hyp!=std::string::npos ) checkname = name.substr(0,hyp);
 
-  bool found=cnames.count(checkname)==1;
+  bool found=components.find(checkname)!=components.end();
 
   if( !found ) {
     if( name==".#!value" ) return "the value calculated by this action";
     if( outputComponentExists( name ) ) plumed_merror("cannot find description for component " + name + " that allegedly exists. Gareth Tribello might know what the fuck that is about.");
     plumed_merror("could not find output component named " + name );
   }
-  return cdocs.find(checkname)->second;
+  return components.at(checkname).docstring;
+}
+
+///////////DUPLICATED??????????///////
+void Keywords::removeOutputComponent( const std::string& name ) {
+  if(components.find(name)!=components.end()) {
+    components.erase(name);
+    cnames.erase(std::remove(cnames.begin(), cnames.end(), name), cnames.end());
+  }
+}
+
+void Keywords::removeComponent( const std::string& name ) {
+  if(components.find(name)!=components.end()) {
+    components.erase(name);
+    cnames.erase(std::remove(cnames.begin(), cnames.end(), name), cnames.end());
+  } else {
+    plumed_massert(false,"You are trying to remove " + name + " a component that isn't there");
+  }
+}
+
+
+/*
+//ORIGINALS
+DIFFERENCES:
+removeOutputComponent does not clean the keys and don't cares if you try remove something that doesn't exist
+removeComponent does clean keys and cares if you try to remove something that doesn't exist
+
+void Keywords::removeOutputComponent( const std::string& name ) {
+  unsigned j=0;
+  while(true) {
+    for(j=0; j<cnames.size(); j++) if(cnames[j]==name)break;
+    if(j<cnames.size()) cnames.erase(cnames.begin()+j);
+    else break;
+  }
+  cdocs.erase(name);
 }
 
 void Keywords::removeComponent( const std::string& name ) {
   bool found=false;
 
-  if(cnames.count(name)==1) {
-    cnames.erase(name);
-    found=true;
+  while(true) {
+    unsigned j;
+    for(j=0; j<cnames.size(); j++) if(cnames[j]==name)break;
+    if(j<cnames.size()) {
+      cnames.erase(cnames.begin()+j);
+      found=true;
+    } else break;
   }
-
   // Delete documentation, type and so on from the description
-  cdocs.erase(name);
-  ckey.erase(name);
+  cdocs.erase(name); ckey.erase(name);
   plumed_massert(found,"You are trying to remove " + name + " a component that isn't there");
 }
+
+*/
 
 std::vector<std::string> Keywords::getOutputComponents() const {
   //TODO: return a copy of the set
@@ -1016,7 +1057,7 @@ std::string Keywords::getDisplayName() const {
   return thisactname;
 }
 
-const std::set<std::string>& Keywords::componentNames() const {
+const std::vector<std::string>& Keywords::componentNames() const {
   return cnames;
 }
 

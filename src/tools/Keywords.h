@@ -108,21 +108,23 @@ private:
   std::map<std::string,std::string> numdefs;
 /// The tags for atoms - we use this so the manual can differentiate between different ways of specifying atoms
   std::map<std::string,std::string> atomtags;
-  // stuct component{
-  //   componentType type;
-  //   std::string key;
-  //   std::string docstring;
-  // }
+  struct component {
+    /// The keyword that turns on a particular component
+    std::string key;
+    /// The documentation for a particular component
+    std::string docstring;
+    /// The type of a particular component
+    componentType type;
+    component& setKey(std::string k) { key=k; return *this; }
+    component& setDocstring(std::string d) { docstring=d; return *this; }
+    component& setType(componentType t) { type=t; return *this; }
+  };
+  //the "exists component" is stored here
+  std::map<std::string,component> components;
 /// The string that should be printed out to describe how the components work for this particular action
   std::string cstring;
-/// The names of all the possible components for an action
-  std::set<std::string> cnames;
-/// The keyword that turns on a particular component
-  std::map<std::string,std::string> ckey;
-/// The documentation for a particular component
-  std::map<std::string,std::string> cdocs;
-/// The type of a particular component
-  std::map<std::string,componentType> ctypes;
+/// The names of all the possible components for an action, in order of their (first) declaration
+  std::vector<std::string> cnames;
 /// The list of actions that are needed by this action
   std::vector<std::string> neededActions;
 /// List of suffixes that can be used with this action
@@ -268,7 +270,7 @@ public:
 /// Set the display name
   void setDisplayName( const std::string& name );
   //get components names
-  const std::set<std::string>& componentNames() const ;
+  const std::vector<std::string>& componentNames() const ;
 };
 
 template<>
