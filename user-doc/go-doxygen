@@ -1,14 +1,17 @@
 #! /usr/bin/env bash
+# using  shellchek v0.9.0
+# formatted with shfmt v3.6.0
 
+# shellcheck disable=SC1091
 source ../sourceme.sh
 
-if plumed --no-mpi config mpiexec ; then
-   mpirun=$(plumed --no-mpi config mpiexec)
+if plumed --no-mpi config mpiexec; then
+  mpirun=$(plumed --no-mpi config mpiexec)
 else
-   mpirun=mpirun
+  mpirun=mpirun
 fi
 
-LISTMORE=`ls *PP.md | grep -wvFf basic.list`
+LISTMORE=$(find ./*PP.md | grep -wvFf basic.list)
 
 LIST="
  IntroductionPP.md
@@ -32,12 +35,12 @@ LIST="
  GlossaryPP.md
  automatic"
 
-echo $LIST
+echo "$LIST"
 
 {
   cat Doxyfile
   echo "PROJECT_NUMBER = \"$(../src/lib/plumed --no-mpi info --long-version)\""
-  echo "INPUT+=" $LIST
+  echo "INPUT+= $LIST"
   # add this to manually control layout:
   # echo "LAYOUT_FILE=PlumedLayout.xml"
 } | doxygen -
@@ -46,12 +49,12 @@ version=v$(../src/lib/plumed --no-mpi info --version)
 
 # in the online manual better to put the branch name
 # which is available through the TRAVIS_BRANCH env var
-if test "$TRAVIS" == true ; then
+if test "$TRAVIS" == true; then
   version="${TRAVIS_BRANCH}"
 fi
 
-if test "$GITHUB_ACTIONS" == true ; then
-  if [[ "$GITHUB_REF" == "refs/heads/"* ]] ; then
+if test "$GITHUB_ACTIONS" == true; then
+  if [[ "$GITHUB_REF" == "refs/heads/"* ]]; then
     version="${GITHUB_REF#refs/heads/}"
   fi
 fi
@@ -59,13 +62,18 @@ fi
 # THIS IS FOR DOXYGEN <= 1.8.10
 # I leave it here for the moment
 mkdir build_examples
-cd build_examples
+cd build_examples || {
+  echo "failure in cd to build_examples"
+  exit 1
+}
 mkdir build
-cd build
-for file in ../../html/*.html
-do
-echo final processing of html for file: $file
-gawk -v version="$version" '{
+cd build || {
+  echo "failure in cd to build_examples/build"
+  exit 1
+}
+for file in ../../html/*.html; do
+  echo "final processing of html for file: $file"
+  gawk -v version="$version" '{
   if(match($0,"<span>Main&#160;Page</span>")){
     sub("Main","Home",$0);
     sub("Page","("version")",$0);
@@ -104,21 +112,21 @@ gawk -v version="$version" '{
     print "   }"
     print "</script>"
   } else print
-}' $file > tmp
-gawk -v mpirun="$mpirun" -f ../../plumed-syntax.awk tmp > $file.tmp
-if [ $? -ne 0 ]; then
-   echo "ERROR IN RUNNING PLUMED SYNTAX COMMAND ON " $file
-   exit
-fi
-mv $file.tmp $file
-rm -fr *
+}' "$file" >tmp
+  gawk -v mpirun="$mpirun" -f ../../plumed-syntax.awk tmp >"$file.tmp"
+  if [ $? -ne 0 ]; then
+    echo "ERROR IN RUNNING PLUMED SYNTAX COMMAND ON $file"
+    exit
+  fi
+  mv "$file.tmp" "$file"
+  rm -fr ./*
 done
 cd ../../
 rm -rf build_examples
 # end of DOXYGEN <=1.8.10
 
 # Same stuff for DOXYGEN >=1.8.12
-cat > html/menudata.js << EOF
+cat >html/menudata.js <<EOF
 var menudata={children:[
 {text:'Home ($version)',url:'index.html'},
 {text:'Getting Started',url:'_syntax.html'},
@@ -128,18 +136,19 @@ var menudata={children:[
 EOF
 # end of DOXYGEN >=1.8.12
 
-cat html/doxygen.css plumed.css > html/doxygen.css.tmp
+cat html/doxygen.css plumed.css >html/doxygen.css.tmp
 mv html/doxygen.css.tmp html/doxygen.css
+# shellcheck disable=SC2154
+if [[ $make_pdfdoc == yes ]]; then
 
-if [ "$make_pdfdoc" != yes ] ; then
-  exit
+  cd latex || {
+    echo "failure in cd to latex"
+    exit 1
+  }
+
+  # this is a workaround for a problem on the linux workstation
+  # where I compile the manual - GB
+  sed -ie 's/pdfencoding=unicode/unicode/g' refman.tex
+  make -i
+  cp refman.pdf ../manual.pdf
 fi
-
-cd latex
-
-# this is a workaround for a problem on the linux workstation
-# where I compile the manual - GB
-sed -ie 's/pdfencoding=unicode/unicode/g' refman.tex
-make -i
-cp refman.pdf ../manual.pdf
-
