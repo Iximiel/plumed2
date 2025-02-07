@@ -39,7 +39,7 @@ public:
   const std::vector<double>& mass;
   const std::vector<double>& charges;
   ColvarInput( const unsigned& m, const std::vector<Vector>& p, const std::vector<double>& w,
-   const std::vector<double>& q );
+               const std::vector<double>& q );
   static ColvarInput createColvarInput( const unsigned& m, const std::vector<Vector>& p, const Colvar* colv );
 };
 
@@ -97,7 +97,7 @@ MultiValue::MultiValue( const size_t& nvals, const size_t& nder, const size_t& n
   matrix_force_stash(nder*nmat),
   matrix_bookeeping(nbook,0),
   matrix_row_nderivatives(nmat,0),
-  matrix_row_derivative_indices(nmat) {  
+  matrix_row_derivative_indices(nmat) {
 }
 
 
@@ -106,8 +106,7 @@ ColvarInput::ColvarInput( const unsigned& m, const std::vector<Vector>& p, const
   //pbc(box),
   pos(p),
   mass(w),
-  charges(q)
-{
+  charges(q) {
 }
 
 ColvarInput ColvarInput::createColvarInput( const unsigned& m, const std::vector<Vector>& p, const Colvar* colv ) {
@@ -145,14 +144,47 @@ public:
 
 template <class T>
 void MultiColvarTemplateGPU<T>::registerKeywords(Keywords& keys ) {
+
+
+  {
+    unsigned t =  42;
+#pragma acc data copy(t)// copyin(nactive_tasks )
+    {
+
+
+      printf("t: %d\n",t);
+
+      // #pragma acc parallel loop gang //private(myinput)
+#pragma acc parallel loop reduction(+:t)
+      for(unsigned i=0; i<10000; i++) {
+        // mode +=i;
+        // auto myval = MultiValue(ncomponents, nderivatives, natoms);
+        // myinput.task_index = partialTaskList[i];
+        t+=i;
+        // runTask(partialTaskList[i], mode, myval );
+
+        // Transfer the data to the values
+        // if( !ismatrix ) transferToValue( partialTaskList[i], myval );
+
+        // Clear the value
+        // myval.clearAll();
+      }
+    }
+
+    printf("%d\n",t);
+  }
+
   T::registerKeywords( keys );
   keys.add("optional","MASK","the label for a sparse matrix that should be used to determine which elements of the matrix should be computed");
   unsigned nkeys = keys.size();
   for(unsigned i=0; i<nkeys; ++i) {
-    if( keys.style( keys.get(i), "atoms" ) ) keys.reset_style( keys.get(i), "numbered" );
+    if( keys.style( keys.getKeyword(i), "atoms" ) ) {
+      keys.reset_style( keys.getKeyword(i), "numbered" );
+    }
   }
-  if( keys.outputComponentExists(".#!value") )
-     keys.setValueDescription("vector","the " + keys.getDisplayName() + " for each set of specified atoms");
+  if( keys.outputComponentExists(".#!value") ) {
+    keys.setValueDescription("vector","the " + keys.getDisplayName() + " for each set of specified atoms");
+  }
 }
 
 template <class T>
@@ -162,52 +194,101 @@ MultiColvarTemplateGPU<T>::MultiColvarTemplateGPU(const ActionOptions&ao):
   taskmanager(this),
   mode(0),
   usepbc(true),
-  wholemolecules(false)
-{
+  wholemolecules(false) {
+
+  {
+    unsigned t =  23;
+#pragma acc data copy(t)// copyin(nactive_tasks )
+    {
+
+
+      printf("t: %d\n",t);
+
+      // #pragma acc parallel loop gang //private(myinput)
+#pragma acc parallel loop reduction(+:t)
+      for(unsigned i=0; i<10000; i++) {
+        // mode +=i;
+        // auto myval = MultiValue(ncomponents, nderivatives, natoms);
+        // myinput.task_index = partialTaskList[i];
+        t+=i;
+        // runTask(partialTaskList[i], mode, myval );
+
+        // Transfer the data to the values
+        // if( !ismatrix ) transferToValue( partialTaskList[i], myval );
+
+        // Clear the value
+        // myval.clearAll();
+      }
+    }
+
+    printf("%d\n",t);
+  }
+
   std::vector<AtomNumber> all_atoms;
-  if( getName()=="POSITION_VECTOR" || getName()=="MASS_VECTOR" || getName()=="CHARGE_VECTOR" ) parseAtomList( "ATOMS", all_atoms );
+  if( getName()=="POSITION_VECTOR" || getName()=="MASS_VECTOR" || getName()=="CHARGE_VECTOR" ) {
+    parseAtomList( "ATOMS", all_atoms );
+  }
   if( all_atoms.size()>0 ) {
-    ablocks.resize(1); ablocks[0].resize( all_atoms.size() );
-    for(unsigned i=0; i<all_atoms.size(); ++i) ablocks[0][i] = i;
+    ablocks.resize(1);
+    ablocks[0].resize( all_atoms.size() );
+    for(unsigned i=0; i<all_atoms.size(); ++i) {
+      ablocks[0][i] = i;
+    }
   } else {
     std::vector<AtomNumber> t;
     for(int i=1;; ++i ) {
       T::parseAtomList( i, t, this );
-      if( t.empty() ) break;
+      if( t.empty() ) {
+        break;
+      }
 
-      if( i==1 ) { ablocks.resize(t.size()); }
+      if( i==1 ) {
+        ablocks.resize(t.size());
+      }
       if( t.size()!=ablocks.size() ) {
-        std::string ss; Tools::convert(i,ss);
+        std::string ss;
+        Tools::convert(i,ss);
         error("ATOMS" + ss + " keyword has the wrong number of atoms");
       }
       for(unsigned j=0; j<ablocks.size(); ++j) {
-        ablocks[j].push_back( ablocks.size()*(i-1)+j ); all_atoms.push_back( t[j] );
+        ablocks[j].push_back( ablocks.size()*(i-1)+j );
+        all_atoms.push_back( t[j] );
       }
       t.resize(0);
     }
   }
-  if( all_atoms.size()==0 ) error("No atoms have been specified");
+  if( all_atoms.size()==0 ) {
+    error("No atoms have been specified");
+  }
   requestAtoms(all_atoms);
   if( keywords.exists("NOPBC") ) {
-    bool nopbc=!usepbc; parseFlag("NOPBC",nopbc);
+    bool nopbc=!usepbc;
+    parseFlag("NOPBC",nopbc);
     usepbc=!nopbc;
   }
   if( keywords.exists("WHOLEMOLECULES") ) {
     parseFlag("WHOLEMOLECULES",wholemolecules);
-    if( wholemolecules ) usepbc=false;
+    if( wholemolecules ) {
+      usepbc=false;
+    }
   }
-  if( usepbc ) log.printf("  using periodic boundary conditions\n");
-  else    log.printf("  without periodic boundary conditions\n");
+  if( usepbc ) {
+    log.printf("  using periodic boundary conditions\n");
+  } else {
+    log.printf("  without periodic boundary conditions\n");
+  }
 
   // Setup the values
   mode = T::getModeAndSetupValues( this );
   // This sets up an array in the parallel task manager to hold all the indices
   std::vector<std::size_t> ind( ablocks.size()*ablocks[0].size() );
   for(unsigned i=0; i<ablocks[0].size(); ++i) {
-      for(unsigned j=0; j<ablocks.size(); ++j) ind[i*ablocks.size() + j] = ablocks[j][i];
+    for(unsigned j=0; j<ablocks.size(); ++j) {
+      ind[i*ablocks.size() + j] = ablocks[j][i];
+    }
   }
   // Sets up the index list in the task manager
-  taskmanager.setupIndexList( ind ); 
+  taskmanager.setupIndexList( ind );
   taskmanager.setPbcFlag( usepbc );
   taskmanager.setMode( mode );
 }
@@ -219,7 +300,36 @@ unsigned MultiColvarTemplateGPU<T>::getNumberOfDerivatives() {
 
 template <class T>
 void MultiColvarTemplateGPU<T>::calculate() {
-  if( wholemolecules ) makeWhole();
+  {
+    unsigned t =  14;
+#pragma acc data copy(t)// copyin(nactive_tasks )
+    {
+
+
+      printf("t: %d\n",t);
+
+      // #pragma acc parallel loop gang //private(myinput)
+#pragma acc parallel loop reduction(+:t)
+      for(unsigned i=0; i<10000; i++) {
+        // mode +=i;
+        // auto myval = MultiValue(ncomponents, nderivatives, natoms);
+        // myinput.task_index = partialTaskList[i];
+        t+=i;
+        // runTask(partialTaskList[i], mode, myval );
+
+        // Transfer the data to the values
+        // if( !ismatrix ) transferToValue( partialTaskList[i], myval );
+
+        // Clear the value
+        // myval.clearAll();
+      }
+    }
+
+    printf("%d\n",t);
+  }
+  if( wholemolecules ) {
+    makeWhole();
+  }
   // setForwardPass(true);
   //sorry, but this is needed to make it run on master
   // getInputData( taskmanager.myinput.inputdata );
@@ -229,12 +339,16 @@ void MultiColvarTemplateGPU<T>::calculate() {
 
 template <class T>
 void MultiColvarTemplateGPU<T>::addValueWithDerivatives( const std::vector<unsigned>& shape ) {
-  std::vector<unsigned> s(1); s[0]=ablocks[0].size(); addValue( s );
+  std::vector<unsigned> s(1);
+  s[0]=ablocks[0].size();
+  addValue( s );
 }
 
 template <class T>
 void MultiColvarTemplateGPU<T>::addComponentWithDerivatives( const std::string& name, const std::vector<unsigned>& shape ) {
-  std::vector<unsigned> s(1); s[0]=ablocks[0].size(); addComponent( name, s );
+  std::vector<unsigned> s(1);
+  s[0]=ablocks[0].size();
+  addComponent( name, s );
 }
 
 template <class T>
@@ -244,19 +358,21 @@ unsigned MultiColvarTemplateGPU<T>::getNumberOfAtomsPerTask() const {
 
 template <class T>
 void MultiColvarTemplateGPU<T>::getInputData( std::vector<double>& inputdata ) const {
-  unsigned ntasks = ablocks[0].size(); std::size_t k=0;
-  if( inputdata.size()!=5*ablocks.size()*ntasks ) 
-  inputdata.resize( 5*ablocks.size()*ntasks );
+  unsigned ntasks = ablocks[0].size();
+  std::size_t k=0;
+  if( inputdata.size()!=5*ablocks.size()*ntasks ) {
+    inputdata.resize( 5*ablocks.size()*ntasks );
+  }
   for(unsigned i=0; i<ntasks; ++i) {
-      for(unsigned j=0; j<ablocks.size(); ++j) { 
-          Vector mypos( getPosition( ablocks[j][i] ) );
-          inputdata[k] = mypos[0];
-          inputdata[k+1] = mypos[1];
-          inputdata[k+2] = mypos[2];
-          inputdata[k+3] = getMass( ablocks[j][i] );
-          inputdata[k+4] = getCharge( ablocks[j][i] );
-          k+=5;
-      }    
+    for(unsigned j=0; j<ablocks.size(); ++j) {
+      Vector mypos( getPosition( ablocks[j][i] ) );
+      inputdata[k] = mypos[0];
+      inputdata[k+1] = mypos[1];
+      inputdata[k+2] = mypos[2];
+      inputdata[k+3] = getMass( ablocks[j][i] );
+      inputdata[k+4] = getCharge( ablocks[j][i] );
+      k+=5;
+    }
   }
 }
 
@@ -267,12 +383,14 @@ void MultiColvarTemplateGPU<T>::performTask( const unsigned& task_index, MultiVa
   std::vector<double> & charge( myvals.getTemporyVector(1) );
   std::vector<Vector> & fpositions( myvals.getFirstAtomVector() );
   for(unsigned i=0; i<ablocks.size(); ++i) {
-      fpositions[i] = getPosition( ablocks[i][task_index] );
-      mass[i]=getMass( ablocks[i][task_index] );
-      charge[i]=getCharge( ablocks[i][task_index] );
+    fpositions[i] = getPosition( ablocks[i][task_index] );
+    mass[i]=getMass( ablocks[i][task_index] );
+    charge[i]=getCharge( ablocks[i][task_index] );
   }
   std::vector<std::size_t> der_indices( ablocks.size() );
-  for(unsigned i=0; i<der_indices.size(); ++i) der_indices[i] = ablocks[i][task_index];
+  for(unsigned i=0; i<der_indices.size(); ++i) {
+    der_indices[i] = ablocks[i][task_index];
+  }
   performTask( mode, der_indices, doNotCalculateDerivatives(), usepbc, myvals );
 }
 
@@ -282,19 +400,19 @@ void MultiColvarTemplateGPU<T>::performTask( const ParallelActionsInput& input, 
   std::vector<double> & charge( myvals.getTemporyVector(1) );
   std::vector<Vector> & fpositions( myvals.getFirstAtomVector() );
   for(unsigned i=0; i<fpositions.size(); ++i) {
-      std::size_t base = 5*fpositions.size()*input.task_index + 5*i;
-      fpositions[i][0] = input.inputdata[base + 0];
-      fpositions[i][1] = input.inputdata[base + 1];
-      fpositions[i][2] = input.inputdata[base + 2];
-      mass[i] = input.inputdata[base + 3];
-      charge[i] = input.inputdata[base + 4];
+    std::size_t base = 5*fpositions.size()*input.task_index + 5*i;
+    fpositions[i][0] = input.inputdata[base + 0];
+    fpositions[i][1] = input.inputdata[base + 1];
+    fpositions[i][2] = input.inputdata[base + 2];
+    mass[i] = input.inputdata[base + 3];
+    charge[i] = input.inputdata[base + 4];
   }
   MultiColvarTemplateGPU<T>::performTask( input.mode, input.indices, input.noderiv, input.usepbc, myvals );
 }
 
 template <class T>
-void MultiColvarTemplateGPU<T>::performTask( const unsigned& m, 
-const std::vector<std::size_t>& der_indices, const bool noderiv, const bool haspbc, MultiValue& myvals ) {
+void MultiColvarTemplateGPU<T>::performTask( const unsigned& m,
+    const std::vector<std::size_t>& der_indices, const bool noderiv, const bool haspbc, MultiValue& myvals ) {
   // Retrieve the inputs
   std::vector<double> & mass( myvals.getTemporyVector(0) );
   std::vector<double> & charge( myvals.getTemporyVector(1) );
@@ -317,39 +435,43 @@ const std::vector<std::size_t>& der_indices, const bool noderiv, const bool hasp
   std::vector<std::vector<Vector> > & derivs( myvals.getFirstAtomDerivativeVector() );
   // Calculate the CVs using the method in the Colvar
   T::calculateCV( ColvarInput(m, fpositions, mass, charge ), values, derivs, virial );
-  for(unsigned i=0; i<values.size(); ++i) myvals.setValue( i, values[i] );
-  // Finish if there are no derivatives
-  if( noderiv ) return;
-/*
-  // Now transfer the derivatives to the underlying MultiValue
-  for(unsigned i=0; i<der_indices.size(); ++i) {
-    unsigned base=3*der_indices[i];
-    for(int j=0; j<values.size(); ++j) {
-      myvals.addDerivative( j, base + 0, derivs[j][i][0] );
-      myvals.addDerivative( j, base + 1, derivs[j][i][1] );
-      myvals.addDerivative( j, base + 2, derivs[j][i][2] );
-    }
-    // Check for duplicated indices during update to avoid double counting
-    bool newi=true;
-    for(unsigned j=0; j<i; ++j) {
-      if( der_indices[j]==der_indices[i] ) { newi=false; break; }
-    }
-    if( !newi ) continue;
-    for(int j=0; j<values.size(); ++j) {
-      myvals.updateIndex( j, base );
-      myvals.updateIndex( j, base + 1 );
-      myvals.updateIndex( j, base + 2 );
-    }
+  for(unsigned i=0; i<values.size(); ++i) {
+    myvals.setValue( i, values[i] );
   }
-  unsigned nvir=myvals.getNumberOfDerivatives() - 9;
-  for(int j=0; j<values.size(); ++j) {
-    for(unsigned i=0; i<3; ++i) {
-      for(unsigned k=0; k<3; ++k) {
-        myvals.addDerivative( j, nvir + 3*i + k, virial[j][i][k] );
-        myvals.updateIndex( j, nvir + 3*i + k );
+  // Finish if there are no derivatives
+  if( noderiv ) {
+    return;
+  }
+  /*
+    // Now transfer the derivatives to the underlying MultiValue
+    for(unsigned i=0; i<der_indices.size(); ++i) {
+      unsigned base=3*der_indices[i];
+      for(int j=0; j<values.size(); ++j) {
+        myvals.addDerivative( j, base + 0, derivs[j][i][0] );
+        myvals.addDerivative( j, base + 1, derivs[j][i][1] );
+        myvals.addDerivative( j, base + 2, derivs[j][i][2] );
+      }
+      // Check for duplicated indices during update to avoid double counting
+      bool newi=true;
+      for(unsigned j=0; j<i; ++j) {
+        if( der_indices[j]==der_indices[i] ) { newi=false; break; }
+      }
+      if( !newi ) continue;
+      for(int j=0; j<values.size(); ++j) {
+        myvals.updateIndex( j, base );
+        myvals.updateIndex( j, base + 1 );
+        myvals.updateIndex( j, base + 2 );
       }
     }
-  }*/
+    unsigned nvir=myvals.getNumberOfDerivatives() - 9;
+    for(int j=0; j<values.size(); ++j) {
+      for(unsigned i=0; i<3; ++i) {
+        for(unsigned k=0; k<3; ++k) {
+          myvals.addDerivative( j, nvir + 3*i + k, virial[j][i][k] );
+          myvals.updateIndex( j, nvir + 3*i + k );
+        }
+      }
+    }*/
 }
 
 }

@@ -166,25 +166,27 @@ void VectorGeneric<T, n>::auxiliaryConstructor()
 
 template<typename T, unsigned n>
 template<typename... Args>
-void VectorGeneric<T, n>::auxiliaryConstructor(T first,Args... arg)
-{
+void VectorGeneric<T, n>::auxiliaryConstructor(T first,Args... arg) {
   d[n-(sizeof...(Args))-1]=first;
   auxiliaryConstructor(arg...);
 }
 
 template<typename T, unsigned n>
 template<typename... Args>
-VectorGeneric<T, n>::VectorGeneric(T first,Args... arg)
-{
+VectorGeneric<T, n>::VectorGeneric(T first,Args... arg) {
   static_assert((sizeof...(Args))+1==n,"you are trying to initialize a Vector with the wrong number of arguments");
   auxiliaryConstructor(first,arg...);
 }
 
 template<typename T, unsigned n>
-T* VectorGeneric<T, n>::data() {return d.data();}
+T* VectorGeneric<T, n>::data() {
+  return d.data();
+}
 
 template<typename T, unsigned n>
-const T* VectorGeneric<T, n>::data() const {return d.data();}
+const T* VectorGeneric<T, n>::data() const {
+  return d.data();
+}
 
 template<typename T, unsigned n>
 void VectorGeneric<T, n>::zero() {
@@ -319,7 +321,9 @@ T modulo(const VectorGeneric<T, n>&v) {
 
 template<typename T, unsigned n>
 std::ostream & operator<<(std::ostream &os, const VectorGeneric<T, n>& v) {
-  for(unsigned i=0; i<n-1; i++) os<<v(i)<<" ";
+  for(unsigned i=0; i<n-1; i++) {
+    os<<v(i)<<" ";
+  }
   os<<v(n-1);
   return os;
 }

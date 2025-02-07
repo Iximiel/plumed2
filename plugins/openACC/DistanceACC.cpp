@@ -147,6 +147,40 @@ public:
 typedef MultiColvarTemplateGPU<Distance> DistanceGPU;
 PLUMED_REGISTER_ACTION(DistanceGPU,"DISTANCE_GPU_VECTOR")
 
+namespace {
+
+struct tmp {
+
+  tmp()   {
+    unsigned t =  73;
+    printf("t: %d\n",t);
+
+    // #pragma acc parallel loop gang //private(myinput)
+#pragma acc parallel loop reduction(+:t) copy(t)
+    for(unsigned i=0; i<10000; i++) {
+      // mode +=i;
+      // auto myval = MultiValue(ncomponents, nderivatives, natoms);
+      // myinput.task_index = partialTaskList[i];
+      t+=i;
+      // runTask(partialTaskList[i], mode, myval );
+
+      // Transfer the data to the values
+      // if( !ismatrix ) transferToValue( partialTaskList[i], myval );
+
+      // Clear the value
+      // myval.clearAll();
+    }
+
+
+    printf("%d\n",t);
+  }
+
+
+};
+
+tmp t;
+}
+
 void Distance::registerKeywords( Keywords& keys ) {
   Colvar::registerKeywords( keys );
   keys.setDisplayName("DISTANCE");
@@ -162,6 +196,7 @@ void Distance::registerKeywords( Keywords& keys ) {
   keys.add("hidden","NO_ACTION_LOG","suppresses printing from action on the log");
   keys.setValueDescription("scalar/vector","the DISTANCE between this pair of atoms");
 }
+
 
 Distance::Distance(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
@@ -286,23 +321,23 @@ void Distance::calculate() {
   // }
 }
 void Distance::calculateCV( const ColvarInput& cvin, std::vector<double>& vals,
- std::vector<std::vector<Vector>>& derivs, std::vector<Tensor>& virial ) {
+                            std::vector<std::vector<Vector>>& derivs, std::vector<Tensor>& virial ) {
   Vector distance=delta(cvin.pos[0],cvin.pos[1]);
   const double value=distance.modulo();
   const double invvalue=1.0/value;
 
   // if(cvin.mode==1) {
-    derivs[0][0] = Vector(-1,0,0);
-    derivs[0][1] = Vector(+1,0,0);
-    vals[0] = distance[0];
+  derivs[0][0] = Vector(-1,0,0);
+  derivs[0][1] = Vector(+1,0,0);
+  vals[0] = distance[0];
 
-    derivs[1][0] = Vector(0,-1,0);
-    derivs[1][1] = Vector(0,+1,0);
-    vals[1] = distance[1];
+  derivs[1][0] = Vector(0,-1,0);
+  derivs[1][1] = Vector(0,+1,0);
+  vals[1] = distance[1];
 
-    derivs[2][0] = Vector(0,0,-1);
-    derivs[2][1] = Vector(0,0,+1);
-    vals[2] = distance[2];
+  derivs[2][0] = Vector(0,0,-1);
+  derivs[2][1] = Vector(0,0,+1);
+  vals[2] = distance[2];
   //   setBoxDerivativesNoPbc( cvin.pos, derivs, virial );
   // } else if(cvin.mode==2) {
   //   Vector d=cvin.pbc.realToScaled(distance);

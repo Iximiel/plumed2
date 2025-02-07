@@ -30,8 +30,7 @@ ColvarInput::ColvarInput( const unsigned& m, const std::vector<Vector>& p, const
   //pbc(box),
   pos(p),
   mass(w),
-  charges(q)
-{
+  charges(q) {
 }
 
 ColvarInput ColvarInput::createColvarInput( const unsigned& m, const std::vector<Vector>& p, const Colvar* colv ) {

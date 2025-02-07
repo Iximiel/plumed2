@@ -33,7 +33,7 @@ namespace PLMD {
 struct ParallelActionsInput {
   bool usepbc;
   bool noderiv;
-  
+
   unsigned mode;
   unsigned task_index;
 /// This holds indices for creating derivatives
@@ -56,8 +56,8 @@ private:
   std::vector<double> buffer;
 /// A tempory vector of MultiValue so we can avoid doing lots of resizes
   std::vector<MultiValue> myvals;
-  public:
-/// An action to hold data that we pass to and from the static function 
+public:
+/// An action to hold data that we pass to and from the static function
   ParallelActionsInput myinput;
 
   ParallelTaskManager(ActionWithVector* av);
@@ -80,10 +80,11 @@ ParallelTaskManager<T>::ParallelTaskManager(ActionWithVector* av):
   action(av),
   comm(av->comm),
   ismatrix(false),
-  myinput()
-{
+  myinput() {
   ActionWithMatrix* am=dynamic_cast<ActionWithMatrix*>(av);
-  if(am) ismatrix=true;
+  if(am) {
+    ismatrix=true;
+  }
 }
 
 template <class T>
@@ -114,7 +115,9 @@ void ParallelTaskManager<T>::runAllTasks( const unsigned& natoms ) {
   // Get the total number of streamed quantities that we need
   // Get size for buffer
   unsigned bufsize=0, nderivatives = 0;
-  if( buffer.size()!=bufsize ) buffer.resize( bufsize );
+  if( buffer.size()!=bufsize ) {
+    buffer.resize( bufsize );
+  }
   // Clear buffer
   buffer.assign( buffer.size(), 0.0 );
 
@@ -126,22 +129,23 @@ void ParallelTaskManager<T>::runAllTasks( const unsigned& natoms ) {
   // const ActionWithMatrix* am = dynamic_cast<const ActionWithMatrix*>(action);
   // bool ismatrix=false; if(am) ismatrix=true;
   auto ncomponents = action->getNumberOfComponents();
-  // auto mode = myinput.mode; 
+  // auto mode = myinput.mode;
   myinput.task_index=3;
   std::cerr <<myinput.task_index <<std::endl;
-  #pragma acc data copy(myinput) copyin(nactive_tasks )
+  unsigned t =  myinput.task_index;
+#pragma acc data copy(t)// copyin(nactive_tasks )
   {
 
-unsigned t =  myinput.task_index;
-       printf("%d\n",t);
+
+    printf("t: %d\n",t);
 
     // #pragma acc parallel loop gang //private(myinput)
-    #pragma  acc parallel loop gang reduction(+:t)
+#pragma  acc parallel loop  reduction(+:t)
     for(unsigned i=0; i<10000; i++) {
       // mode +=i;
       // auto myval = MultiValue(ncomponents, nderivatives, natoms);
-      // myinput.task_index = partialTaskList[i]; 
-      t+=i; 
+      // myinput.task_index = partialTaskList[i];
+      t+=i;
       // runTask(partialTaskList[i], mode, myval );
 
       // Transfer the data to the values
@@ -150,18 +154,20 @@ unsigned t =  myinput.task_index;
       // Clear the value
       // myval.clearAll();
     }
- myinput.task_index=t;
-       printf("%d\n",myinput.task_index);
-
   }
+  {
+    myinput.task_index=t;
+  }
+  printf("%d\n",myinput.task_index);
+
   std::cerr <<myinput.task_index <<std::endl;
 }
 
 template <class T>
-  void runTask( const ParallelActionsInput& locinp, MultiValue& myvals ){
+void runTask( const ParallelActionsInput& locinp, MultiValue& myvals ) {
 
 // void ParallelTaskManager<T>::runTask( unsigned const task_index, unsigned const mode, MultiValue& myvals ) {
-  myvals.setTaskIndex(locinp.task_index); 
+  myvals.setTaskIndex(locinp.task_index);
   // T::performTask( locinp, myvals );
 }
 
@@ -169,8 +175,10 @@ template <class T>
 void ParallelTaskManager<T>::transferToValue( unsigned task_index, const MultiValue& myvals ) const {
   for(unsigned i=0; i<action->getNumberOfComponents(); ++i) {
     const Value* myval = action->getConstPntrToComponent(i);
-    if( myval->hasDerivatives() || (action->getName()=="RMSD_VECTOR" && myval->getRank()==2) ) continue;
-    Value* myv = const_cast<Value*>( myval ); 
+    if( myval->hasDerivatives() || (action->getName()=="RMSD_VECTOR" && myval->getRank()==2) ) {
+      continue;
+    }
+    Value* myv = const_cast<Value*>( myval );
     myv->set( task_index, myvals.get( i ) );
   }
 }
