@@ -116,8 +116,14 @@ public:
   const double & getEnergy()const;
 /// Get mass of i-th atom
   double getMass(int i)const;
+  
+    const std::vector<double>& getMasses()const{
+      return masses;}
+
 /// Get charge of i-th atom
   double getCharge(int i)const;
+  const std::vector<double>& getCharges()const{
+      return charges;}
 /// Get the force acting on a particular atom
   Vector getForce( const std::pair<std::size_t, std::size_t>& a ) const ;
 /// Add force to an atom

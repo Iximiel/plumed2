@@ -97,10 +97,13 @@ protected:
   bool done_in_chain;
 /// This updates whether or not we are using all the task reduction stuff
   void updateTaskListReductionStatus();
+  public:
 /// Run all calculations in serial
   bool runInSerial() const ;
+  
 /// Get the list of tasks that are active
   std::vector<unsigned>& getListOfActiveTasks( ActionWithVector* action );
+  protected:
 /// Check if the arguments of this action depend on thearg
   bool argumentDependsOn( const std::string& headstr, ActionWithVector* faction, Value* thearg );
 /// This sets up the arguments at the start of the calculation

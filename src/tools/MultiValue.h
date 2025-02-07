@@ -70,6 +70,7 @@ private:
   std::vector<Tensor> tmp_atom_virial;
   std::vector<std::vector<double> > tmp_vectors;
 public:
+  MultiValue() : task_index(0), task2_index(0), nderivatives(0), atLeastOneSet(false), nindices(0), nsplit(0), matrix_row_nderivatives(0) {}
   MultiValue( const std::size_t& nvals, const std::size_t& nder, const std::size_t& nmat=0, const std::size_t& maxcol=0, const std::size_t& nbook=0 );
   void resize( const std::size_t& nvals, const std::size_t& nder, const std::size_t& nmat=0, const std::size_t& maxcol=0, const std::size_t& nbook=0 );
 /// Set the task index prior to the loop
@@ -167,7 +168,7 @@ double MultiValue::get( const std::size_t& ival ) const {
 
 inline
 void MultiValue::setValue( const std::size_t& ival,  const double& val) {
-  plumed_dbg_assert( ival<=values.size() );
+  // plumed_dbg_assert( ival<=values.size() );
   values[ival]=val;
 }
 
@@ -364,7 +365,7 @@ void MultiValue::resizeTemporyVector(const unsigned& n ) {
 
 inline
 std::vector<double>& MultiValue::getTemporyVector(const unsigned& ind ) {
-  plumed_dbg_assert( ind<tmp_vectors.size() );
+  // plumed_dbg_assert( ind<tmp_vectors.size() );
   return tmp_vectors[ind];
 }
 

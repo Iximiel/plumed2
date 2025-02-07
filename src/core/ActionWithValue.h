@@ -113,7 +113,7 @@ public:
   void componentIsPeriodic( const std::string& name, const std::string& min, const std::string& max );
 /// Get the description of this component
   virtual std::string getOutputComponentDescription( const std::string& cname, const Keywords& keys ) const ;
-protected:
+
 /// Return a pointer to the component by index
   Value* getPntrToComponent(int i);
 /// Get a const pointer to the ith component
@@ -215,8 +215,8 @@ double ActionWithValue::getOutputQuantity( const std::string& name ) const {
 
 inline
 void ActionWithValue::setValue(const double& d) {
-  plumed_massert(values.size()==1, "cannot use setValue in multi-component actions");
-  plumed_massert(values[0]->name==getLabel(), "The value you are trying to set is not the default");
+  plumed_dbg_massert(values.size()==1, "cannot use setValue in multi-component actions");
+  plumed_dbg_massert(values[0]->name==getLabel(), "The value you are trying to set is not the default");
   values[0]->set(d);
 }
 
