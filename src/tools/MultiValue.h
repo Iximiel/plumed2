@@ -71,7 +71,29 @@ private:
   std::vector<std::vector<double> > tmp_vectors;
 public:
   MultiValue() : task_index(0), task2_index(0), nderivatives(0), atLeastOneSet(false), nindices(0), nsplit(0), matrix_row_nderivatives(0) {}
-  MultiValue( const std::size_t& nvals, const std::size_t& nder, const std::size_t& nmat=0, const std::size_t& maxcol=0, const std::size_t& nbook=0 );
+  MultiValue( const size_t& nvals, const size_t& nder, const size_t& nmat, const size_t& maxcol, const size_t& nbook ):
+  task_index(0),
+  task2_index(0),
+  values(nvals),
+  nderivatives(nder),
+  derivatives(nvals*nder),
+  hasderiv(nvals*nder,false),
+  tmpval(0),
+  nactive(nvals),
+  active_list(nvals*nder),
+  tmpder(nder),
+  atLeastOneSet(false),
+  vector_call(false),
+  nindices(0),
+  nsplit(0),
+  nmatrix_cols(maxcol),
+  matrix_row_stash(nmat*maxcol,0),
+  matrix_force_stash(nder*nmat),
+  matrix_bookeeping(nbook,0),
+  matrix_row_nderivatives(nmat,0),
+  matrix_row_derivative_indices(nmat) {
+}
+
   void resize( const std::size_t& nvals, const std::size_t& nder, const std::size_t& nmat=0, const std::size_t& maxcol=0, const std::size_t& nbook=0 );
 /// Set the task index prior to the loop
   void setTaskIndex( const std::size_t& tindex );
@@ -117,9 +139,39 @@ public:
 /// Return a derivative value
   double getDerivative( const std::size_t&, const std::size_t& ) const ;
 /// Clear all values
-  void clearAll();
+  void clearAll() {
+  for(unsigned i=0; i<values.size(); ++i) {
+    values[i]=0;
+  }
+  // Clear matrix row
+  // std::fill( matrix_row_stash.begin(), matrix_row_stash.end(), 0 );
+  // // Clear matrix derivative indices
+  // std::fill( matrix_row_nderivatives.begin(), matrix_row_nderivatives.end(), 0 );
+  // // Clear matrix forces
+  // std::fill(matrix_force_stash.begin(),matrix_force_stash.end(),0);
+  // if( !atLeastOneSet ) {
+  //   return;
+  // }
+  // for(unsigned i=0; i<values.size(); ++i) {
+  //   clearDerivatives(i);
+  // }
+  atLeastOneSet=false;
+}
 /// Clear the derivatives
-  void clearDerivatives( const unsigned& );
+  void clearDerivatives( const unsigned& ival ) {
+  // values[ival]=0;
+  // if( !atLeastOneSet ) {
+  //   return;
+  // }
+  // unsigned base=ival*nderivatives;
+  // for(unsigned i=0; i<nactive[ival]; ++i) {
+  //   unsigned k = base+active_list[base+i];
+  //   derivatives[k]=0.;
+  //   hasderiv[k]=false;
+  // }
+  // nactive[ival]=0;
+
+}
 /// Clear a value
   void clear( const unsigned& );
 /// Functions for accessing active list

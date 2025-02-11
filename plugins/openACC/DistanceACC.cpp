@@ -25,6 +25,34 @@
 #include "plumed/core/ActionRegister.h"
 #include "plumed/tools/Pbc.h"
 
+#include <cstdio>
+
+// namespace {
+
+// struct tmp {
+
+//   tmp(int t =  73)   {
+
+//     printf("before t: %d\n",t);
+
+// #pragma acc data copy(t)
+//     {
+//       // #pragma acc parallel loop gang //private(myinput)
+// #pragma acc parallel loop reduction(+:t)
+//       for(int i=0; i<100; i++) {
+//         t+=i;
+//       }
+//     }
+
+//     printf("after t= %d\n",t);
+//   }
+
+
+// };
+
+// tmp t(73);
+// }
+
 namespace PLMD {
 namespace colvar {
 
@@ -133,12 +161,48 @@ class Distance : public Colvar {
   std::vector<Tensor> virial;
 public:
   static void registerKeywords( Keywords& keys );
+  static constexpr std::size_t atomsPerTask=2;
   explicit Distance(const ActionOptions&);
   static void parseAtomList( const int& num, std::vector<AtomNumber>& t, ActionAtomistic* aa );
   static unsigned getModeAndSetupValues( ActionWithValue* av );
 // active methods:
   void calculate() override;
-  static void calculateCV( const ColvarInput& cvin, std::vector<double>& vals, std::vector<std::vector<Vector> >& derivs, std::vector<Tensor>& virial );
+  static void calculateCV( const ColvarInput<atomsPerTask>& cvin, std::vector<double>& vals, PLMD::Matrix<Vector >& derivs, std::vector<Tensor>& virial ) {
+    Vector distance=delta(cvin.pos[0],cvin.pos[1]);
+    const double value=distance.modulo();
+    const double invvalue=1.0/value;
+
+    // if(cvin.mode==1) {
+    derivs[0][0] = Vector(-1,0,0);
+    derivs[0][1] = Vector(+1,0,0);
+    vals[0] = distance[0];
+
+    derivs[1][0] = Vector(0,-1,0);
+    derivs[1][1] = Vector(0,+1,0);
+    vals[1] = distance[1];
+
+    derivs[2][0] = Vector(0,0,-1);
+    derivs[2][1] = Vector(0,0,+1);
+    vals[2] = distance[2];
+    //   setBoxDerivativesNoPbc( cvin.pos, derivs, virial );
+    // } else if(cvin.mode==2) {
+    //   Vector d=cvin.pbc.realToScaled(distance);
+    //   derivs[0][0] = matmul(cvin.pbc.getInvBox(),Vector(-1,0,0));
+    //   derivs[0][1] = matmul(cvin.pbc.getInvBox(),Vector(+1,0,0));
+    //   vals[0] = Tools::pbc(d[0]);
+    //   derivs[1][0] = matmul(cvin.pbc.getInvBox(),Vector(0,-1,0));
+    //   derivs[1][1] = matmul(cvin.pbc.getInvBox(),Vector(0,+1,0));
+    //   vals[1] = Tools::pbc(d[1]);
+    //   derivs[2][0] = matmul(cvin.pbc.getInvBox(),Vector(0,0,-1));
+    //   derivs[2][1] = matmul(cvin.pbc.getInvBox(),Vector(0,0,+1));
+    //   vals[2] = Tools::pbc(d[2]);
+    // } else {
+    //   derivs[0][0] = -invvalue*distance;
+    //   derivs[0][1] = invvalue*distance;
+    //   setBoxDerivativesNoPbc( cvin.pos, derivs, virial );
+    //   vals[0] = value;
+    // }
+  }
 };
 
 // typedef ColvarShortcut<Distance> DistanceShortcut;
@@ -147,39 +211,7 @@ public:
 typedef MultiColvarTemplateGPU<Distance> DistanceGPU;
 PLUMED_REGISTER_ACTION(DistanceGPU,"DISTANCE_GPU_VECTOR")
 
-namespace {
 
-struct tmp {
-
-  tmp()   {
-    unsigned t =  73;
-    printf("t: %d\n",t);
-
-    // #pragma acc parallel loop gang //private(myinput)
-#pragma acc parallel loop reduction(+:t) copy(t)
-    for(unsigned i=0; i<10000; i++) {
-      // mode +=i;
-      // auto myval = MultiValue(ncomponents, nderivatives, natoms);
-      // myinput.task_index = partialTaskList[i];
-      t+=i;
-      // runTask(partialTaskList[i], mode, myval );
-
-      // Transfer the data to the values
-      // if( !ismatrix ) transferToValue( partialTaskList[i], myval );
-
-      // Clear the value
-      // myval.clearAll();
-    }
-
-
-    printf("%d\n",t);
-  }
-
-
-};
-
-tmp t;
-}
 
 void Distance::registerKeywords( Keywords& keys ) {
   Colvar::registerKeywords( keys );
@@ -318,43 +350,6 @@ void Distance::calculate() {
   //   for(unsigned i=0; i<2; ++i) setAtomsDerivatives(i,derivs[0][i] );
   //   setBoxDerivatives(virial[0]);
   //   setValue           (value[0]);
-  // }
-}
-void Distance::calculateCV( const ColvarInput& cvin, std::vector<double>& vals,
-                            std::vector<std::vector<Vector>>& derivs, std::vector<Tensor>& virial ) {
-  Vector distance=delta(cvin.pos[0],cvin.pos[1]);
-  const double value=distance.modulo();
-  const double invvalue=1.0/value;
-
-  // if(cvin.mode==1) {
-  derivs[0][0] = Vector(-1,0,0);
-  derivs[0][1] = Vector(+1,0,0);
-  vals[0] = distance[0];
-
-  derivs[1][0] = Vector(0,-1,0);
-  derivs[1][1] = Vector(0,+1,0);
-  vals[1] = distance[1];
-
-  derivs[2][0] = Vector(0,0,-1);
-  derivs[2][1] = Vector(0,0,+1);
-  vals[2] = distance[2];
-  //   setBoxDerivativesNoPbc( cvin.pos, derivs, virial );
-  // } else if(cvin.mode==2) {
-  //   Vector d=cvin.pbc.realToScaled(distance);
-  //   derivs[0][0] = matmul(cvin.pbc.getInvBox(),Vector(-1,0,0));
-  //   derivs[0][1] = matmul(cvin.pbc.getInvBox(),Vector(+1,0,0));
-  //   vals[0] = Tools::pbc(d[0]);
-  //   derivs[1][0] = matmul(cvin.pbc.getInvBox(),Vector(0,-1,0));
-  //   derivs[1][1] = matmul(cvin.pbc.getInvBox(),Vector(0,+1,0));
-  //   vals[1] = Tools::pbc(d[1]);
-  //   derivs[2][0] = matmul(cvin.pbc.getInvBox(),Vector(0,0,-1));
-  //   derivs[2][1] = matmul(cvin.pbc.getInvBox(),Vector(0,0,+1));
-  //   vals[2] = Tools::pbc(d[2]);
-  // } else {
-  //   derivs[0][0] = -invvalue*distance;
-  //   derivs[0][1] = invvalue*distance;
-  //   setBoxDerivativesNoPbc( cvin.pos, derivs, virial );
-  //   vals[0] = value;
   // }
 }
 

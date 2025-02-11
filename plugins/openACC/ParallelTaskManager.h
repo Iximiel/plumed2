@@ -27,7 +27,7 @@
 #include "plumed/core/ActionWithVector.h"
 #include "plumed/core/ActionWithMatrix.h"
 #include "plumed/tools/OpenMP.h"
-
+#define vdbg(...) std::cerr << __LINE__ << ":" << #__VA_ARGS__ << " " << (__VA_ARGS__) << '\n'
 namespace PLMD {
 
 struct ParallelActionsInput {
@@ -41,6 +41,12 @@ struct ParallelActionsInput {
 /// This holds all the input data that is required to calculate all values for all tasks
   // std::vector<double> inputdata;
   ParallelActionsInput(  ) : usepbc(false), noderiv(false), mode(0), task_index(0) {}
+};
+
+struct ParallelActionsMV {
+  std::vector<Vector> fpositions;
+  std::vector<double> mass;
+  std::vector<double> charge;
 };
 
 template <class T>
@@ -59,7 +65,7 @@ private:
 public:
 /// An action to hold data that we pass to and from the static function
   ParallelActionsInput myinput;
-
+  ParallelActionsMV mydata;
   ParallelTaskManager(ActionWithVector* av);
 /// Setup an array to hold all the indices that are used for derivatives
   void setupIndexList( const std::vector<std::size_t>& ind );
@@ -130,24 +136,32 @@ void ParallelTaskManager<T>::runAllTasks( const unsigned& natoms ) {
   // bool ismatrix=false; if(am) ismatrix=true;
   auto ncomponents = action->getNumberOfComponents();
   // auto mode = myinput.mode;
-  myinput.task_index=3;
+  myinput.task_index=0;
   std::cerr <<myinput.task_index <<std::endl;
-  unsigned t =  myinput.task_index;
-#pragma acc data copy(t)// copyin(nactive_tasks )
+
+  std::vector<double> & mass = mydata.mass;
+  std::vector<double> & charge = mydata.charge;
+  std::vector<Vector> & fpositions = mydata.fpositions;
+  auto fulltasksize=mass.size();
+  vdbg(fulltasksize);
+#pragma acc data \
+  copyin(nactive_tasks, \
+         partialTaskList[0:nactive_tasks] ,\
+         mass[0:fulltasksize], \
+         charge[0:fulltasksize], \
+         fpositions[0:fulltasksize])
   {
 
 
-    printf("t: %d\n",t);
-
     // #pragma acc parallel loop gang //private(myinput)
-#pragma  acc parallel loop  reduction(+:t)
-    for(unsigned i=0; i<10000; i++) {
+#pragma  acc parallel loop
+    for(unsigned i=0; i<nactive_tasks; i++) {
       // mode +=i;
       // auto myval = MultiValue(ncomponents, nderivatives, natoms);
-      // myinput.task_index = partialTaskList[i];
-      t+=i;
-      // runTask(partialTaskList[i], mode, myval );
+      myinput.task_index = partialTaskList[i];
 
+      // runTask(partialTaskList[i], mode, myval );
+      T::performTask( myinput, mass,charge,fpositions );
       // Transfer the data to the values
       // if( !ismatrix ) transferToValue( partialTaskList[i], myval );
 
@@ -155,12 +169,8 @@ void ParallelTaskManager<T>::runAllTasks( const unsigned& natoms ) {
       // myval.clearAll();
     }
   }
-  {
-    myinput.task_index=t;
-  }
-  printf("%d\n",myinput.task_index);
 
-  std::cerr <<myinput.task_index <<std::endl;
+  printf(" myinput.task_index %d (%d)\n",myinput.task_index,nactive_tasks);
 }
 
 template <class T>
@@ -168,7 +178,7 @@ void runTask( const ParallelActionsInput& locinp, MultiValue& myvals ) {
 
 // void ParallelTaskManager<T>::runTask( unsigned const task_index, unsigned const mode, MultiValue& myvals ) {
   myvals.setTaskIndex(locinp.task_index);
-  // T::performTask( locinp, myvals );
+  T::performTask( locinp, myvals );
 }
 
 template <class T>

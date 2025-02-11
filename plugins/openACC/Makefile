@@ -5,12 +5,12 @@ include ./Makefile.conf
 DEPDIR := .deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 NVCXX = nvc++
-# ACCFLAGS=-acc -acc=gpu -gpu=cc75 -gpu=managed
-ACCFLAGS=-acc -acc=gpu -gpu=cc75 -gpu=debug
+ACCFLAGS=-acc -acc=gpu -gpu=cc75 -gpu=managed
+# ACCFLAGS=-acc -acc=gpu -gpu=cc75 # -gpu=debug
 # ACCFLAGS=-acc -acc=multicore
 # NVCCCFLAGS =  $(ACCFLAGS) --c++17 -Minfo=all -fast -Werror --diag_suppress probable_guiding_friend
 NVCCCFLAGS =  $(ACCFLAGS) --c++17 -fast --diag_suppress probable_guiding_friend
-NVCCLDFLAGS = -shared $(ACCFLAGS)
+NVCCLDFLAGS = -shared $(ACCFLAGS)  -static-nvidia
 OBJS = DistanceACC.o
 ACCOBJS = 
 
@@ -44,7 +44,7 @@ include $(wildcard $(DEPFILES))
 
 ACC.$(SOEXT): $(OBJS)
 	@echo Linking $@
-	$(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -shared -Wl,-soname,"$(notdir $@)"  -o $@ $<  $(NVCCDYNAMIC_LIBS) $(PLUMED_KERNEL)
+	$(NVCXX) $(NVCCLDFLAGS) $(ADDCLDFLAGS) -shared -Wl,-soname,"$(notdir $@)" -o $@ $< $(NVCCDYNAMIC_LIBS) $(PLUMED_KERNEL) 
 
 clean:
 	@rm -fv $(ACCOBJS) $(OBJS) ACC.$(SOEXT)
