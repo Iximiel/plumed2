@@ -8,7 +8,13 @@ plumed_regtest_after() {
   {
     if [[ -e colvar ]]; then
       head -1 colvar
-      awk 'NR>1{printf " %s   0.0000\n",$1} ' <colvar
+      awk 'NR>1{
+        printf " %s",$1;
+        for(i=2;i<=NF;i++) {
+          printf "   0.0000";
+        }
+        printf "\n";
+      } ' <colvar
     else
       #this works anyway
       echo -e '\e[31mcolvar file was not found\e[0m'
