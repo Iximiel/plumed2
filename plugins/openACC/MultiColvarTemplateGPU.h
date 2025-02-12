@@ -23,6 +23,11 @@
 #define __PLUMED_colvar_MultiColvarTemplateGPU_h
 
 #include "plumed/core/ActionWithVector.h"
+namespace PLMD {
+namespace colvar {
+using atomBlocks = std::vector< std::vector<unsigned> > ;
+} // namespace colvar
+} // namespace PLMD
 #include "ParallelTaskManager.h"
 #include <string>
 namespace PLMD {
@@ -67,12 +72,18 @@ struct
     charges(q) {
   }
 };
+template <std::size_t N>
+struct ColvarOutput {
+  View<double,N> vals;
+  ColvarOutput(              double* v ):
+    vals(v) {}
+};
 
-template <class T>
+template <typename theAction>
 class MultiColvarTemplateGPU : public ActionWithVector {
 private:
 /// The parallel task manager
-  ParallelTaskManager<MultiColvarTemplateGPU<T> > taskmanager;
+  ParallelTaskManager<theAction> taskmanager;
 /// An index that decides what we are calculating
   unsigned mode;
 /// Are we using pbc to calculate the CVs
@@ -81,7 +92,7 @@ private:
   bool wholemolecules;
 /// Blocks of atom numbers
 //better use plmd::matrix<unsigned>, for memory compactness
-  std::vector< std::vector<unsigned> > ablocks;
+  atomBlocks ablocks;
 public:
   static void registerKeywords(Keywords&);
   explicit MultiColvarTemplateGPU(const ActionOptions&);
@@ -92,16 +103,18 @@ public:
   void getInputData(ParallelActionsMV& inputdata ) const  ;
   void performTask( const unsigned&, MultiValue& ) const  ;
   void calculate() override;
-  static void performTask( const ParallelActionsInput& input,
+  static void performTask( unsigned mode,
+                           unsigned task_index,
+                           //const ParallelActionsInput& input,
                            std::vector<double> & mass,
                            std::vector<double> & charge,
                            std::vector<Vector> & fpositions
                            /*,MultiValue& myvals */);
 };
 
-template <class T>
-void MultiColvarTemplateGPU<T>::registerKeywords(Keywords& keys ) {
-  T::registerKeywords( keys );
+template <typename theAction>
+void MultiColvarTemplateGPU<theAction>::registerKeywords(Keywords& keys ) {
+  theAction::registerKeywords( keys );
   keys.add("optional","MASK","the label for a sparse matrix that should be used to determine which elements of the matrix should be computed");
   unsigned nkeys = keys.size();
   for(unsigned i=0; i<nkeys; ++i) {
@@ -114,8 +127,8 @@ void MultiColvarTemplateGPU<T>::registerKeywords(Keywords& keys ) {
   }
 }
 
-template <class T>
-MultiColvarTemplateGPU<T>::MultiColvarTemplateGPU(const ActionOptions&ao):
+template <typename theAction>
+MultiColvarTemplateGPU<theAction>::MultiColvarTemplateGPU(const ActionOptions&ao):
   Action(ao),
   ActionWithVector(ao),
   taskmanager(this),
@@ -136,7 +149,7 @@ MultiColvarTemplateGPU<T>::MultiColvarTemplateGPU(const ActionOptions&ao):
   } else {
     std::vector<AtomNumber> t;
     for(int i=1;; ++i ) {
-      T::parseAtomList( i, t, this );
+      theAction::parseAtomList( i, t, this );
       if( t.empty() ) {
         break;
       }
@@ -182,7 +195,7 @@ MultiColvarTemplateGPU<T>::MultiColvarTemplateGPU(const ActionOptions&ao):
   }
 
   // Setup the values
-  mode = T::getModeAndSetupValues( this );
+  mode = theAction::getModeAndSetupValues( this );
   // This sets up an array in the parallel task manager to hold all the indices
   std::vector<std::size_t> ind( ablocks.size()*ablocks[0].size() );
   for(unsigned i=0; i<ablocks[0].size(); ++i) {
@@ -196,45 +209,45 @@ MultiColvarTemplateGPU<T>::MultiColvarTemplateGPU(const ActionOptions&ao):
   taskmanager.setMode( mode );
 }
 
-template <class T>
-unsigned MultiColvarTemplateGPU<T>::getNumberOfDerivatives() {
+template <typename theAction>
+unsigned MultiColvarTemplateGPU<theAction>::getNumberOfDerivatives() {
   return 3*getNumberOfAtoms()+9;
 }
 
-template <class T>
-void MultiColvarTemplateGPU<T>::calculate() {
+template <typename theAction>
+void MultiColvarTemplateGPU<theAction>::calculate() {
   if( wholemolecules ) {
     makeWhole();
   }
   // setForwardPass(true);
   //sorry, but this is needed to make it run on master
-  // getInputData( taskmanager.myinput.inputdata );
+  taskmanager.setInputData(ablocks, getPositions(),getMasses(),getCharges());
   taskmanager.runAllTasks( ablocks.size() );
   // setForwardPass(false);
 }
 
-template <class T>
-void MultiColvarTemplateGPU<T>::addValueWithDerivatives( const std::vector<unsigned>& shape ) {
+template <typename theAction>
+void MultiColvarTemplateGPU<theAction>::addValueWithDerivatives( const std::vector<unsigned>& shape ) {
   std::vector<unsigned> s(1);
   s[0]=ablocks[0].size();
   addValue( s );
 }
 
-template <class T>
-void MultiColvarTemplateGPU<T>::addComponentWithDerivatives( const std::string& name, const std::vector<unsigned>& shape ) {
+template <typename theAction>
+void MultiColvarTemplateGPU<theAction>::addComponentWithDerivatives( const std::string& name, const std::vector<unsigned>& shape ) {
   std::vector<unsigned> s(1);
   s[0]=ablocks[0].size();
   addComponent( name, s );
 }
 
-template <class T>
-unsigned MultiColvarTemplateGPU<T>::getNumberOfAtomsPerTask() const {
+template <typename theAction>
+unsigned MultiColvarTemplateGPU<theAction>::getNumberOfAtomsPerTask() const {
   return ablocks.size();
 }
 
 
-template <class T>
-void MultiColvarTemplateGPU<T>::performTask( const unsigned& task_index, MultiValue& myvals ) const {
+template <typename theAction>
+void MultiColvarTemplateGPU<theAction>::performTask( const unsigned& task_index, MultiValue& myvals ) const {
   // Retrieve the positions
   std::vector<double> & mass( myvals.getTemporyVector(0) );
   std::vector<double> & charge( myvals.getTemporyVector(1) );
@@ -251,13 +264,13 @@ void MultiColvarTemplateGPU<T>::performTask( const unsigned& task_index, MultiVa
   // performTask( mode, der_indices, doNotCalculateDerivatives(), usepbc, myvals );
 }
 
-template <class T>
-void MultiColvarTemplateGPU<T>::getInputData( ParallelActionsMV& inputdata ) const {
+template <typename theAction>
+void MultiColvarTemplateGPU<theAction>::getInputData( ParallelActionsMV& inputdata ) const {
   unsigned ntasks = ablocks[0].size();
   if( inputdata.mass.size()!=ablocks.size()*ntasks ) {
-    inputdata.fpositions.resize(ablocks.size()*ntasks)
-    inputdata.mass.resize(ablocks.size()*ntasks)
-    inputdata.mass.resize(ablocks.size()*ntasks)
+    inputdata.fpositions.resize(ablocks.size()*ntasks);
+    inputdata.mass.resize(ablocks.size()*ntasks);
+    inputdata.mass.resize(ablocks.size()*ntasks);
   }
   std::size_t k=0;
   for(unsigned i=0; i<ntasks; ++i) {
@@ -269,82 +282,6 @@ void MultiColvarTemplateGPU<T>::getInputData( ParallelActionsMV& inputdata ) con
       ++k;
     }
   }
-}
-
-template <class T>
-void MultiColvarTemplateGPU<T>::performTask( const ParallelActionsInput& input,
-    std::vector<double> & mass,
-    std::vector<double> & charge,
-    std::vector<Vector> & fpositions
-    // ,
-    // MultiValue& myvals
-                                           ) {
-  const unsigned mode=input.mode;
-  // const std::vector<std::size_t>& der_indices=input.indices;
-  const bool noderiv= input.noderiv;
-  const bool haspbc=input.usepbc;
-  std::size_t base = fpositions.size()*input.task_index;
-
-  // If we are using pbc make whole
-  // if( haspbc ) {
-  //   if( fpositions.size()==1 ) {
-  //     fpositions[0]=pbc.distance(Vector(0.0,0.0,0.0),fpositions[0]);
-  //   } else {
-  //     for(unsigned j=0; j<fpositions.size()-1; ++j) {
-  //       const Vector & first (fpositions[j]); Vector & second (fpositions[j+1]);
-  //       second=first+pbc.distance(first,second);
-  //     }
-  //   }
-  // } else if( fpositions.size()==1 ) fpositions[0]=delta(Vector(0.0,0.0,0.0),fpositions[0]);
-  if( fpositions.size()==1 ) {
-    fpositions[0]=delta(Vector(0.0,0.0,0.0),fpositions[0]);
-  }
-
-  // Make some space to store various things
-  std::vector<double> values;//( myvals.getNumberOfValues() );
-  std::vector<Tensor> virial;//( myvals.getFirstAtomVirialVector() );
-  PLMD::Matrix<Vector >  derivs;//( myvals.getFirstAtomDerivativeVector() );
-  // Calculate the CVs using the method in the Colvar
-  // T::calculateCV( ColvarInput<T::tasksize>(m, fpositions.data()+base, mass.data()+base, charge.data()+base ),
-  T::calculateCV( {mode, fpositions.data()+base, mass.data()+base, charge.data()+base },
-                  values, derivs, virial );
-  // for(unsigned i=0; i<values.size(); ++i) {
-  //   myvals.setValue( i, values[i] );
-  // }
-  // Finish if there are no derivatives
-  if( noderiv ) {
-    return;
-  }
-  /*
-    // Now transfer the derivatives to the underlying MultiValue
-    for(unsigned i=0; i<der_indices.size(); ++i) {
-      unsigned base=3*der_indices[i];
-      for(int j=0; j<values.size(); ++j) {
-        myvals.addDerivative( j, base + 0, derivs[j][i][0] );
-        myvals.addDerivative( j, base + 1, derivs[j][i][1] );
-        myvals.addDerivative( j, base + 2, derivs[j][i][2] );
-      }
-      // Check for duplicated indices during update to avoid double counting
-      bool newi=true;
-      for(unsigned j=0; j<i; ++j) {
-        if( der_indices[j]==der_indices[i] ) { newi=false; break; }
-      }
-      if( !newi ) continue;
-      for(int j=0; j<values.size(); ++j) {
-        myvals.updateIndex( j, base );
-        myvals.updateIndex( j, base + 1 );
-        myvals.updateIndex( j, base + 2 );
-      }
-    }
-    unsigned nvir=myvals.getNumberOfDerivatives() - 9;
-    for(int j=0; j<values.size(); ++j) {
-      for(unsigned i=0; i<3; ++i) {
-        for(unsigned k=0; k<3; ++k) {
-          myvals.addDerivative( j, nvir + 3*i + k, virial[j][i][k] );
-          myvals.updateIndex( j, nvir + 3*i + k );
-        }
-      }
-    }*/
 }
 
 }
