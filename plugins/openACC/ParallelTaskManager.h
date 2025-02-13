@@ -58,10 +58,6 @@ private:
   Communicator& comm;
 /// Is this an action with matrix
   bool ismatrix;
-/// The buffer that we use (we keep a copy here to avoid resizing)
-  std::vector<double> buffer;
-/// A tempory vector of MultiValue so we can avoid doing lots of resizes
-  std::vector<MultiValue> myvals;
 public:
 /// An action to hold data that we pass to and from the static function
   ParallelActionsInput myinput;
@@ -70,22 +66,22 @@ public:
 /// Setup an array to hold all the indices that are used for derivatives
   void setupIndexList( const std::vector<std::size_t>& ind );
 
-  void setInputData(const colvar::atomBlocks & ablocks,
-                    const std::vector <Vector>& positions,
-                    const std::vector <double>& masses,
-                    const std::vector <double>& charges ) {
-    const unsigned ntasks = ablocks[0].size();
-    if( mydata.fpositions.size()!=ablocks.size()*ntasks ) {
-      mydata.fpositions.resize(ablocks.size()*ntasks);
+  unsigned setInputData(const colvar::atomBlocks & ablocks,
+                        const std::vector <Vector>& positions,
+                        const std::vector <double>& masses,
+                        const std::vector <double>& charges ) {
+    const unsigned atomsPerTask = ablocks[0].size();
+    if( mydata.fpositions.size()!=ablocks.size()*atomsPerTask ) {
+      mydata.fpositions.resize(ablocks.size()*atomsPerTask);
     }
-    if( mydata.mass.size()!=ablocks.size()*ntasks ) {
-      mydata.mass.resize(ablocks.size()*ntasks);
+    if( mydata.mass.size()!=ablocks.size()*atomsPerTask ) {
+      mydata.mass.resize(ablocks.size()*atomsPerTask);
     }
-    if( mydata.charge.size()!=ablocks.size()*ntasks ) {
-      mydata.charge.resize(ablocks.size()*ntasks);
+    if( mydata.charge.size()!=ablocks.size()*atomsPerTask ) {
+      mydata.charge.resize(ablocks.size()*atomsPerTask);
     }
     std::size_t k=0;
-    for(unsigned i=0; i<ntasks; ++i) {
+    for(unsigned i=0; i<atomsPerTask; ++i) {
       for(unsigned j=0; j<ablocks.size(); ++j) {
         mydata.fpositions[k] = positions[ablocks[j][i]];
         mydata.mass[k] = masses [ablocks[j][i]] ;
@@ -93,6 +89,7 @@ public:
         ++k;
       }
     }
+    return atomsPerTask;
   }
 
 /// Set the mode for the calculation
@@ -100,9 +97,11 @@ public:
 /// Set the value of the pbc flag
   void setPbcFlag( const bool val );
 /// This runs all the tasks
-  void runAllTasks( const unsigned& natoms=0 );
-/// This runs each of the tasks
-  static void runTask( const ParallelActionsInput& locinp, MultiValue& myvals );
+  void runAllTasks(const colvar::atomBlocks & ablocks,
+                   const std::vector <Vector>& positions,
+                   const std::vector <double>& masses,
+                   const std::vector <double>& charges );
+
 /// Transfer the data to the Value
   void transferToValue(  unsigned task_index, const MultiValue& myvals ) const ;
 };
@@ -135,7 +134,12 @@ void ParallelTaskManager <theAction>::setupIndexList( const std::vector<std::siz
 }
 
 template <typename theAction>
-void ParallelTaskManager <theAction>::runAllTasks( const unsigned& natoms ) {
+void ParallelTaskManager <theAction>::runAllTasks(const colvar::atomBlocks & ablocks,
+    const std::vector <Vector>& positions,
+    const std::vector <double>& masses,
+    const std::vector <double>& charges ) {
+  const auto atomsPerTask =
+    setInputData(ablocks,positions,masses,charges );
 
   // Clear matrix bookeeping arrays
   // if( ismatrix && stride>1 ) clearMatrixBookeeping();
@@ -146,12 +150,7 @@ void ParallelTaskManager <theAction>::runAllTasks( const unsigned& natoms ) {
 
   // Get the total number of streamed quantities that we need
   // Get size for buffer
-  unsigned bufsize=0, nderivatives = 0;
-  if( buffer.size()!=bufsize ) {
-    buffer.resize( bufsize );
-  }
-  // Clear buffer
-  buffer.assign( buffer.size(), 0.0 );
+  unsigned  nderivatives = 0;
 
   // Get all the input data so we can broadcast it to the GPU
   myinput.noderiv = true;
@@ -160,61 +159,65 @@ void ParallelTaskManager <theAction>::runAllTasks( const unsigned& natoms ) {
   // Check if this is an actionWithMatrix object
   // const ActionWithMatrix* am = dynamic_cast<const ActionWithMatrix*>(action);
   // bool ismatrix=false; if(am) ismatrix=true;
-  auto ncomponents = action->getNumberOfComponents();
+
   // auto mode = myinput.mode;
   myinput.task_index=0;
-  std::cerr <<myinput.task_index <<std::endl;
 
-  std::vector<double>  mass = mydata.mass;
-  std::vector<double>  charge = mydata.charge;
-  std::vector<Vector>  fpositions = mydata.fpositions;
+  // std::vector<double> & mass = mydata.mass;
+  // std::vector<double> & charge = mydata.charge;
+  // std::vector<Vector> & fpositions = mydata.fpositions;
 
-  for (auto i=0; i< fpositions.size(); ++i) {
-    std::cerr << i << " " << fpositions[i] << "\n";
-  }
-  auto fulltasksize=mass.size();
+
+  const auto ncomponents= action->getNumberOfComponents();
+  const auto fulltasksize=mydata.mass.size();
   vdbg(fulltasksize);
   vdbg(nactive_tasks);
-  auto mode = myinput.mode;
-  std::vector<double> values(3*nactive_tasks,0.0);
-  auto atomsPerTask = 2;
+  const auto mode = myinput.mode;
+  std::vector<double> values(ncomponents*nactive_tasks,0.0);
+
 #pragma acc data \
   copyin(nactive_tasks, \
          partialTaskList[0:nactive_tasks] ,\
-         mass[0:fulltasksize], \
-         charge[0:fulltasksize], \
-         fpositions[0:fulltasksize],\
-         mode, atomsPerTask) \
+         mydata,\
+         mydata.mass[0:fulltasksize], \
+         mydata.charge[0:fulltasksize], \
+         mydata.fpositions[0:fulltasksize],\
+         mode, atomsPerTask,ncomponents) \
          copy(values[0:3*nactive_tasks])
   {
-
-
-    // #pragma acc parallel loop gang //
 #pragma  acc parallel loop
     for(unsigned i=0; i<nactive_tasks; i++) {
       auto task_index = partialTaskList[i];
       const std::size_t base = task_index * atomsPerTask;
-      // mode +=i;
-      // auto myval = MultiValue(ncomponents, nderivatives, natoms);
-
-
-      // runTask(partialTaskList[i], mode, myval );
-
-      theAction::calculateCV( {mode, fpositions.data()+base, mass.data()+base, charge.data()+base },
-      {values.data()+base}
-      //, derivs, virial
-                            );
-      // Transfer the data to the values
-      // if( !ismatrix ) transferToValue( partialTaskList[i], myval );
-
-      // Clear the value
-      // myval.clearAll();
+      const std::size_t base_components=task_index*ncomponents;
+      theAction::calculateCV(
+      {mode, mydata.fpositions.data()+base, mydata.mass.data()+base, mydata.charge.data()+base }, {
+        values.data()+base_components
+        //, derivs.data()+base, virial.data()+base
+      }
+      );
     }
   }
-  std::cerr << "Values\n";
+
+  //this must be done "offline"
+  bool IamRMSD_VECTOR=action->getName()=="RMSD_VECTOR" ;
+  // std::cerr << "Values\n";
   for(unsigned i=0; i<nactive_tasks; i++) {
-    std::cerr << i << " " << values[3*i+0] << " " << values[3*i+1] <<" " << values[3*i+2] << "\n";
+    // std::cerr << i << " " << values[3*i+0] << " " << values[3*i+1] <<" " << values[3*i+2] << "\n";
+    auto task_index = partialTaskList[i];
+
+    for(unsigned i=0; i<action->getNumberOfComponents(); ++i) {
+      const Value* myval = action->getConstPntrToComponent(i);
+      if( myval->hasDerivatives() ||
+          (IamRMSD_VECTOR && myval->getRank()==2) ) {
+        continue;
+      }
+      Value* myv = const_cast<Value*>( myval );
+      myv->set( task_index, values[ncomponents*task_index+i]);
+    }
+
   }
+
 
 }
 

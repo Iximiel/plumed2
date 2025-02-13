@@ -174,23 +174,25 @@ public:
                            //, PLMD::Matrix<Vector >& derivs, std::vector<Tensor>& virial
                          ) {
     Vector distance=delta(cvin.pos[0],cvin.pos[1]);
-    printf("(%f,%f,%f) - (%f,%f,%f)\n",cvin.pos[0][0],cvin.pos[0][1],cvin.pos[0][2]
-           ,cvin.pos[1][0],cvin.pos[1][1],cvin.pos[1][2]);
+    // printf("(%f,%f,%f) - (%f,%f,%f)\n",cvin.pos[0][0],cvin.pos[0][1],cvin.pos[0][2]
+    //        ,cvin.pos[1][0],cvin.pos[1][1],cvin.pos[1][2]);
     const double value=distance.modulo();
     const double invvalue=1.0/value;
+    auto & vals = cvout.vals;
+    // auto & derivs = cvout.derivs;
 
     // if(cvin.mode==1) {
     // derivs[0][0] = Vector(-1,0,0);
     // derivs[0][1] = Vector(+1,0,0);
-    cvout.vals[0] = distance[0];
+    vals[0] = distance[0];
 
     // derivs[1][0] = Vector(0,-1,0);
     // derivs[1][1] = Vector(0,+1,0);
-    cvout.vals[1] = distance[1];
+    vals[1] = distance[1];
 
     // derivs[2][0] = Vector(0,0,-1);
     // derivs[2][1] = Vector(0,0,+1);
-    cvout.vals[2] = distance[2];
+    vals[2] = distance[2];
     //   setBoxDerivativesNoPbc( cvin.pos, derivs, virial );
     // } else if(cvin.mode==2) {
     //   Vector d=cvin.pbc.realToScaled(distance);
