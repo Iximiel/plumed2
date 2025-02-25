@@ -328,9 +328,7 @@ void ParallelTaskManager<T, D>::applyForces( std::vector<double>& forcesForApply
   myinput.noderiv = false;
   // Retrieve the forces from the values
   for(unsigned i=0; i<action->getNumberOfComponents(); ++i) {
-    auto myval = action->copyOutput(i);
-    //will be this okeier?
-    // auto myval = action->getConstPntrToComponent(i);
+    auto myval = action->getConstPntrToComponent(i);
     for(unsigned j=0; j<myval->getNumberOfStoredValues(); ++j) {
       value_stash[j*myinput.ncomponents+i] = myval->getForce( j );
     }
@@ -339,13 +337,14 @@ void ParallelTaskManager<T, D>::applyForces( std::vector<double>& forcesForApply
   if( useacc ) {
 #ifdef __PLUMED_HAS_OPENACC
     omp_forces[0].assign( omp_forces[0].size(), 0.0 );
+    //passing raw pointer makes things easier in openacc
     auto value_stash_data = value_stash.data();
     const auto value_stash_size = value_stash.size();
     auto partialTaskList_data = partialTaskList.data();
     auto forcesForApply_data = forcesForApply.data();
-    const auto ffa_size = forcesForApply.size();
+    const auto forcesForApply_size = forcesForApply.size();
     auto omp_forces_data = omp_forces[0].data();
-    auto of_size = omp_forces[0].size();
+    const auto omp_forces_size = omp_forces[0].size();
     //on the cpu we only need the declaration, see the create statement below
     const auto nderivs =  myinput.ncomponents*nderivatives_per_task;
     const auto ndev_per_task = nderivatives_per_task;
@@ -365,15 +364,15 @@ void ParallelTaskManager<T, D>::applyForces( std::vector<double>& forcesForApply
     auto actiondata_acc = fromToDataHelper(t_actiondata);
 
 
-#pragma acc parallel loop reduction(+:omp_forces_data[0:of_size]) \
+#pragma acc parallel loop reduction(+:omp_forces_data[0:omp_forces_size]) \
                             present(input,t_actiondata) \
                              copyin(nactive_tasks, \
                                     nderivs, \
                                     ndev_per_task, \
                                     partialTaskList_data[0:nactive_tasks], \
                                     value_stash_data[0:value_stash_size]) \
-                               copy(omp_forces_data[0:of_size], \
-                                    forcesForApply_data[0:ffa_size]) \
+                               copy(omp_forces_data[0:omp_forces_size], \
+                                    forcesForApply_data[0:forcesForApply_size]) \
                              create(derivatives[0:nderivs]) \
                             default(none)
     for(unsigned i=0; i<nactive_tasks; ++i) {
@@ -394,13 +393,13 @@ void ParallelTaskManager<T, D>::applyForces( std::vector<double>& forcesForApply
                                    value_stash_data+input.ncomponents*task_index,
                                    ndev_per_task,
                                    derivatives),
-                       ForceOutput { omp_forces_data,of_size, forcesForApply_data,ffa_size }
+                       ForceOutput { omp_forces_data,omp_forces_size, forcesForApply_data,forcesForApply_size }
                      );
 
 
 
     }
-    T::gatherThreads( { omp_forces[0], forcesForApply});
+    T::gatherThreads({ omp_forces_data,omp_forces_size, forcesForApply_data,forcesForApply_size });
 #else
     plumed_merror("cannot use USEGPU flag if PLUMED has not been compiled with openACC");
 #endif
