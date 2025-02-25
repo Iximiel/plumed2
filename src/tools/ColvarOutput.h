@@ -55,6 +55,10 @@ private:
       std::size_t base = i*nderiv + 3*a;
       return Vector( derivatives[base], derivatives[base+1], derivatives[base+2] );
     }
+    View<double,3> getDerivativesView( std::size_t i, std::size_t a ) {
+      std::size_t base = i*nderiv + 3*a;
+      return { derivatives +base};
+    }
   };
   class VirialHelper {
   private:
@@ -73,6 +77,10 @@ private:
                      derivatives[n-3],
                      derivatives[n-2],
                      derivatives[n-1] );
+    }
+    View<double,9> getView(std::size_t i) const {
+      std::size_t n=(i+1)*nderiv;
+      return {derivatives+n};
     }
     void set( std::size_t i, const Tensor& v ) {
       std::size_t n=(i+1)*nderiv;
@@ -99,17 +107,28 @@ public:
   Vector getAtomDerivatives( std::size_t i, std::size_t a ) {
     return derivs.getAtomDerivatives(i,a);
   }
-  // void setBoxDerivativesNoPbc( const ColvarInput& inpt );
+
+#pragma acc routine seq
   void setBoxDerivativesNoPbc( const ColvarInput& inpt ) {
+    //now with no extra allocated memory: (actually I was searching for a bug...that was not here...)
     unsigned nat=inpt.pos.size();
     for(unsigned i=0; i<ncomponents; ++i) {
-      Tensor v;
-      v.zero();
+      auto v = virial.getView(i);
+      LoopUnroller<9>::_zero(v.data());
       for(unsigned j=0; j<nat; j++) {
-        v-=Tensor(Vector(inpt.pos[j][0],inpt.pos[j][1],inpt.pos[j][2]),
-                  derivs.getAtomDerivatives(i,j));
+        const auto deriv =  derivs.getDerivativesView(i,j);
+        v[0] -= inpt.pos[j][0]*deriv[0];
+        v[1] -= inpt.pos[j][0]*deriv[1];
+        v[2] -= inpt.pos[j][0]*deriv[2];
+
+        v[3] -= inpt.pos[j][1]*deriv[0];
+        v[4] -= inpt.pos[j][1]*deriv[1];
+        v[5] -= inpt.pos[j][1]*deriv[2];
+
+        v[6] -= inpt.pos[j][2]*deriv[0];
+        v[7] -= inpt.pos[j][2]*deriv[1];
+        v[8] -= inpt.pos[j][2]*deriv[2];
       }
-      virial.set( i, v );
     }
   }
 };
