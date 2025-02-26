@@ -49,7 +49,6 @@ public:
   //constructor for fixed size View2D
   template <size_t NN = N, size_t MM = M, typename = std::enable_if_t<NN != helpers::dynamic_extent && MM != helpers::dynamic_extent>>
   explicit View2D(T *p) noexcept : ptr_(p) {}
-
   //constructor for a View2D with known second dimension
   template <size_t MM = M, typename = std::enable_if_t<MM != helpers::dynamic_extent>>
   View2D(T *p, size_t NN) noexcept: ptr_(p), sizeN_(NN) {}
