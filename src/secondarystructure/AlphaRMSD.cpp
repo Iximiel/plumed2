@@ -19,6 +19,9 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifdef _OPENACC
+#define __PLUMED_USE_OPENACC 1
+#endif //_OPENACC
 #include "SecondaryStructureBase.h"
 #include "core/ActionShortcut.h"
 #include "core/ActionRegister.h"
