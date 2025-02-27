@@ -201,10 +201,20 @@ AlphaRMSD::AlphaRMSD(const ActionOptions&ao):
   for(unsigned i=1; i<all_atoms.size(); ++i) {
     atoms += "," + all_atoms[i];
   }
+  std::string usegpu="";
+  {
+    bool usegpuflag;
+    parseFlag("USEGPU",usegpuflag);
+    if( usegpuflag ) {
+      usegpu=" USEGPU";
+    }
+  }
+
+
   if( type=="DRMSD" ) {
-    readInputLine( lab + ": SECONDARY_STRUCTURE_DRMSD BONDLENGTH=0.17" + seglist + structure + " " + atoms + nopbcstr );
+    readInputLine( lab + ": SECONDARY_STRUCTURE_DRMSD BONDLENGTH=0.17" + seglist + structure + " " + atoms + nopbcstr + usegpu );
   } else {
-    readInputLine( lab + ": SECONDARY_STRUCTURE_RMSD " + seglist + structure + " " + atoms + " TYPE=" + type + nopbcstr );
+    readInputLine( lab + ": SECONDARY_STRUCTURE_RMSD " + seglist + structure + " " + atoms + " TYPE=" + type + nopbcstr + usegpu);
   }
   // Create the less than object
   if( ltmap.length()>0 ) {

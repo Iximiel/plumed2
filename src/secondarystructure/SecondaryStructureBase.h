@@ -38,10 +38,15 @@ namespace secondarystructure {
 template <class T>
 class SecondaryStructureBase: public ActionWithVector {
 private:
-  ParallelTaskManager<SecondaryStructureBase<T>,T> taskmanager;
+  using parallelManager = ParallelTaskManager<SecondaryStructureBase<T>,T>;
+  parallelManager taskmanager;
 public:
   static void registerKeywords( Keywords& keys );
-  static void readBackboneAtoms( ActionShortcut* action, PlumedMain& plumed, const std::string& backnames, std::vector<unsigned>& chain_lengths, std::vector<std::string>& all_atoms );
+  static void readBackboneAtoms( ActionShortcut* action,
+                                 PlumedMain& plumed,
+                                 const std::string& backnames,
+                                 std::vector<unsigned>& chain_lengths,
+                                 std::vector<std::string>& all_atoms );
   static bool readShortcutWords( std::string& ltmap, ActionShortcut* action );
   explicit SecondaryStructureBase(const ActionOptions&);
   unsigned getNumberOfDerivatives() override ;
@@ -51,8 +56,15 @@ public:
     plumed_error();
   }
   void applyNonZeroRankForces( std::vector<double>& outforces ) override ;
-  static void performTask( unsigned task_index, const T& actiondata, ParallelActionsInput& input, ParallelActionsOutput& output );
-  static void gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput& forces );
+  static void performTask( unsigned task_index,
+                           const T& actiondata,
+                           ParallelActionsInput& input,
+                           ParallelActionsOutput& output );
+  static void gatherForces( unsigned task_index,
+                            const T& actiondata,
+                            const ParallelActionsInput& input,
+                            const ForceInput& fdata,
+                            ForceOutput forces );
 };
 
 template <class T>
@@ -81,7 +93,7 @@ bool SecondaryStructureBase<T>::readShortcutWords( std::string& ltmap, ActionSho
 template <class T>
 void SecondaryStructureBase<T>::registerKeywords( Keywords& keys ) {
   ActionWithVector::registerKeywords( keys );
-  ParallelTaskManager<Vector,Vector>::registerKeywords( keys );
+  parallelManager::registerKeywords( keys );
   keys.addFlag("NOPBC",false,"ignore the periodic boundary conditions");
   keys.addInputKeyword("optional","MASK","vector","a vector which is used to determine which elements of the secondary structure variable should be computed");
   keys.add("residues","RESIDUES","this command is used to specify the set of residues that could conceivably form part of the secondary structure. "
@@ -316,7 +328,7 @@ void SecondaryStructureBase<T>::applyNonZeroRankForces( std::vector<double>& out
 }
 
 template <class T>
-void SecondaryStructureBase<T>::gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput& forces ) {
+void SecondaryStructureBase<T>::gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput forces ) {
   for(unsigned i=0; i<input.ncomponents; ++i) {
     unsigned m = 0;
     double ff = fdata.force[i];

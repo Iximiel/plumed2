@@ -19,6 +19,9 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifdef _OPENACC
+#define __PLUMED_USE_OPENACC 1
+#endif //_OPENACC
 #include "SecondaryStructureBase.h"
 #include "core/ActionRegister.h"
 #include "tools/RMSD.h"
@@ -40,6 +43,14 @@ public:
   bool align_strands;
 /// The atoms involved in each of the secondary structure segments
   Matrix<unsigned> colvar_atoms;
+  void toACCDevice()const  {
+#pragma acc enter data copyin(this[0:1], natoms, nstructures, nopbc, align_strands)
+    colvar_atoms.toACCDevice();
+  }
+  void removeFromACCDevice() const {
+    colvar_atoms.removeFromACCDevice();
+#pragma acc exit data delete(align_strands, nopbc, nstructures, natoms, this[0:1])
+  }
   static void calculateDistance( unsigned n, bool noderiv, const SecondaryStructureRMSDInput& actiondata, const std::vector<Vector>& pos, ColvarOutput& output );
   void setReferenceStructure( std::string type, double bondlength, std::vector<Vector>& structure );
   SecondaryStructureRMSDInput& operator=( const SecondaryStructureRMSDInput& m ) {
