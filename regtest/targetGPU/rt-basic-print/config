@@ -1,0 +1,25 @@
+#Hello!
+# this test shows that when POSITIONS and DISTANCE are both using the GPU something breaks
+type=driver
+# this is to test a different name
+arg="--plumed plumed.dat --trajectory-stride 10 --timestep 0.005 --ixyz trajectory.xyz --dump-forces forces --dump-forces-fmt=%10.6f --pdb test.pdb"
+extra_files="../../trajectories/trajectory.xyz"
+
+
+
+export NVCOMPILER_ACC_NOTIFY=0
+
+#####NVCOMPILER_ACC_NOTIFY:
+# With no argument, a debug message will be written to stderr for each kernel 
+# launch and/or data transfer. When set to an integer value, the value is used as
+#  a bit mask to print information about:
+# 
+# 1: kernel launches
+# 
+# 2: data transfers
+# 
+# 4: region entry/exit
+# 
+# 8: wait operations or synchronizations with the device
+# 
+# 16: device memory allocates and deallocates
