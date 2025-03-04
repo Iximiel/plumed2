@@ -286,6 +286,14 @@ AntibetaRMSD::AntibetaRMSD(const ActionOptions&ao):
   if( nopbc ) {
     nopbcstr = " NOPBC";
   }
+  std::string usegpustr="";
+  {
+    bool usegpu;
+    parseFlag("USEGPU",usegpu);
+    if( usegpu ) {
+      usegpustr = " USEGPU";
+    }
+  }
   std::string atoms="ATOMS=" + all_atoms[0];
   for(unsigned i=1; i<all_atoms.size(); ++i) {
     atoms += "," + all_atoms[i];
@@ -297,9 +305,9 @@ AntibetaRMSD::AntibetaRMSD(const ActionOptions&ao):
     Tools::convert( strands_cutoff, str_cut );
     readInputLine( getShortcutLabel() + "_cut: CUSTOM ARG=" + getShortcutLabel() + "_cut_dists FUNC=step(" + str_cut + "-x) PERIODIC=NO");
     if( type=="DRMSD" ) {
-      readInputLine( lab + ": SECONDARY_STRUCTURE_DRMSD ALIGN_STRANDS MASK=" + getShortcutLabel() + "_cut BONDLENGTH=0.17" + seglist + structure + " " + atoms + nopbcstr );
+      readInputLine( lab + ": SECONDARY_STRUCTURE_DRMSD ALIGN_STRANDS MASK=" + getShortcutLabel() + "_cut BONDLENGTH=0.17" + seglist + structure + " " + atoms + nopbcstr + usegpustr);
     } else {
-      readInputLine( lab + ": SECONDARY_STRUCTURE_RMSD ALIGN_STRANDS MASK=" + getShortcutLabel() + "_cut " + seglist + structure + " " + atoms + " TYPE=" + type + nopbcstr );
+      readInputLine( lab + ": SECONDARY_STRUCTURE_RMSD ALIGN_STRANDS MASK=" + getShortcutLabel() + "_cut " + seglist + structure + " " + atoms + " TYPE=" + type + nopbcstr + usegpustr);
     }
     if( ltmap.length()>0 ) {
       readInputLine( getShortcutLabel() + "_ltu: LESS_THAN ARG=" + lab + " SWITCH={" + ltmap  +"} MASK=" + getShortcutLabel() + "_cut");
@@ -307,9 +315,9 @@ AntibetaRMSD::AntibetaRMSD(const ActionOptions&ao):
     }
   } else {
     if( type=="DRMSD" ) {
-      readInputLine( lab + ": SECONDARY_STRUCTURE_DRMSD ALIGN_STRANDS BONDLENGTH=0.17" + seglist + structure + " " + atoms + nopbcstr );
+      readInputLine( lab + ": SECONDARY_STRUCTURE_DRMSD ALIGN_STRANDS BONDLENGTH=0.17" + seglist + structure + " " + atoms + nopbcstr + usegpustr);
     } else {
-      readInputLine( lab + ": SECONDARY_STRUCTURE_RMSD ALIGN_STRANDS " + seglist + structure + " " + atoms + " TYPE=" + type + nopbcstr );
+      readInputLine( lab + ": SECONDARY_STRUCTURE_RMSD ALIGN_STRANDS " + seglist + structure + " " + atoms + " TYPE=" + type + nopbcstr + usegpustr);
     }
     if( ltmap.length()>0 ) {
       readInputLine( getShortcutLabel() + "_lt: LESS_THAN ARG=" + lab + " SWITCH={" + ltmap  +"}");
