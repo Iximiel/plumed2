@@ -171,7 +171,7 @@ jobs:
         echo "OMPI_CC=nvc" >> $GITHUB_ENV
         echo "OMPI_FC=nvfortran" >> $GITHUB_ENV
         # nvhpc does not support the openmp reduction declarations of membranefusion
-        # echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-modules=-membranefusion" >> $GITHUB_ENV
+        echo "PLUMED_CONFIG=$PLUMED_CONFIG --enable-modules=-membranefusion" >> $GITHUB_ENV
     - name: Build PLUMED
       run: |
         ccache -s -M 100M
