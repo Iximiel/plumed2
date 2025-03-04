@@ -28,8 +28,7 @@ jobs:
 # see https://github.com/plumed/plumed2/issues/976
         - -intel-
         - -pycv-mpi-
-#this does not install mpi but uses the internal one
-        - -nvhpc-mpi-
+        - -nvhpc-
     steps:
     - uses: actions/checkout@v4
     - uses: actions/cache@v4
@@ -149,6 +148,12 @@ jobs:
         echo 'deb [signed-by=/usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg] https://developer.download.nvidia.com/hpc-sdk/ubuntu/amd64 /' | sudo tee /etc/apt/sources.list.d/nvhpc.list
         sudo apt-get update -y
         sudo apt-get install -y nvhpc-24-3
+        NVHPCSDK=/opt/nvidia/hpc_sdk
+        echo "NVHPCSDK=/opt/nvidia/hpc_sdk" >> $GITHUB_ENV
+        echo "PATH=$NVHPCSDK/Linux_x86_64/24.3/compilers/bin:$PATH" >> $GITHUB_ENV
+        echo "CXX=nvc++" >> $GITHUB_ENV
+        echo "CC=nvc" >> $GITHUB_ENV
+        echo "FC=nvfortran" >> $GITHUB_ENV
       # nvhpcinstalls his own mpi compilers
     - name: Install MPI
       # install MPI at last since it modifies CC and CXX
