@@ -5234,7 +5234,7 @@ $as_echo_n "checking whether $CXX can generate dependency file with -MM -MF... "
   echo "#include \"conftest1.h\"" > conftest.cpp
   echo "#include \"conftest2.h\"" > conftest1.h
   echo "/* */" > conftest2.h
-  $CXX $CXXFLAGS -c -MM -MFconftest.d conftest.cpp 1> /dev/null 2> /dev/null
+  $CXX $CXXFLAGS -c -MM -MF conftest.d conftest.cpp 1> /dev/null 2> /dev/null
   grep conftest2 conftest.d 1> /dev/null 2>/dev/null && dependency=ok
   if test "$dependency" = ok ; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
