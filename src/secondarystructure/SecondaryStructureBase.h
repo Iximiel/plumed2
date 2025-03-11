@@ -166,7 +166,7 @@ SecondaryStructureBase<T>::SecondaryStructureBase(const ActionOptions&ao):
     error("cannot use this collective variable when using natural units");
   }
 
-  T myinput;
+  input_type myinput;
   parseFlag("NOPBC",myinput.nopbc);
   std::string alignType="";
   if( getName()=="SECONDARY_STRUCTURE_RMSD" ) {
@@ -256,6 +256,7 @@ SecondaryStructureBase<T>::SecondaryStructureBase(const ActionOptions&ao):
 
 template <class T>
 void SecondaryStructureBase<T>::calculate() {
+  printf("STEP\n");
   taskmanager.runAllTasks();
 }
 
@@ -279,16 +280,20 @@ void SecondaryStructureBase<T>::getInputData( std::vector<double>& inputdata ) c
 
 template <class T>
 void SecondaryStructureBase<T>::performTask( unsigned task_index, const T& actiondata, ParallelActionsInput& input, ParallelActionsOutput& output ) {
-  std::vector<Vector> pos( actiondata.natoms );
+  std::array<Vector,30> pos;//( actiondata.natoms );
+  printf("-:%u atoms\n",pos.size());
+
   for(unsigned i=0; i<actiondata.natoms; ++i) {
-    unsigned atno = actiondata.colvar_atoms[task_index][i];
+    const unsigned atno = actiondata.colvar_atoms(task_index,i);
+    // printf("%u, %u = %u\n",task_index,i,atno);
     pos[i][0] = input.inputdata[3*atno+0];
     pos[i][1] = input.inputdata[3*atno+1];
     pos[i][2] = input.inputdata[3*atno+2];
   }
-
+  printf("\n-:%u positions\n",pos.size());
   // This aligns the two strands if this is required
   if( actiondata.align_strands ) {
+    printf("-: strands\n");
     Vector distance=input.pbc->distance( pos[6],pos[21] );
     Vector origin_old, origin_new;
     origin_old=pos[21];
@@ -297,6 +302,7 @@ void SecondaryStructureBase<T>::performTask( unsigned task_index, const T& actio
       pos[i]+=( origin_new - origin_old );
     }
   } else if( !actiondata.nopbc ) {
+    printf("-: pbc\n");
     for(unsigned i=0; i<actiondata.natoms-1; ++i) {
       const Vector & first (pos[i]);
       Vector & second (pos[i+1]);
@@ -309,8 +315,9 @@ void SecondaryStructureBase<T>::performTask( unsigned task_index, const T& actio
   ColvarOutput rmsd_output( output.values, 3*pos.size()+9, output.derivatives.data() );
   // And now calculate the DRMSD
   for(unsigned i=0; i<rs; ++i) {
-    T::calculateDistance( i, input.noderiv, actiondata, pos, rmsd_output );
+    T::calculateDistance( i, input.noderiv, actiondata, pos.data(), rmsd_output );
   }
+  printf("-:%u end\n",pos.size());
 }
 
 template <class T>

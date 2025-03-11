@@ -19,9 +19,9 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#ifdef __PLUMED_HAS_OPENACC
-#define __PLUMED_USE_OPENACC 1
-#endif //__PLUMED_HAS_OPENACC
+// #ifdef __PLUMED_HAS_OPENACC
+// #define __PLUMED_USE_OPENACC 1
+// #endif //__PLUMED_HAS_OPENACC
 #include "SecondaryStructureBase.h"
 #include "core/ActionRegister.h"
 #include "tools/RMSD.h"
@@ -61,7 +61,7 @@ public:
 #pragma acc exit data delete(align_strands,nopbc,nstructures,natoms,myrmsd[0:nstructures],this[0:1])
 
   }
-  static void calculateDistance( unsigned n, bool noderiv, const SecondaryStructureRMSDInput& actiondata, const std::vector<Vector>& pos, ColvarOutput& output );
+  static void calculateDistance( unsigned n, bool noderiv, const SecondaryStructureRMSDInput& actiondata, const Vector* pos, ColvarOutput& output );
   void setReferenceStructure( const std::string& type, double bondlength, std::vector<Vector>& structure );
   SecondaryStructureRMSDInput& operator=( const SecondaryStructureRMSDInput& m ) {
     natoms = m.natoms;
@@ -97,16 +97,20 @@ void SecondaryStructureRMSDInput::setReferenceStructure( const std::string& type
   natoms=structure.size();
 }
 
-void SecondaryStructureRMSDInput::calculateDistance( unsigned n, bool noderiv, const SecondaryStructureRMSDInput& actiondata, const std::vector<Vector>& pos, ColvarOutput& output ) {
-  std::vector<Vector> myderivs( pos.size() );
-  output.values[n] = actiondata.myrmsd[n].calculate( pos, myderivs, false );
+void SecondaryStructureRMSDInput::calculateDistance( unsigned n,
+    bool noderiv,
+    const SecondaryStructureRMSDInput& actiondata,
+    const Vector * pos,
+    ColvarOutput& output ) {
+  std::vector<Vector> myderivs( actiondata.natoms );
+  //output.values[n] = actiondata.myrmsd[n].calculate( pos, myderivs, false );
 
   if( noderiv ) {
     return;
   }
   Tensor v;
   v.zero();
-  for(unsigned j=0; j<pos.size(); ++j) {
+  for(unsigned j=0; j<actiondata.natoms ; ++j) {
     output.derivs[n][j] = myderivs[j];
     v +=  (-1.0*Tensor( pos[j], myderivs[j] ));
   }
