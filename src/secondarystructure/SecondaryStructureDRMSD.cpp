@@ -215,7 +215,9 @@ void SecondaryStructureDRMSDInput::calculateDistance( unsigned n,
   }
 
   double scalef = inpairs / output.values[n];
-  output.virial.set( n, scalef*output.virial[n] );
+
+  PLMD::LoopUnroller<9>::_mul(output.virial.getView(n).data(),scalef);
+
   for(unsigned i=0; i<actiondata.natoms; ++i ) {
     output.derivs[n][i] *= scalef;
   }

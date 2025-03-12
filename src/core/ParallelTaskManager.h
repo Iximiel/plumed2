@@ -260,28 +260,26 @@ void ParallelTaskManager<T>::runAllTasks() {
     input_type t_actiondata = actiondata;
     auto actiondata_acc = OpenACC::fromToDataHelper(t_actiondata);
 
-    auto value_stash_data = value_stash.data();
-    auto partialTaskList_data = partialTaskList.data();
-    auto vs_size = value_stash.size();
+    //template type is deduced
+    OpenACC::memoryManager vs{value_stash};
+    auto value_stash_data = vs.devicePtr();
+
+    OpenACC::memoryManager ptl{partialTaskList};
+    auto partialTaskList_data = ptl.devicePtr();
 
     const auto nderivPerComponent = nderivatives_per_component;
     const auto ndev_per_task = input.ncomponents*nderivPerComponent;
-    //To future me/you:
-    // I need to allocate this on the host to create a bigger temporay data array
-    // on the device
-    // by trying with double* x=nullptr, you will get a failure
-    // another solution is acc_malloc and then device_ptr in the pragma
-    // (but you have to remember the acc_free)
-    std::vector<double> derivative(1);
-    double * derivatives = derivative.data();
+
+    OpenACC::memoryManager<double>dev(ndev_per_task*nactive_tasks);
+    auto derivatives = dev.devicePtr();
 
 #pragma acc parallel loop present(input, t_actiondata) \
-                          copyin(nactive_tasks, \
+                           copyin(nactive_tasks, \
                                  ndev_per_task, \
-                                 nderivPerComponent, \
-                                 partialTaskList_data[0:nactive_tasks])\
-                          copy(value_stash_data[0:vs_size]) \
-                          create(derivatives[0:ndev_per_task*nactive_tasks]) \
+                                 nderivPerComponent)\
+                        deviceptr(derivatives, \
+                                  partialTaskList_data, \
+                                  value_stash_data) \
                           default(none)
     for(unsigned i=0; i<nactive_tasks; ++i) {
       std::size_t task_index = partialTaskList_data[i];
@@ -293,6 +291,7 @@ void ParallelTaskManager<T>::runAllTasks() {
       // Calculate the stuff in the loop for this action
       T::performTask( task_index, t_actiondata, input, myout );
     }
+    vs.copyFromDevice(value_stash.data());
 #else
     plumed_merror("cannot use USEGPU flag if PLUMED has not been compiled with openACC");
 #endif
@@ -370,48 +369,47 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
     input_type t_actiondata = actiondata;
     auto actiondata_acc = OpenACC::fromToDataHelper(t_actiondata);
 
-    //passing raw pointer makes things easier in openacc
-    auto value_stash_data = value_stash.data();
-    const auto value_stash_size = value_stash.size();
-    auto partialTaskList_data = partialTaskList.data();
-    auto forcesForApply_data = forcesForApply.data();
+    //template type is deduced
+    OpenACC::memoryManager vs{value_stash};
+    auto value_stash_data = vs.devicePtr();
+
+    OpenACC::memoryManager ptl{partialTaskList};
+    auto partialTaskList_data = ptl.devicePtr();
+
+    OpenACC::memoryManager ffa {forcesForApply};
+    auto forcesForApply_data = ffa.devicePtr();
     const auto forcesForApply_size = forcesForApply.size();
-    auto omp_forces_data = omp_forces[0].data();
+
+    OpenACC::memoryManager ofd {omp_forces[0]};
+    auto omp_forces_data = ofd.devicePtr();
     const auto omp_forces_size = omp_forces[0].size();
 
     const auto nderivPerComponent = nderivatives_per_component;
     const auto ndev_per_task = input.ncomponents*nderivPerComponent;
 
-    //To future me/you:
-    // I need to allocate this on the host to create a bigger temporay data array
-    // on the device
-    // by trying with double* x=nullptr, you will get a failure
-    // another solution is acc_malloc and then device_ptr in the pragma
-    // (but you have to remember the acc_free)
-    std::vector<double> derivative(1);
-    double * derivatives = derivative.data();
-
+    OpenACC::memoryManager<double> dev{ndev_per_task*nactive_tasks};
+    auto derivatives = dev.devicePtr();
+    OpenACC::memoryManager<double> vtmp{input.ncomponents*nactive_tasks};
+    auto valstmp = vtmp.devicePtr();
 
 #pragma acc parallel loop reduction(+:omp_forces_data[0:omp_forces_size])\
                             present(input,t_actiondata) \
                              copyin(nactive_tasks, \
                                     ndev_per_task, \
-                                    nderivPerComponent ,\
-                                    partialTaskList_data[0:nactive_tasks], \
-                                    value_stash_data[0:value_stash_size]) \
-                               copy(omp_forces_data[0:omp_forces_size], \
-                                    forcesForApply_data[0:forcesForApply_size]) \
-                             create(derivatives[0:ndev_per_task*nactive_tasks]) \
+                                    nderivPerComponent) \
+                          deviceptr(derivatives, \
+                                    partialTaskList_data, \
+                                    value_stash_data, \
+                                    valstmp, \
+                                    omp_forces_data, \
+                                    forcesForApply_data) \
                             default(none)
     for(unsigned i=0; i<nactive_tasks; ++i) {
-      //This may be changed to a shared array
-      std::vector<double> valstmp( input.ncomponents );
       std::size_t task_index = partialTaskList_data[i];
-      ParallelActionsOutput myout( input.ncomponents,
-                                   valstmp.data(),
-                                   nderivPerComponent,
-                                   derivatives+ndev_per_task*i
-                                 );
+      ParallelActionsOutput myout { input.ncomponents,
+                                    valstmp+input.ncomponents*i,
+                                    ndev_per_task,
+                                    derivatives+ndev_per_task*i};
 
       // Calculate the stuff in the loop for this action
       T::performTask( task_index, t_actiondata, input, myout );
@@ -424,7 +422,9 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
                        ForceOutput { omp_forces_data,omp_forces_size, forcesForApply_data,forcesForApply_size }
                      );
     }
-    gatherThreads({ omp_forces_data,omp_forces_size, forcesForApply_data,forcesForApply_size });
+    ffa.copyFromDevice(forcesForApply.data());
+    ofd.copyFromDevice(omp_forces[0].data());
+    gatherThreads(ForceOutput{ omp_forces[0], forcesForApply });
 #else
     plumed_merror("cannot use USEGPU flag if PLUMED has not been compiled with openACC");
 #endif

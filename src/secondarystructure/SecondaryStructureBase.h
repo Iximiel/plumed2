@@ -40,6 +40,8 @@ class SecondaryStructureBase: public ActionWithVector {
 public:
   using input_type = T;
   using PTM = ParallelTaskManager<SecondaryStructureBase<T>>;
+  static constexpr size_t virialSize=9;
+  
 private:
   PTM taskmanager;
 public:
@@ -60,7 +62,7 @@ public:
 
 template <class T>
 unsigned SecondaryStructureBase<T>::getNumberOfDerivatives() {
-  return 3*getNumberOfAtoms()+9;
+  return 3*getNumberOfAtoms()+virialSize;
 }
 
 template <class T>
@@ -250,7 +252,7 @@ SecondaryStructureBase<T>::SecondaryStructureBase(const ActionOptions&ao):
   for(unsigned i=0; i<getNumberOfComponents(); ++i) {
     getPntrToComponent(i)->setDerivativeIsZeroWhenValueIsZero();
   }
-  taskmanager.setupParallelTaskManager( colvar_atoms[0].size(), 3*colvar_atoms[0].size() + 9 );
+  taskmanager.setupParallelTaskManager( colvar_atoms[0].size(), 3*colvar_atoms[0].size() + virialSize);//, 3*colvar_atoms[0].size());
   taskmanager.setActionInput( myinput );
 }
 
@@ -280,20 +282,17 @@ void SecondaryStructureBase<T>::getInputData( std::vector<double>& inputdata ) c
 
 template <class T>
 void SecondaryStructureBase<T>::performTask( unsigned task_index, const T& actiondata, ParallelActionsInput& input, ParallelActionsOutput& output ) {
-  std::array<Vector,30> pos;//( actiondata.natoms );
-  printf("-:%u atoms\n",pos.size());
+  // std::vector<Vector> pos( actiondata.natoms );
+  std::array<Vector,30> pos;
 
   for(unsigned i=0; i<actiondata.natoms; ++i) {
     const unsigned atno = actiondata.colvar_atoms(task_index,i);
-    // printf("%u, %u = %u\n",task_index,i,atno);
     pos[i][0] = input.inputdata[3*atno+0];
     pos[i][1] = input.inputdata[3*atno+1];
     pos[i][2] = input.inputdata[3*atno+2];
   }
-  printf("\n-:%u positions\n",pos.size());
   // This aligns the two strands if this is required
   if( actiondata.align_strands ) {
-    printf("-: strands\n");
     Vector distance=input.pbc->distance( pos[6],pos[21] );
     Vector origin_old, origin_new;
     origin_old=pos[21];
@@ -302,7 +301,6 @@ void SecondaryStructureBase<T>::performTask( unsigned task_index, const T& actio
       pos[i]+=( origin_new - origin_old );
     }
   } else if( !actiondata.nopbc ) {
-    printf("-: pbc\n");
     for(unsigned i=0; i<actiondata.natoms-1; ++i) {
       const Vector & first (pos[i]);
       Vector & second (pos[i+1]);
@@ -312,12 +310,11 @@ void SecondaryStructureBase<T>::performTask( unsigned task_index, const T& actio
 
   // Create a holder for the derivatives
   const unsigned rs = actiondata.nstructures;
-  ColvarOutput rmsd_output( output.values, 3*pos.size()+9, output.derivatives.data() );
+  ColvarOutput rmsd_output( output.values, 3*pos.size()+virialSize, output.derivatives.data() );
   // And now calculate the DRMSD
   for(unsigned i=0; i<rs; ++i) {
     T::calculateDistance( i, input.noderiv, actiondata, pos.data(), rmsd_output );
   }
-  printf("-:%u end\n",pos.size());
 }
 
 template <class T>
@@ -326,22 +323,27 @@ void SecondaryStructureBase<T>::applyNonZeroRankForces( std::vector<double>& out
 }
 
 template <class T>
-void SecondaryStructureBase<T>::gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput forces ) {
+void SecondaryStructureBase<T>::gatherForces( unsigned task_index,
+    const T& actiondata,
+    const ParallelActionsInput& input,
+    const ForceInput& fdata,
+    ForceOutput forces ) {
   for(unsigned i=0; i<input.ncomponents; ++i) {
     unsigned m = 0;
     double ff = fdata.force[i];
     for(unsigned j=0; j<input.nindices_per_task; ++j) {
       std::size_t base = 3*actiondata.colvar_atoms[task_index][j];
       forces.thread_safe[base + 0] += ff*fdata.deriv[i][m];
-      m++;
+      ++m;
       forces.thread_safe[base + 1] += ff*fdata.deriv[i][m];
-      m++;
+      ++m;
       forces.thread_safe[base + 2] += ff*fdata.deriv[i][m];
-      m++;
+      ++m;
     }
-    for(unsigned n=forces.thread_safe.size()-9; n<forces.thread_safe.size(); ++n) {
+
+    for(unsigned n=forces.thread_safe.size()-virialSize; n<forces.thread_safe.size(); ++n) {
       forces.thread_safe[n] += ff*fdata.deriv[i][m];
-      m++;
+      ++m;
     }
   }
 }
