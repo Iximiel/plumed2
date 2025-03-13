@@ -78,7 +78,7 @@ public:
     //use this  at the start of your function, to not calculate again and again the initial index
     size_t init=0;
     for(size_t j=0; j<i; j++) {
-      init+=sizes[j];
+      init+=sz[j];
     }
     return View<const T>(d+init,sz[i]);
   }
@@ -177,20 +177,22 @@ void SecondaryStructureDRMSDInput::setReferenceStructure(
 
 }
 
-void SecondaryStructureDRMSDInput::calculateDistance( unsigned n,
-    bool noderiv,
+void SecondaryStructureDRMSDInput::calculateDistance( const unsigned n,
+    const bool noderiv,
     const SecondaryStructureDRMSDInput& actiondata,
     const Vector* pos,
     ColvarOutput& output ) {
-  output.virial.set( n, Tensor(0,0,0,0,0,0,0,0,0) );
-  for(unsigned i=0; i<actiondata.natoms; ++i) {
-    output.derivs[n][i] = Vector(0,0,0);
+  if( !noderiv ) {
+    output.virial.set( n, Tensor(0,0,0,0,0,0,0,0,0) );
+    for(unsigned i=0; i<actiondata.natoms; ++i) {
+      output.derivs[n][i] = Vector(0,0,0);
+    }
   }
 
   double drmsd = 0;
   Vector distance;
 
-  auto target = actiondata.drmsd_targets.get(n);
+  const auto target = actiondata.drmsd_targets.get(n);
   const auto targetSize=target.size();
 
   for (unsigned i=0; i<targetSize; ++i) {
@@ -210,16 +212,14 @@ void SecondaryStructureDRMSDInput::calculateDistance( unsigned n,
   const double inpairs = 1./static_cast<double>(targetSize);
   output.values[n] = sqrt(inpairs*drmsd);
 
-  if( noderiv ) {
-    return ;
-  }
+  if( !noderiv ) {
+    double scalef = inpairs / output.values[n];
 
-  double scalef = inpairs / output.values[n];
+    PLMD::LoopUnroller<9>::_mul(output.virial.getView(n).data(),scalef);
 
-  PLMD::LoopUnroller<9>::_mul(output.virial.getView(n).data(),scalef);
-
-  for(unsigned i=0; i<actiondata.natoms; ++i ) {
-    output.derivs[n][i] *= scalef;
+    for(unsigned i=0; i<actiondata.natoms; ++i ) {
+      output.derivs[n][i] *= scalef;
+    }
   }
 }
 

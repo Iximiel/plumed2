@@ -28,11 +28,28 @@
 #include "tools/OpenMP.h"
 #include "tools/View.h"
 #include "tools/View2D.h"
+#include "tools/BitmaskEnum.h"
 
 #include "tools/ColvarOutput.h"
 #include "tools/OpenACC.h"
 
 namespace PLMD {
+
+namespace PTMUtils {
+enum class gatherSettings {
+  standard=1,
+  //deactivates the reduction on the standard loop
+  noReduction=1<<2,
+  accCustomGather = 1<<3,
+  accCustomVirial = 1<<4
+};
+}
+template<>
+struct enum_traits::BitmaskEnum< PTMUtils::gatherSettings > {
+  static constexpr bool has_valid = true;
+  static constexpr bool has_bit_or = true;
+  static constexpr bool has_bit_and = true;
+};
 
 struct ParallelActionsInput {
 /// Do we need to calculate the derivatives
@@ -214,7 +231,6 @@ void ParallelTaskManager<T>::setupParallelTaskManager(
   nderivatives_per_component = nder;
   value_stash.resize( valuesize*action->getNumberOfComponents() );
   myinput.nindices_per_task = nind;
-
   if( nt<0 ) {
     nthreaded_forces = action->getNumberOfDerivatives();
   } else {
@@ -250,7 +266,7 @@ void ParallelTaskManager<T>::runAllTasks() {
   action->getInputData( input_buffer );
   myinput.dataSize = input_buffer.size();
   myinput.inputdata = input_buffer.data();
-  value_stash.assign( value_stash.size(), 0.0 );
+  std::fill (value_stash.begin(),value_stash.end(), 0.0);
   if( useacc ) {
 #ifdef __PLUMED_USE_OPENACC
     //I have a few problem with "this" <- meaning "this" pointer-  being copyed,
@@ -350,7 +366,8 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
   unsigned nactive_tasks=partialTaskList.size();
   // Clear force buffer
   forcesForApply.assign( forcesForApply.size(), 0.0 );
-
+  //TODO: check if std::fill is faster (i get conflicting answers on the net)
+  //std::fill (forcesForApply.begin(),forcesForApply.end(), 0.0);
   // Get all the input data so we can broadcast it to the GPU
   myinput.noderiv = false;
   // Retrieve the forces from the values
@@ -378,12 +395,13 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
 
     OpenACC::memoryManager ffa {forcesForApply};
     auto forcesForApply_data = ffa.devicePtr();
-    const auto forcesForApply_size = forcesForApply.size();
+    const auto forcesForApply_size = ffa.size();
 
     OpenACC::memoryManager ofd {omp_forces[0]};
     auto omp_forces_data = ofd.devicePtr();
-    const auto omp_forces_size = omp_forces[0].size();
-
+    const auto omp_forces_size = ofd.size();
+    const auto reduction_size = (valid(T::gatherSettings&PTMUtils::gatherSettings::noReduction))
+                                ? 0:omp_forces_size;
     const auto nderivPerComponent = nderivatives_per_component;
     const auto ndev_per_task = input.ncomponents*nderivPerComponent;
 
@@ -392,38 +410,88 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
     OpenACC::memoryManager<double> vtmp{input.ncomponents*nactive_tasks};
     auto valstmp = vtmp.devicePtr();
 
-#pragma acc parallel loop reduction(+:omp_forces_data[0:omp_forces_size])\
-                            present(input,t_actiondata) \
-                             copyin(nactive_tasks, \
-                                    ndev_per_task, \
-                                    nderivPerComponent) \
-                          deviceptr(derivatives, \
-                                    partialTaskList_data, \
-                                    value_stash_data, \
-                                    valstmp, \
-                                    omp_forces_data, \
-                                    forcesForApply_data) \
-                            default(none)
-    for(unsigned i=0; i<nactive_tasks; ++i) {
-      std::size_t task_index = partialTaskList_data[i];
-      ParallelActionsOutput myout { input.ncomponents,
-                                    valstmp+input.ncomponents*i,
-                                    ndev_per_task,
-                                    derivatives+ndev_per_task*i};
+#pragma acc data present(input,t_actiondata) \
+                  copyin(nactive_tasks, \
+                         nderivPerComponent, \
+                         forcesForApply_size, \
+                         ndev_per_task, \
+                         omp_forces_size) \
+               deviceptr(derivatives, \
+                         omp_forces_data, \
+                         value_stash_data, \
+                         partialTaskList_data, \
+                         forcesForApply_data, \
+                         valstmp) \
+                 default(none)
+    {
+#pragma acc parallel loop reduction(+:omp_forces_data[0:reduction_size])
+      for(unsigned i=0; i<nactive_tasks; ++i) {
+        std::size_t task_index = partialTaskList_data[i];
+        ParallelActionsOutput myout { input.ncomponents,
+                                      valstmp+input.ncomponents*i,
+                                      ndev_per_task,
+                                      derivatives+ndev_per_task*i};
+        // Calculate the stuff in the loop for this action
+        T::performTask( task_index, t_actiondata, input, myout );
+        if constexpr (valid(T::gatherSettings & PTMUtils::gatherSettings::standard)) {
+          // Gather the forces from the values
+          T::gatherForces( task_index, t_actiondata, input,
+                           ForceInput { input.ncomponents,
+                                        value_stash_data+input.ncomponents*task_index,
+                                        nderivPerComponent,
+                                        derivatives+ndev_per_task*i},
+                           ForceOutput { omp_forces_data,
+                                         omp_forces_size,
+                                         forcesForApply_data,
+                                         forcesForApply_size }
+                         );
+        }
+      }
 
-      // Calculate the stuff in the loop for this action
-      T::performTask( task_index, t_actiondata, input, myout );
-      // Gather the forces from the values
-      T::gatherForces( task_index, t_actiondata, input,
-                       ForceInput( input.ncomponents,
-                                   value_stash_data+input.ncomponents*task_index,
-                                   nderivPerComponent,
-                                   derivatives+ndev_per_task*i),
-                       ForceOutput { omp_forces_data,omp_forces_size, forcesForApply_data,forcesForApply_size }
-                     );
+      if constexpr (valid(T::gatherSettings & PTMUtils::gatherSettings::accCustomGather)) {
+#pragma acc parallel loop
+        for(unsigned v=0;
+            v<nthreaded_forces-T::custopGatherStopBefore;
+            v+=T::custopGatherStep) {
+          T::gatherForces_special(
+            v,nderivPerComponent,ndev_per_task,t_actiondata,input,
+            View{partialTaskList_data,nactive_tasks},
+            value_stash_data,
+            derivatives,
+            View{omp_forces_data,omp_forces_size}
+          );
+        }
+      }
+
+      if constexpr (valid(T::gatherSettings & PTMUtils::gatherSettings::accCustomVirial)) {
+#pragma acc parallel loop
+        for(unsigned v=0; v<T::virialSize; ++v) {
+          const  unsigned m = input.nindices_per_task*3 + v;
+          double tmp=0.0;
+          //#pragma acc loop vectors
+#pragma acc loop reduction(+:tmp)
+          for(unsigned t=0; t<nactive_tasks; ++t) {
+            std::size_t task_index = partialTaskList_data[t];
+            printf("\t ti=%d ",task_index);
+            auto fdata = ForceInput { input.ncomponents,
+                                      value_stash_data+input.ncomponents*task_index,
+                                      nderivPerComponent,
+                                      derivatives+ndev_per_task*t};
+            for(unsigned i=0; i<input.ncomponents; ++i) {
+              tmp += fdata.force[i]*fdata.deriv[i][m];
+            }
+          }
+          omp_forces_data[nthreaded_forces-9+v] = tmp;
+          printf("(%d,%d) -> %f = %f\n",v,m,tmp,omp_forces_data[v]);
+        }
+      }
     }
     ffa.copyFromDevice(forcesForApply.data());
     ofd.copyFromDevice(omp_forces[0].data());
+    // for(unsigned v=0; v<9; ++v) {
+    //   std::cout << omp_forces[0][v] << " ";
+    // }
+    // std::cout << "\n";
     gatherThreads(ForceOutput{ omp_forces[0], forcesForApply });
 #else
     plumed_merror("cannot use USEGPU flag if PLUMED has not been compiled with openACC");
@@ -489,7 +557,7 @@ template <class T>
 void ParallelTaskManager<T>::gatherThreads( ForceOutput forces ) {
   //Forceoutput is basically two spans, so it is ok to pass it by value
   unsigned k=0;
-  for(unsigned n=forces.thread_unsafe.size()-nthreaded_forces; n<forces.thread_unsafe.size(); ++n) {
+  for(unsigned n=forces.thread_unsafe.size()-forces.thread_safe.size(); n<forces.thread_unsafe.size(); ++n) {
     forces.thread_unsafe[n] += forces.thread_safe[k];
     ++k;
   }

@@ -162,14 +162,14 @@ AntibetaRMSD::AntibetaRMSD(const ActionOptions&ao):
       }
       for(unsigned ires=0; ires<nres-7; ires++) {
         for(unsigned jres=ires+7; jres<nres; jres++) {
-          for(unsigned k=0; k<15; ++k) {
-            nlist[k]=nprevious + ires*5+k;
-            nlist[k+15]=nprevious + (jres-2)*5+k;
+          for(unsigned kk=0; kk<15; ++kk) {
+            nlist[kk]=nprevious + ires*5+kk;
+            nlist[kk+15]=nprevious + (jres-2)*5+kk;
           }
           std::string nlstr, num;
           Tools::convert( nlist[0], nlstr );
           Tools::convert(k, num);
-          k++;
+          ++k;
           seglist += " SEGMENT" + num + "=" + nlstr;
           for(unsigned kk=1; kk<nlist.size(); ++kk ) {
             Tools::convert( nlist[kk], nlstr );
