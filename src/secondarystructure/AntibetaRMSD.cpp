@@ -138,7 +138,7 @@ AntibetaRMSD::AntibetaRMSD(const ActionOptions&ao):
     error( style + " is not a valid directive for the STYLE keyword");
   }
 
-  double strands_cutoff=0.;
+  double strands_cutoff=-1.;
   parse("STRANDS_CUTOFF",strands_cutoff);
   std::string scutoff_action;
   if( strands_cutoff>0 ) {
@@ -298,27 +298,32 @@ AntibetaRMSD::AntibetaRMSD(const ActionOptions&ao):
   for(unsigned i=1; i<all_atoms.size(); ++i) {
     atoms += "," + all_atoms[i];
   }
+  std::string inputLine = lab+":";
+  if( type=="DRMSD" ) {
+    inputLine+=" SECONDARY_STRUCTURE_DRMSD BONDLENGTH=0.17";
+  } else {
+    inputLine+=" SECONDARY_STRUCTURE_RMSD TYPE=" +type;
+  }
+  inputLine+=" ALIGN_STRANDS " + seglist + structure
+             + " " + atoms + nopbcstr + usegpustr;
 
   if( strands_cutoff>0 ) {
     readInputLine( scutoff_action );
     std::string str_cut;
     Tools::convert( strands_cutoff, str_cut );
-    readInputLine( getShortcutLabel() + "_cut: CUSTOM ARG=" + getShortcutLabel() + "_cut_dists FUNC=step(" + str_cut + "-x) PERIODIC=NO");
-    if( type=="DRMSD" ) {
-      readInputLine( lab + ": SECONDARY_STRUCTURE_DRMSD ALIGN_STRANDS MASK=" + getShortcutLabel() + "_cut BONDLENGTH=0.17" + seglist + structure + " " + atoms + nopbcstr + usegpustr);
-    } else {
-      readInputLine( lab + ": SECONDARY_STRUCTURE_RMSD ALIGN_STRANDS MASK=" + getShortcutLabel() + "_cut " + seglist + structure + " " + atoms + " TYPE=" + type + nopbcstr + usegpustr);
-    }
+    readInputLine( getShortcutLabel() + "_cut: CUSTOM ARG=" + getShortcutLabel()
+                   + "_cut_dists FUNC=step(" + str_cut + "-x) PERIODIC=NO");
+    inputLine+=" MASK=" + getShortcutLabel()+"_cut";
+    readInputLine(inputLine);
     if( ltmap.length()>0 ) {
-      readInputLine( getShortcutLabel() + "_ltu: LESS_THAN ARG=" + lab + " SWITCH={" + ltmap  +"} MASK=" + getShortcutLabel() + "_cut");
-      readInputLine( getShortcutLabel() + "_lt: CUSTOM ARG=" + getShortcutLabel() + "_ltu," + getShortcutLabel() + "_cut FUNC=x*y PERIODIC=NO");
+      readInputLine( getShortcutLabel() + "_ltu: LESS_THAN ARG=" + lab
+                     + " SWITCH={" + ltmap  +"} MASK=" + getShortcutLabel() + "_cut");
+      readInputLine( getShortcutLabel()
+                     + "_lt: CUSTOM ARG=" + getShortcutLabel() + "_ltu," + getShortcutLabel() + "_cut"
+                     " FUNC=x*y PERIODIC=NO");
     }
   } else {
-    if( type=="DRMSD" ) {
-      readInputLine( lab + ": SECONDARY_STRUCTURE_DRMSD ALIGN_STRANDS BONDLENGTH=0.17" + seglist + structure + " " + atoms + nopbcstr + usegpustr);
-    } else {
-      readInputLine( lab + ": SECONDARY_STRUCTURE_RMSD ALIGN_STRANDS " + seglist + structure + " " + atoms + " TYPE=" + type + nopbcstr + usegpustr);
-    }
+    readInputLine(inputLine);
     if( ltmap.length()>0 ) {
       readInputLine( getShortcutLabel() + "_lt: LESS_THAN ARG=" + lab + " SWITCH={" + ltmap  +"}");
     }
