@@ -55,7 +55,7 @@ public:
   }
   void applyNonZeroRankForces( std::vector<double>& outforces ) override ;
   static void performTask( unsigned task_index, const T& actiondata, ParallelActionsInput& input, ParallelActionsOutput& output );
-  static void gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput& forces );
+  static void gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput forces );
 };
 
 template <class T>
@@ -319,7 +319,7 @@ void SecondaryStructureBase<T>::applyNonZeroRankForces( std::vector<double>& out
 }
 
 template <class T>
-void SecondaryStructureBase<T>::gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput& forces ) {
+void SecondaryStructureBase<T>::gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput forces ) {
   for(unsigned i=0; i<input.ncomponents; ++i) {
     unsigned m = 0;
     double ff = fdata.force[i];

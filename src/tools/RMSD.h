@@ -237,6 +237,7 @@ public:
 
 
 /// Compute rmsd: note that this is an intermediate layer which is kept in order to evtl expand with more alignment types/user options to be called while keeping the workhorses separated
+//#pragma acc routine
   double calculate(const std::vector<Vector> & positions,std::vector<Vector> &derivatives, bool squared=false)const;
 /// Other convenience methods:
 /// calculate the derivative of distance respect to position(DDistDPos) and reference (DDistDPos)
