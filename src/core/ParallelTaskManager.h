@@ -232,6 +232,10 @@ void ParallelTaskManager<T>::setupParallelTaskManager(
   value_stash.resize( valuesize*action->getNumberOfComponents() );
   myinput.nindices_per_task = nind;
   if( nt<0 ) {
+    plumed_massert(
+      (!(useacc && ! valid(T::gatherSettings & PTMUtils::gatherSettings::accCustomGather))),
+      "This action needs to specify a custom GatherForces function for the derivatives (see ParallelTaskManager manual)"
+    );
     nthreaded_forces = action->getNumberOfDerivatives();
   } else {
     nthreaded_forces = nt;
@@ -451,9 +455,9 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
       if constexpr (valid(T::gatherSettings & PTMUtils::gatherSettings::accCustomGather)) {
 #pragma acc parallel loop
         for(unsigned v=0;
-            v<nthreaded_forces-T::custopGatherStopBefore;
-            v+=T::custopGatherStep) {
-          T::gatherForces_special(
+            v<nthreaded_forces-T::customGatherStopBefore;
+            v+=T::customGatherStep) {
+          T::gatherForces_custom(
             v,nderivPerComponent,ndev_per_task,t_actiondata,input,
             View{partialTaskList_data,nactive_tasks},
             value_stash_data,

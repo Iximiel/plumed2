@@ -45,8 +45,8 @@ public:
     PTMUtils::gatherSettings::noReduction |
     PTMUtils::gatherSettings::accCustomGather |
     PTMUtils::gatherSettings::accCustomVirial;
-  static constexpr unsigned custopGatherStep=3;
-  static constexpr unsigned custopGatherStopBefore=virialSize;
+  static constexpr unsigned customGatherStep=3;
+  static constexpr unsigned customGatherStopBefore=virialSize;
 
 private:
   PTM taskmanager;
@@ -64,44 +64,15 @@ public:
   void applyNonZeroRankForces( std::vector<double>& outforces ) override ;
   static void performTask( unsigned task_index, const T& actiondata, ParallelActionsInput& input, ParallelActionsOutput& output );
   static void gatherForces( unsigned task_index, const T& actiondata, const ParallelActionsInput& input, const ForceInput& fdata, ForceOutput forces );
-  static void gatherForces_special( unsigned atomIndex,
-                                    size_t nderivPerComponent,
-                                    size_t ndev_per_task,
-                                    const T& actiondata,
-                                    const ParallelActionsInput& input,
-                                    View<unsigned> partialTaskList,
-                                    double *values,
-                                    double *derivatives,
-                                    View<double> notThreadSafeForces) {
-    double tmp0=0.0;
-    double tmp1=0.0;
-    double tmp2=0.0;
-#pragma acc loop seq
-    for(unsigned t=0; t<partialTaskList.size(); ++t) {
-      std::size_t task_index = partialTaskList[t];
-      auto fdata = ForceInput { input.ncomponents,
-                                values+input.ncomponents*task_index,
-                                nderivPerComponent,
-                                derivatives+ndev_per_task*t};
-
-      for(unsigned taskIT=0; taskIT<input.nindices_per_task; ++taskIT) {
-        std::size_t base = 3*actiondata.colvar_atoms[task_index][taskIT];
-        if(atomIndex == base) {
-          unsigned m = taskIT*3;
-
-          for(unsigned c=0; c<input.ncomponents; ++c) {
-            double ff = fdata.force[c];
-            tmp0 += ff*fdata.deriv[c][m];
-            tmp1 += ff*fdata.deriv[c][m+1];
-            tmp2 += ff*fdata.deriv[c][m+2];
-          }
-        }
-      }
-    }
-    notThreadSafeForces[atomIndex] = tmp0;
-    notThreadSafeForces[atomIndex+1] = tmp1;
-    notThreadSafeForces[atomIndex+2] = tmp2;
-  }
+  static void gatherForces_custom( unsigned atomIndex,
+                                   size_t nderivPerComponent,
+                                   size_t ndev_per_task,
+                                   const T& actiondata,
+                                   const ParallelActionsInput& input,
+                                   View<unsigned> partialTaskList,
+                                   double *values,
+                                   double *derivatives,
+                                   View<double> notThreadSafeForces) ;
 
 };
 
@@ -392,6 +363,46 @@ void SecondaryStructureBase<T>::gatherForces( unsigned task_index,
       ++m;
     }
   }
+}
+
+template <class T>
+void SecondaryStructureBase<T>:: gatherForces_custom( unsigned atomIndex,
+    size_t nderivPerComponent,
+    size_t ndev_per_task,
+    const T& actiondata,
+    const ParallelActionsInput& input,
+    View<unsigned> partialTaskList,
+    double *values,
+    double *derivatives,
+    View<double> notThreadSafeForces) {
+  double tmp0=0.0;
+  double tmp1=0.0;
+  double tmp2=0.0;
+#pragma acc loop seq
+  for(unsigned t=0; t<partialTaskList.size(); ++t) {
+    std::size_t task_index = partialTaskList[t];
+    auto fdata = ForceInput { input.ncomponents,
+                              values+input.ncomponents*task_index,
+                              nderivPerComponent,
+                              derivatives+ndev_per_task*t};
+
+    for(unsigned taskIT=0; taskIT<input.nindices_per_task; ++taskIT) {
+      std::size_t base = 3*actiondata.colvar_atoms[task_index][taskIT];
+      if(atomIndex == base) {
+        unsigned m = taskIT*3;
+
+        for(unsigned c=0; c<input.ncomponents; ++c) {
+          double ff = fdata.force[c];
+          tmp0 += ff*fdata.deriv[c][m];
+          tmp1 += ff*fdata.deriv[c][m+1];
+          tmp2 += ff*fdata.deriv[c][m+2];
+        }
+      }
+    }
+  }
+  notThreadSafeForces[atomIndex] = tmp0;
+  notThreadSafeForces[atomIndex+1] = tmp1;
+  notThreadSafeForces[atomIndex+2] = tmp2;
 }
 
 }
