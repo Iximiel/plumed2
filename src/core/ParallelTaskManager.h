@@ -177,6 +177,14 @@ private:
   input_type actiondata;
 /// This is used internally to gather the forces on the threads
   void gatherThreads( ForceOutput forces );
+#ifdef __PLUMED_USE_OPENACC
+  OpenACC::memoryManager<double> value_stash_device {};
+  OpenACC::memoryManager<unsigned> partialTaskList_device{};
+  OpenACC::memoryManager<double> derivatives_device{};
+  OpenACC::memoryManager<double> forcesForApply_device{};
+  OpenACC::memoryManager<double> omp_forces_device{};
+  OpenACC::memoryManager<double> buffer{};
+#endif //__PLUMED_USE_OPENACC
 public:
   static void registerKeywords( Keywords& keys );
   ParallelTaskManager(ActionWithVector* av);
@@ -289,18 +297,17 @@ void ParallelTaskManager<T>::runAllTasks() {
     input_type t_actiondata = actiondata;
     auto actiondata_acc = OpenACC::fromToDataHelper(t_actiondata);
 
-    //template type is deduced
-    OpenACC::memoryManager vs{value_stash};
-    auto value_stash_data = vs.devicePtr();
+    value_stash_device.copyToDevice(value_stash);
+    auto value_stash_data = value_stash_device.devicePtr();
 
-    OpenACC::memoryManager ptl{partialTaskList};
-    auto partialTaskList_data = ptl.devicePtr();
+    partialTaskList_device.copyToDevice(partialTaskList);
+    auto partialTaskList_data = partialTaskList_device.devicePtr();
 
     const auto nderivPerComponent = nderivatives_per_component;
     const auto ndev_per_task = input.ncomponents*nderivPerComponent;
 
-    OpenACC::memoryManager<double>dev(ndev_per_task*nactive_tasks);
-    auto derivatives = dev.devicePtr();
+    derivatives_device.resize(ndev_per_task*nactive_tasks);
+    auto derivatives = derivatives_device.devicePtr();
 
 #pragma acc parallel loop present(input, t_actiondata) \
                            copyin(nactive_tasks, \
@@ -320,7 +327,7 @@ void ParallelTaskManager<T>::runAllTasks() {
       // Calculate the stuff in the loop for this action
       T::performTask( task_index, t_actiondata, input, myout );
     }
-    vs.copyFromDevice(value_stash.data());
+    value_stash_device.copyFromDevice(value_stash.data());
 #else
     plumed_merror("cannot use USEGPU flag if PLUMED has not been compiled with openACC");
 #endif
@@ -400,28 +407,28 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
     auto actiondata_acc = OpenACC::fromToDataHelper(t_actiondata);
 
     //template type is deduced
-    OpenACC::memoryManager vs{value_stash};
-    auto value_stash_data = vs.devicePtr();
+    value_stash_device.copyToDevice(value_stash);
+    auto value_stash_data = value_stash_device.devicePtr();
 
-    OpenACC::memoryManager ptl{partialTaskList};
-    auto partialTaskList_data = ptl.devicePtr();
+    partialTaskList_device.copyToDevice(partialTaskList);
+    auto partialTaskList_data = partialTaskList_device.devicePtr();
 
-    OpenACC::memoryManager ffa {forcesForApply};
-    auto forcesForApply_data = ffa.devicePtr();
-    const auto forcesForApply_size = ffa.size();
+    forcesForApply_device.copyToDevice(forcesForApply);
+    auto forcesForApply_data = forcesForApply_device.devicePtr();
+    const auto forcesForApply_size = forcesForApply_device.size();
 
-    OpenACC::memoryManager ofd {omp_forces[0]};
-    auto omp_forces_data = ofd.devicePtr();
-    const auto omp_forces_size = ofd.size();
+    omp_forces_device.copyToDevice(omp_forces[0]);
+    auto omp_forces_data = omp_forces_device.devicePtr();
+    const auto omp_forces_size = omp_forces_device.size();
     const auto reduction_size = (has_custom_gather)
                                 ? 0:omp_forces_size;
     const auto nderivPerComponent = nderivatives_per_component;
     const auto ndev_per_task = input.ncomponents*nderivPerComponent;
 
-    OpenACC::memoryManager<double> dev{ndev_per_task*nactive_tasks};
-    auto derivatives = dev.devicePtr();
-    OpenACC::memoryManager<double> vtmp{input.ncomponents*nactive_tasks};
-    auto valstmp = vtmp.devicePtr();
+    derivatives_device.resize(ndev_per_task*nactive_tasks);
+    auto derivatives = derivatives_device.devicePtr();
+    buffer.resize(input.ncomponents*nactive_tasks);
+    auto valstmp = buffer.devicePtr();
 
 #pragma acc data present(input,t_actiondata) \
                   copyin(nactive_tasks, \
@@ -485,7 +492,6 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
 #pragma acc loop reduction(+:tmp)
           for(unsigned t=0; t<nactive_tasks; ++t) {
             std::size_t task_index = partialTaskList_data[t];
-            printf("\t ti=%d ",task_index);
             auto fdata = ForceInput { input.ncomponents,
                                       value_stash_data+input.ncomponents*task_index,
                                       nderivPerComponent,
@@ -495,16 +501,11 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
             }
           }
           omp_forces_data[nthreaded_forces-9+v] = tmp;
-          printf("(%d,%d) -> %f = %f\n",v,m,tmp,omp_forces_data[v]);
         }
       }
     }
-    ffa.copyFromDevice(forcesForApply.data());
-    ofd.copyFromDevice(omp_forces[0].data());
-    // for(unsigned v=0; v<9; ++v) {
-    //   std::cout << omp_forces[0][v] << " ";
-    // }
-    // std::cout << "\n";
+    forcesForApply_device.copyFromDevice(forcesForApply.data());
+    omp_forces_device.copyFromDevice(omp_forces[0].data());
     gatherThreads(ForceOutput{ omp_forces[0], forcesForApply });
 #else
     plumed_merror("cannot use USEGPU flag if PLUMED has not been compiled with openACC");

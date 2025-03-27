@@ -106,17 +106,23 @@ template <typename T> void myAccFree(T *ptr) {
 template <typename T> class memoryManager {
   /// the number of T element stored by the pointer
   size_t size_ {0};
+  /// the size of the array stored on the GPU
+  size_t stored_ {0};
   /// the device address, not the host address!!!
   void *ptr_ {nullptr};
 public:
+  /// @brief Initilialize an empty placeholder
+  memoryManager()=default;
   /// @brief allocate the memory on the device, and store the pointer
   /// @param sz the number of T that you want to allocate
   memoryManager(size_t sz)
-    : size_(sz),
+    : size_{sz},
+      stored_ {sz},
       ptr_{acc_malloc(size_ * sizeof(T))} {}
   /// @brief allocates and copies to the memory of the device the given vector
   memoryManager(const std::vector<T>& data)
-    : size_(data.size()),
+    : size_{data.size()},
+      stored_{data.size()},
       ptr_{acc_malloc(size_ * sizeof(T))} {
     copyToDevice(data.data());
   }
@@ -129,25 +135,57 @@ public:
   constexpr T *devicePtr() const {
     return reinterpret_cast<T *>(ptr_);
   }
+  /// Resizes the data stored on the device if the new size is smaller that the curent one, the memory will not be realocated
+  void resize(size_t sz) {
+    size_=sz;
+    if (size_ > stored_) {
+      stored_=size_;
+      acc_free(ptr_);
+      ptr_=acc_malloc(size_ * sizeof(T));
+    }
+  }
   /// return the current number of elements stored on the device
   constexpr size_t size() const {
     return size_;
   }
+  /// @brief Resizes the allocated memory and copies the data from the vector to the device,
+  void copyToDevice(const std::vector<T>& data) {
+    resize(data.size());
+    copyToDevice(data.data());
+  }
   /// @brief Copies the data from the address to the device
   void copyToDevice(T *data) {
-    acc_memcpy_to_device(ptr_, data, sizeof(T) * size_);
+    if (ptr_) {
+      acc_memcpy_to_device(ptr_, data, sizeof(T) * size_);
+    }
   }
   /// @brief Copies the data from the address to the device
   void copyToDevice(T const *data) {
-    acc_memcpy_to_device(ptr_, const_cast<T *>(data), sizeof(T) * size_);
+    if (ptr_) {
+      acc_memcpy_to_device(ptr_, const_cast<T *>(data), sizeof(T) * size_);
+    }
   }
   /// @brief copies the data from the device to the host
   void copyFromDevice(T *data) {
-    acc_memcpy_from_device(data, ptr_, sizeof(T) * size_);
+    if (ptr_) {
+      acc_memcpy_from_device(data, ptr_, sizeof(T) * size_);
+    }
   }
 };
 /// @brief specialization for generic memory, useful when calling cuda libraries
-template <> inline memoryManager<void>::memoryManager(size_t sz) : size_{sz}, ptr_{acc_malloc(size_)} {}
+template <> inline memoryManager<void>::memoryManager(size_t sz) :
+  size_{sz},
+  stored_{sz},
+  ptr_{acc_malloc(size_)} {}
+template <>
+inline void memoryManager<void>::resize(size_t sz) {
+  size_=sz;
+  if (size_ > stored_) {
+    stored_=size_;
+    acc_free(ptr_);
+    ptr_=acc_malloc(size_);
+  }
+}
 template <> inline void *memoryManager<void>::devicePtr() const {
   return ptr_;
 }
