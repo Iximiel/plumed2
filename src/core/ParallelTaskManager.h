@@ -28,28 +28,11 @@
 #include "tools/OpenMP.h"
 #include "tools/View.h"
 #include "tools/View2D.h"
-#include "tools/BitmaskEnum.h"
 
 #include "tools/ColvarOutput.h"
 #include "tools/OpenACC.h"
 
 namespace PLMD {
-
-namespace PTMUtils {
-enum class gatherSettings {
-  standard=1,
-  //deactivates the reduction on the standard loop
-  noReduction=1<<2,
-  accCustomGather = 1<<3,
-  accCustomVirial = 1<<4
-};
-}
-template<>
-struct enum_traits::BitmaskEnum< PTMUtils::gatherSettings > {
-  static constexpr bool has_valid = true;
-  static constexpr bool has_bit_or = true;
-  static constexpr bool has_bit_and = true;
-};
 
 struct ParallelActionsInput {
 /// Do we need to calculate the derivatives
@@ -140,10 +123,35 @@ struct ForceOutput {
   ForceOutput& operator=(ForceOutput &&) = delete;
 };
 
+namespace PTMUtils {
+template<class, class = void>
+constexpr bool has_gatherForces_custom = false;
+
+//this verifies that T has a method gatherForces_custom that can be called with this signature
+template<class T>
+constexpr bool has_gatherForces_custom <
+T,
+std::void_t<
+decltype(T::gatherForces_custom(
+           std::declval<unsigned >(),
+           std::declval<size_t >(),
+           std::declval<size_t >(),
+           std::declval<const typename T::input_type & >(),
+           std::declval<const ParallelActionsInput& >(),
+           std::declval<View<unsigned> >(),
+           std::declval<double *>(),
+           std::declval<double *>(),
+           std::declval<View<double> >()
+         ))
+>
+> = true;
+} //namespace PTMUtils
+
 template <class T>
 class ParallelTaskManager {
 public:
   using input_type= typename T::input_type;
+  static constexpr bool has_custom_gather=PTMUtils::has_gatherForces_custom<T>;
 private:
 /// The underlying action for which we are managing parallel tasks
   ActionWithVector* action;
@@ -232,8 +240,9 @@ void ParallelTaskManager<T>::setupParallelTaskManager(
   value_stash.resize( valuesize*action->getNumberOfComponents() );
   myinput.nindices_per_task = nind;
   if( nt<0 ) {
+    //nvc++ seems to give problem on thrown exceptions
     plumed_massert(
-      (!(useacc && ! valid(T::gatherSettings & PTMUtils::gatherSettings::accCustomGather))),
+      !(useacc && ! has_custom_gather),
       "This action needs to specify a custom GatherForces function for the derivatives (see ParallelTaskManager manual)"
     );
     nthreaded_forces = action->getNumberOfDerivatives();
@@ -404,7 +413,7 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
     OpenACC::memoryManager ofd {omp_forces[0]};
     auto omp_forces_data = ofd.devicePtr();
     const auto omp_forces_size = ofd.size();
-    const auto reduction_size = (valid(T::gatherSettings&PTMUtils::gatherSettings::noReduction))
+    const auto reduction_size = (has_custom_gather)
                                 ? 0:omp_forces_size;
     const auto nderivPerComponent = nderivatives_per_component;
     const auto ndev_per_task = input.ncomponents*nderivPerComponent;
@@ -437,7 +446,7 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
                                       derivatives+ndev_per_task*i};
         // Calculate the stuff in the loop for this action
         T::performTask( task_index, t_actiondata, input, myout );
-        if constexpr (valid(T::gatherSettings & PTMUtils::gatherSettings::standard)) {
+        if constexpr (!has_custom_gather) {
           // Gather the forces from the values
           T::gatherForces( task_index, t_actiondata, input,
                            ForceInput { input.ncomponents,
@@ -452,7 +461,7 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
         }
       }
 
-      if constexpr (valid(T::gatherSettings & PTMUtils::gatherSettings::accCustomGather)) {
+      if constexpr (has_custom_gather) {
 #pragma acc parallel loop
         for(unsigned v=0;
             v<nthreaded_forces-T::customGatherStopBefore;
@@ -467,7 +476,7 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
         }
       }
 
-      if constexpr (valid(T::gatherSettings & PTMUtils::gatherSettings::accCustomVirial)) {
+      if constexpr (has_custom_gather&&T::virialSize>0) {
 #pragma acc parallel loop
         for(unsigned v=0; v<T::virialSize; ++v) {
           const  unsigned m = input.nindices_per_task*3 + v;

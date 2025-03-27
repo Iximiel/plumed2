@@ -90,8 +90,6 @@ class ActionVolume : public ActionWithVector {
 public:
   using input_type = VolumeData<T>;
   using PTM = ParallelTaskManager<ActionVolume<T>>;
-  static constexpr PTMUtils::gatherSettings gatherSettings =
-    PTMUtils::gatherSettings::standard;
 private:
 /// The parallel task manager
   PTM taskmanager;

@@ -41,10 +41,6 @@ public:
   using input_type = T;
   using PTM = ParallelTaskManager<SecondaryStructureBase<T>>;
   static constexpr size_t virialSize=9;
-  static constexpr PTMUtils::gatherSettings gatherSettings =
-    PTMUtils::gatherSettings::noReduction |
-    PTMUtils::gatherSettings::accCustomGather |
-    PTMUtils::gatherSettings::accCustomVirial;
   static constexpr unsigned customGatherStep=3;
   static constexpr unsigned customGatherStopBefore=virialSize;
 

@@ -51,8 +51,6 @@ class MultiColvarTemplate : public ActionWithVector {
 public:
   using input_type = MultiColvarInput;
   using PTM = ParallelTaskManager<MultiColvarTemplate<T>>;
-  static constexpr PTMUtils::gatherSettings gatherSettings =
-    PTMUtils::gatherSettings::standard;
 private:
 /// The parallel task manager
   PTM taskmanager;
