@@ -117,18 +117,17 @@ void ContactMatrix::calculateWeight( const ContactMatrix& data, const AdjacencyM
   output.deriv[3] = -v[0];
   output.deriv[4] = -v[1];
   output.deriv[5] = -v[2];
-  Tensor t = (-dfunc)*Tensor(input.pos,input.pos);
-  output.deriv[6] = t[0][0];
-  output.deriv[7] = t[0][1];
-  output.deriv[8] = t[0][2];
-  output.deriv[9] = t[1][0];
-  output.deriv[10] = t[1][1];
-  output.deriv[11] = t[1][2];
-  output.deriv[12] = t[2][0];
-  output.deriv[13] = t[2][1];
-  output.deriv[14] = t[2][2];
+  //unrolled external product
+  output.deriv[6] = input.pos[0] * v[0];
+  output.deriv[7] = input.pos[0] * v[1];
+  output.deriv[8] = input.pos[0] * v[2];
+  output.deriv[9] = input.pos[1] * v[0];
+  output.deriv[10] =input.pos[1] * v[1];
+  output.deriv[11] =input.pos[1] * v[2];
+  output.deriv[12] =input.pos[2] * v[0];
+  output.deriv[13] =input.pos[2] * v[1];
+  output.deriv[14] =input.pos[2] * v[2];
 }
 
 }
 }
-
