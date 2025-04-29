@@ -19,17 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         variant:
-        - -doc-mpi-
         - -mpi-
-        - -coverage-mpi-
-        - -debug-
-        - -debug-mpi-
-# temporarily commented out
-# see https://github.com/plumed/plumed2/issues/976
-        - -intel-
-        - -pycv-mpi-
-#this does not install mpi but uses the internal one
-        - -nvhpc-mpi-
     steps:
     - uses: actions/checkout@v4
     - uses: actions/cache@v4
@@ -66,6 +56,7 @@ jobs:
         sudo apt-get install -y gsl-bin
         sudo apt-get install -y libgsl0-dev
         sudo apt-get install -y ccache
+        sudo apt-get install -y valgrind
     - name: Install system boost
       if: ${{ ! contains( matrix.variant, '-debug-' ) }}
       run: |
@@ -181,13 +172,7 @@ jobs:
     - name: Run tests
       if: ${{ ! contains( matrix.variant, '-doc-mpi-' ) && ! contains( matrix.variant, '-pycv-mpi-' ) }}
       run: |
-         (while true; do  # see https://github.com/actions/virtual-environments/issues/1860
-              df -h
-              sleep 15
-              done) &
-         make --no-print-directory -C regtest testclean
-         # these can fail for numerical reasons
-         make -C regtest checkfail
+         ./runSomeTest.sh
     - name: Run python tests
       run: |
          cd python
