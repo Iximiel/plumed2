@@ -238,18 +238,20 @@ ExpressionTreeNode ParsedExpression::substituteSimplerExpression(const Expressio
         }
         case Operation::MULTIPLY:
         {   
-            if ((first_const && first == 0.0) || (second_const && second == 0.0)) // Multiply by 0
-                return ExpressionTreeNode(new Operation::Constant(0.0));
-            if (first_const && first == 1.0) // Multiply by 1
-                return children[1];
-            if (second_const && second == 1.0) // Multiply by 1
-                return children[0];
             if (first_const) { // Multiply by a constant
+                if (first == 0.0) // Multiply by 0
+                    return ExpressionTreeNode(new Operation::Constant(0.0));
+                if (first_const && first == 1.0) // Multiply by 1
+                    return children[1];
                 if (children[1].getOperation().getId() == Operation::MULTIPLY_CONSTANT) // Combine two multiplies into a single one
                     return ExpressionTreeNode(new Operation::MultiplyConstant(first*dynamic_cast<const Operation::MultiplyConstant*>(&children[1].getOperation())->getValue()), children[1].getChildren()[0]);
                 return ExpressionTreeNode(new Operation::MultiplyConstant(first), children[1]);
             }
             if (second_const) { // Multiply by a constant
+                if (second == 0.0) // Multiply by 0
+                    return ExpressionTreeNode(new Operation::Constant(0.0));
+                if (second == 1.0) // Multiply by 1
+                    return children[0];
                 if (children[0].getOperation().getId() == Operation::MULTIPLY_CONSTANT) // Combine two multiplies into a single one
                     return ExpressionTreeNode(new Operation::MultiplyConstant(second*dynamic_cast<const Operation::MultiplyConstant*>(&children[0].getOperation())->getValue()), children[0].getChildren()[0]);
                 return ExpressionTreeNode(new Operation::MultiplyConstant(second), children[0]);
@@ -280,13 +282,15 @@ ExpressionTreeNode ParsedExpression::substituteSimplerExpression(const Expressio
         {
             if (children[0] == children[1])
                 return ExpressionTreeNode(new Operation::Constant(1.0)); // Dividing anything from itself is 0
-            if (first_const && first == 0.0) // 0 divided by something
+                if (first_const){    
+            if (first == 0.0) // 0 divided by something
                 return ExpressionTreeNode(new Operation::Constant(0.0));
-            if (first_const && first == 1.0) // 1 divided by something
+            if (first == 1.0) // 1 divided by something
                 return ExpressionTreeNode(new Operation::Reciprocal(), children[1]);
-            if (second_const && second == 1.0) // Divide by 1
-                return children[0];
+                }
             if (second_const) {
+                if (second == 1.0) // Divide by 1
+                    return children[0];
                 if (children[0].getOperation().getId() == Operation::MULTIPLY_CONSTANT) // Combine a multiply and a divide into one multiply
                     return ExpressionTreeNode(new Operation::MultiplyConstant(dynamic_cast<const Operation::MultiplyConstant*>(&children[0].getOperation())->getValue()/second), children[0].getChildren()[0]);
                 return ExpressionTreeNode(new Operation::MultiplyConstant(1.0/second), children[0]); // Replace a divide with a multiply
@@ -305,10 +309,12 @@ ExpressionTreeNode ParsedExpression::substituteSimplerExpression(const Expressio
         }
         case Operation::POWER:
         {
-            if (first_const && first == 0.0) // 0 to any power is 0
-                return ExpressionTreeNode(new Operation::Constant(0.0));
-            if (first_const && first == 1.0) // 1 to any power is 1
-                return ExpressionTreeNode(new Operation::Constant(1.0));
+            if (first_const) { // Constant base
+                if (first == 0.0) // 0 to any power is 0
+                    return ExpressionTreeNode(new Operation::Constant(0.0));
+                if (first == 1.0) // 1 to any power is 1
+                    return ExpressionTreeNode(new Operation::Constant(1.0));
+            }
             if (second_const) { // Constant exponent
                 if (second == 0.0) // x^0 = 1
                     return ExpressionTreeNode(new Operation::Constant(1.0));
