@@ -197,7 +197,8 @@ int main() {
 
     outv <<std::setw(4)<<index <<":";
     for (unsigned i=0; i<4; ++i) {
-      outv<<" "<<std::setw(10) <<eigenvec_ref[0][i] - eigenvec[i];
+      outv<<" "<<std::setw(10) <<eigenvec_ref[0][i];
+      outv<<" "<<std::setw(10) <<eigenvec[i];
     }
     outv<<"\n";
   }

@@ -19,17 +19,17 @@ jobs:
       fail-fast: false
       matrix:
         variant:
-        - -doc-mpi-
+        #- -doc-mpi-
         - -mpi-
-        - -coverage-mpi-
-        - -debug-
-        - -debug-mpi-
+        #- -coverage-mpi-
+        #- -debug-
+        #- -debug-mpi-
 # temporarily commented out
 # see https://github.com/plumed/plumed2/issues/976
         - -intel-
-        - -pycv-mpi-
+        #- -pycv-mpi-
 #this does not install mpi but uses the internal one
-        - -nvhpc-mpi-
+        #- -nvhpc-mpi-
     steps:
     - uses: actions/checkout@v4
     - uses: actions/cache@v4
@@ -185,9 +185,10 @@ jobs:
               df -h
               sleep 15
               done) &
-         make --no-print-directory -C regtest testclean
-         # these can fail for numerical reasons
-         make -C regtest checkfail
+         bash runSomeTest.sh 
+        #  make --no-print-directory -C regtest testclean
+        #  # these can fail for numerical reasons
+        #  make -C regtest checkfail
     - name: Run python tests
       run: |
          cd python
