@@ -182,18 +182,20 @@ int main() {
     out<<"\n";
 
     //The eigenvectors sometimes are returned with the direction inverted
-    if(eigenvec_ref[0][0] * eigenvec[0] < 0.0 ) {
-      eigenvec *=-1;
-      //first element is 0
-    } else if (eigenvec_ref[0][1] * eigenvec[1] < 0.0) {
-      eigenvec *=-1;
-      //also second element is 0
-    } else if (eigenvec_ref[0][2] * eigenvec[2] < 0.0) {
-      eigenvec *=-1;
-      //also third element is 0
-    } else if (eigenvec_ref[0][3] * eigenvec[3] < 0.0) {
+    {
+    auto id=0;
+    double mm=-1.0;
+    for(int i=0;i<4;++i){
+      if(std::fabs(eigenvec[0])> mm) {
+        mm = std::fabs(eigenvec[0]);
+        id=i;
+      }
+
+    }
+    if(eigenvec_ref[0][id] * eigenvec[id] < 0.0 ) {
       eigenvec *=-1;
     }
+  }
 
     outv <<std::setw(4)<<index <<":";
     for (unsigned i=0; i<4; ++i) {
