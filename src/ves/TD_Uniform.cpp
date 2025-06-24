@@ -298,15 +298,11 @@ double TD_Uniform::getValue(const std::vector<double>& argument) const {
   //
   double value = 1.0;
   for(unsigned int k=0; k<getDimension(); k++) {
-    double tmp;
-    if(argument[k] < minima_[k]) {
-      tmp = GaussianSwitchingFunc(argument[k],minima_[k],sigma_min_[k]);
-    } else if(argument[k] > maxima_[k]) {
-      tmp = GaussianSwitchingFunc(argument[k],maxima_[k],sigma_max_[k]);
-    } else {
-      tmp = 1.0;
+    if(argument[k] - minima_[k] < -PLMD::epsilon) {
+      value *= GaussianSwitchingFunc(argument[k],minima_[k],sigma_min_[k]);
+    } else if(argument[k] - maxima_[k] > PLMD::epsilon) {
+      value *= GaussianSwitchingFunc(argument[k],maxima_[k],sigma_max_[k]);
     }
-    value *= tmp;
   }
   return value;
 }
