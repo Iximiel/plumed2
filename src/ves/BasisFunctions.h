@@ -317,10 +317,10 @@ double BasisFunctions::translateArgument(const double arg, bool& inside_interval
   // NOTE: only works for symmetric intrinsic intervals
   inside_interval=true;
   double argT = (arg-interval_mean_)*argT_derivf_;
-  if(argT < interval_intrinsic_min_) {
+  if(argT - interval_intrinsic_min_ < -10.0*PLMD::epsilon) {
     inside_interval=false;
     argT=interval_intrinsic_min_;
-  } else if(argT > interval_intrinsic_max_) {
+  } else if(argT - interval_intrinsic_max_ > 10.0*PLMD::epsilon) {
     inside_interval=false;
     argT=interval_intrinsic_max_;
   }
@@ -332,10 +332,10 @@ inline
 double BasisFunctions::checkIfArgumentInsideInterval(const double arg, bool& inside_interval) const {
   inside_interval=true;
   double argT = arg;
-  if(arg < interval_min_) {
+  if(argT - interval_intrinsic_min_ < -10.0*PLMD::epsilon) {
     inside_interval=false;
     argT=interval_min_;
-  } else if(arg > interval_max_) {
+  } else if(argT - interval_intrinsic_max_ > 10.0*PLMD::epsilon) {
     inside_interval=false;
     argT=interval_max_;
   }
