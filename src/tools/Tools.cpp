@@ -29,6 +29,7 @@
 #include <map>
 #include <iomanip>
 #include <filesystem>
+#include <string_view>
 
 namespace PLMD {
 
@@ -291,6 +292,29 @@ void Tools::getWordsSimple(gch::small_vector<std::string_view> & words,std::stri
   }
 }
 
+void Tools::getWordsSimple(gch::small_vector<std::string_view> & words,
+                           std::string_view line,
+                           const std::string_view separators) {
+  words.clear();
+  auto ptr=line.data();
+  std::size_t size=0;
+  for(unsigned i=0; i<line.length(); i++) {
+    const bool is_separator=(separators.find(line[i])!=separators.npos);
+    if(!is_separator) {
+      size++;
+    } else if(size==0) {
+      ptr++;
+    } else {
+      words.emplace_back(ptr,size);
+      ptr=&line[i]+1;
+      size=0;
+    }
+  }
+  if(size>0) {
+    words.emplace_back(ptr,size);
+  }
+}
+
 bool Tools::getParsedLine(IFile& ifile,std::vector<std::string> & words, bool trimcomments) {
   std::string line("");
   words.clear();
@@ -436,6 +460,20 @@ bool Tools::getKey(std::vector<std::string>& line,
     }
   };
   return false;
+}
+
+std::string_view Tools::unravelReplicas(std::string_view argument,
+                                        int rep) {
+  constexpr std::string_view multi("@replicas:");
+  if(rep>=0 && startWith(argument,multi)) {
+    gch::small_vector<std::string_view> replicaValues;
+    getWordsSimple(replicaValues,argument,"\t\n ,");
+    plumed_massert(rep<static_cast<int>(replicaValues.size()),
+                   "Number of fields in " + std::string(argument) + " not consistent with number of replicas");
+    return replicaValues[rep];
+  } else {
+    return argument;
+  }
 }
 
 void Tools::interpretRanges(std::vector<std::string>&s) {

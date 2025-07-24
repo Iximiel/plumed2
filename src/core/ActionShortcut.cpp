@@ -268,15 +268,15 @@ std::vector<std::string> ActionShortcut::getSavedOutputs() const {
 
 std::string ActionShortcut::convertInputLineToString() {
   std::string output;
-  for(auto p=line.begin(); p!=line.end(); ++p) {
-    if( (*p).find(" " )!=std::string::npos ) {
-      std::size_t eq = (*p).find_first_of("=");
-      output += " " + (*p).substr(0,eq) + "={" + (*p).substr(eq+1) + "}";
+  for(auto p=linemap.begin(); p!=linemap.end(); ++p) {
+    if( (p->second).find(" " )!=std::string::npos ) {
+      output += " " + p->first+ "={" + p->second + "}";
     } else {
-      output += " " + (*p);
+      output += " "+ p->first+ "=" + p->second;
     }
   }
-  line.resize(0);
+
+  linemap.clear();
   return output;
 }
 

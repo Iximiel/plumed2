@@ -34,8 +34,9 @@
 #include "tools/Exception.h"
 #include "tools/Communicator.h"
 #include "ActionSet.h"
+#include <iomanip>
 #include <iostream>
-
+#include <algorithm>
 namespace PLMD {
 
 Keywords ActionOptions::emptyKeys;
@@ -62,7 +63,7 @@ void Action::registerKeywords( Keywords& keys ) {
 
 Action::Action(const ActionOptions&ao):
   name(ao.line[0]),
-  line(ao.line),
+//  line(ao.line),
   update_from(std::numeric_limits<double>::max()),
   update_until(std::numeric_limits<double>::max()),
   timestep(0),
@@ -78,7 +79,24 @@ Action::Action(const ActionOptions&ao):
   // Retrieve the timestep and save it
   resetStoredTimestep();
 
-  line.erase(line.begin());
+  //line.erase(line.begin());
+  //making the line map
+  //TODO: extract this method
+  {
+    std::cerr <<"Action: "<< std::quoted(name) << "\n";
+
+    for (auto k = ao.line.begin()+1; k!=ao.line.end(); ++k) {
+      auto eqpos=k->find('=');
+      std::string key = k->substr(0,eqpos);
+      std::transform(key.begin(),key.end(),key.begin(),::toupper);
+      if(eqpos != std::string::npos) {
+        linemap[key]=k->substr(eqpos+1);
+      } else {
+        linemap[key]="";
+      }
+      std::cerr << "Key: "<< std::quoted(key) << " content: " << std::quoted(linemap[key])<< "\n";
+    }
+  }
   if( !keywords.exists("NO_ACTION_LOG") ) {
     log.printf("Action %s\n",name.c_str());
     if(ao.fullPath.length()>0) {
@@ -180,11 +198,12 @@ std::string Action::getKeyword(const std::string& key) {
   // Check keyword has been registered
   plumed_massert(keywords.exists(key), "keyword " + key + " has not been registered");
 
-  std::string outkey;
-  if( Tools::getKey(line,key,outkey ) ) {
-    return key + outkey;
+  auto keyArg = linemap.find(key);
+  if( keyArg != linemap.end()) {
+    return key +"="+ keyArg->second;
   }
 
+  std::string outkey;
   if( keywords.style(key,"compulsory") ) {
     if( keywords.getDefaultValue(key,outkey) ) {
       if( outkey.length()==0 ) {
@@ -205,7 +224,11 @@ void Action::parseFlag(const std::string&key,bool & t) {
   plumed_massert( keywords.style(key,"deprecated") || keywords.style(key,"flag") || keywords.style(key,"hidden"), "keyword " + key + " is not a flag");
 
   // Read in the flag otherwise get the default value from the keywords object
-  if(!Tools::parseFlag(line,key,t)) {
+  auto keytext = linemap.find(key);
+  t = keytext != linemap.end();
+  if(t) {
+    linemap.erase(keytext);
+  } else {
     if( keywords.style(key,"nohtml") ) {
       t=false;
     } else if ( !keywords.getLogicalDefault(key,t) ) {
@@ -281,16 +304,20 @@ void Action::clearDependencies() {
 }
 
 void Action::checkRead() {
-  if(!line.empty()) {
+  if (!linemap.empty()) {
     std::string msg="cannot understand the following words from the input line : ";
-    for(unsigned i=0; i<line.size(); i++) {
+    int i=0;
+    for(const auto & l:linemap) {
       if(i>0) {
         msg = msg + ", ";
       }
-      msg = msg + line[i];
+      ++i;
+      msg = msg + l.first;
     }
+    std::cerr << msg << "\n";
     error(msg);
   }
+
   setupConstantValues(false);
 }
 

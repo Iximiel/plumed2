@@ -45,6 +45,7 @@
 #include <map>
 #include <condition_variable>
 #include <type_traits>
+#include <set>
 
 namespace PLMD {
 
@@ -103,7 +104,11 @@ public:
   static std::vector<std::string> getWords(std::string_view line,const char* sep=NULL,int* parlevel=NULL,const char* parenthesis="{", bool delete_parenthesis=true);
 /// Faster version
 /// This version does not parse parenthesis and operates on a preallocated small_vector of string_view's
-  static void getWordsSimple(gch::small_vector<std::string_view> & words,std::string_view line);
+  static void getWordsSimple(gch::small_vector<std::string_view> & words,
+                             std::string_view line);
+  static void getWordsSimple(gch::small_vector<std::string_view> & words,
+                             std::string_view line,
+                             std::string_view sep);
 /// Get a line from the file pointer ifile
   static bool getline(FILE*,std::string & line);
 /// Get a parsed line from the file pointer ifile
@@ -152,17 +157,35 @@ public:
 /// line.push_back("aa=xx");
 /// getKey(line,"aa",s);
 /// will set s="xx"
-  static bool getKey(std::vector<std::string>& line,const std::string & key,std::string & s,int rep=-1);
-/// Find a keyword on the input line, eventually deleting it, and saving its value to val
+  static bool getKey(std::vector<std::string>& line,
+                     const std::string & key,
+                     std::string & s,
+                     int rep=-1);
+  static std::string_view unravelReplicas(std::string_view argument,
+                                          int rep=-1);
   template <typename T,typename U>
   static void convert(const T & t,U & u) {
     plumed_assert(convertNoexcept(t,u)) <<"Error converting  "<<t;
   }
+/// Find a keyword on the input line, eventually deleting it, and saving its value to val
   template <typename T>
-  static bool parse(std::vector<std::string>&line,const std::string&key,T&val,int rep=-1);
+  static bool parse(std::vector<std::string>&line,
+                    const std::string&key,
+                    T&val,
+                    int rep=-1);
+/// Parse the argument and eventually unrave the variant for the current replica
+  template <typename T>
+  static bool parse(std::string_view argument,
+                    T&val,
+                    int rep=-1);
 /// Find a keyword on the input line, eventually deleting it, and saving its value to a vector
   template <class T>
   static bool parseVector(std::vector<std::string>&line,const std::string&key,std::vector<T>&val,int rep=-1);
+  template <class T>
+  static bool parseVector(
+    const std::string_view argument,
+    std::vector<T>&val,
+    int rep=-1) ;
 /// Find a keyword without arguments on the input line
   static bool parseFlag(std::vector<std::string>&line,const std::string&key,bool&val);
 /// Find a keyword on the input line, just reporting if it exists or not
@@ -281,14 +304,34 @@ public:
   /// Deletion would be slower instead. It's not even implemented yet.
   template<class T>
   class FastStringUnorderedMap {
-    std::unordered_map<std::string_view,T> map;
-    std::vector<std::unique_ptr<const char[]>> keys;
+    using container=std::unordered_map<std::string_view,T>;
+    using keytype = std::unique_ptr<const char[]>;
+    container map;
+    struct myless {
+      using is_transparent=void;
+      bool operator()(const keytype & a, const keytype& b) const {
+        return strcmp(a.get(),b.get())<0;
+      }
+      bool operator()(const keytype & a, const char *b) const {
+        return strcmp(a.get(),b)<0;
+      }
+      bool operator()(const char *a, const keytype& b) const {
+        return strcmp(a,b.get())<0;
+      }
+      bool operator()(const keytype & a, std::string_view b) const {
+        return strcmp(a.get(),b.data())<0;
+      }
+      bool operator()(std::string_view a, const keytype & b) const {
+        return strcmp(a.data(),b.get())<0;
+      }
+    };
+    std::set<keytype,myless> keys;
 
     // see https://stackoverflow.com/questions/34596768/stdunordered-mapfind-using-a-type-different-than-the-key-type
-    std::unique_ptr<const char[]> conv(std::string_view str) {
+    keytype conv(std::string_view str) {
       auto p=std::make_unique<char[]>(str.size()+1);
       std::memcpy(p.get(), str.data(), str.size()+1);
-      return p;
+      return std::move(p);
     }
 
   public:
@@ -300,32 +343,53 @@ public:
       }
     }
 
-    T& operator[]( const std::string_view & key ) {
+    T& operator[]( const std::string_view key ) {
       auto f=map.find(key);
       if(f!=map.end()) {
         return f->second;
       }
-      keys.push_back(conv(key));
-      return map[keys.back().get()];
+      auto[it,success]= keys.insert(conv(key));
+      plumed_dbg_assert(success);
+      return map[it->get()];
     }
 
-    auto begin() {
+    auto begin() noexcept {
       return map.begin();
     }
-    auto end() {
+    auto end() noexcept {
       return map.end();
     }
-    auto begin() const {
+    auto begin() const noexcept {
       return map.begin();
     }
-    auto end() const {
+    auto end() const noexcept {
       return map.end();
     }
-    auto find(const std::string_view & key) {
+    auto find(const std::string_view key) {
       return map.find(key);
     }
-    auto find(const std::string_view & key) const {
+    auto find(const std::string_view key) const {
       return map.find(key);
+    }
+    auto erase(typename container::iterator pos) {
+      if(pos == map.end()) {
+        return map.end();
+      }
+      keys.erase(keys.find(pos->first));
+      auto it = map.erase(pos);
+      return it;
+    }
+
+    auto erase(typename container::const_iterator pos) {
+      if(pos == map.end()) {
+        return map.end();
+      }
+      keys.erase(keys.find(pos->first));
+      auto it = map.erase(pos);
+      return it;
+    }
+    typename container::size_type size() const {
+      return map.size();
     }
   };
 
@@ -404,7 +468,10 @@ public:
 };
 
 template <class T>
-bool Tools::parse(std::vector<std::string>&line,const std::string&key,T&val,int rep) {
+bool Tools::parse(std::vector<std::string>&line,
+                  const std::string&key,
+                  T&val,
+                  int rep) {
   std::string s;
   if(!getKey(line,key+"=",s,rep)) {
     return false;
@@ -416,6 +483,14 @@ bool Tools::parse(std::vector<std::string>&line,const std::string&key,T&val,int 
 }
 
 template <class T>
+bool Tools::parse(std::string_view argument,
+                  T&val,
+                  int rep) {
+  auto s = std::string(unravelReplicas(argument,rep));
+  return s.length()>0 && convertNoexcept(s,val);
+}
+
+template <class T>
 bool Tools::parseVector(std::vector<std::string>&line,const std::string&key,std::vector<T>&val,int rep) {
   std::string s;
   if(!getKey(line,key+"=",s,rep)) {
@@ -423,6 +498,7 @@ bool Tools::parseVector(std::vector<std::string>&line,const std::string&key,std:
   }
   val.clear();
   std::vector<std::string> words=getWords(s,"\t\n ,");
+  val.reserve(words.size());
   for(unsigned i=0; i<words.size(); ++i) {
     T v;
     std::string s=words[i];
@@ -441,6 +517,25 @@ bool Tools::parseVector(std::vector<std::string>&line,const std::string&key,std:
   return true;
 }
 
+template <class T>
+bool Tools::parseVector(
+  const std::string_view argument,
+  std::vector<T>&val,
+  int rep) {
+  val.clear();
+  gch::small_vector<std::string_view> words;
+  getWordsSimple(words,argument,"\t\n ,");
+  val.reserve(words.size());
+  for(unsigned i=0; i<words.size(); ++i) {
+    T v;
+    auto s=std::string(unravelReplicas(words[i],rep));
+    if(!convertNoexcept(s,v)) {
+      return false;
+    }
+    val.push_back(v);
+  }
+  return true;
+}
 template<typename T>
 void Tools::removeDuplicates(std::vector<T>& vec) {
   std::sort(vec.begin(), vec.end());

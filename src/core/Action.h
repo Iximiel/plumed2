@@ -21,6 +21,7 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #ifndef __PLUMED_core_Action_h
 #define __PLUMED_core_Action_h
+#include <iomanip>
 #include <vector>
 #include <string>
 #include <set>
@@ -28,6 +29,8 @@
 #include "tools/Tools.h"
 #include "tools/Units.h"
 #include "tools/Log.h"
+
+#include <iostream>
 
 namespace PLMD {
 
@@ -73,7 +76,8 @@ public:
 /// in the plumed.dat file and are applied in order at each time-step.
 class Action {
   friend class ActionShortcut;
-
+  //using KeyMap = PLMD::Tools::FastStringUnorderedMap<std::string>;
+  using KeyMap = std::map<std::string,std::string,std::less<void>>;
 /// Name of the directive in the plumed.dat file.
   const std::string name;
 
@@ -83,8 +87,22 @@ class Action {
 /// Directive line.
 /// This line is progressively erased during Action construction
 /// so as to check if all the present keywords are correct.
-  std::vector<std::string> line;
-
+//  std::vector<std::string> line;
+  KeyMap linemap;
+  struct presentAndFound {
+    bool present;
+    bool found;
+  };
+  template<typename T>
+  static presentAndFound readAndRemove(KeyMap & lines,
+                                       std::string_view key,
+                                       T& value,
+                                       int rep=-1);
+  template<typename T>
+  static presentAndFound readAndRemoveVector(KeyMap & lines,
+      std::string_view key,
+      std::vector<T>& value,
+      int rep=-1);
 /// Update only after this time.
   double update_from;
 
@@ -386,21 +404,40 @@ const std::string & Action::getName()const {
   return name;
 }
 
+template<typename T>
+Action::presentAndFound Action::readAndRemove(KeyMap & lines,
+    std::string_view key,
+    T& value,
+    const int replica_index ) {
+  //bool present=Tools::findKeyword(line,key);
+  std::cerr << "Looking for" <<std::quoted(key) << "\n";
+  auto keytext = lines.find(key);
+  bool present = keytext != lines.end();
+  bool found=false;
+  if(present) {
+    found = Tools::parse(keytext->second, value,replica_index);
+    std::cerr << "reading" << std::quoted(keytext->first) << " : " << std::quoted(keytext->second) << "\n";
+    lines.erase(keytext);
+    std::cerr <<"read \"" <<(value)<<"\"\n";
+  }
+  return {present, found};
+}
+
 template<class T>
 void Action::parse(const std::string&key,T&t) {
   // Check keyword has been registered
   plumed_massert(keywords.exists(key),"keyword " + key + " has not been registered");
 
   // Now try to read the keyword
-  std::string def;
-  bool present=Tools::findKeyword(line,key);
-  bool found=Tools::parse(line,key,t,replica_index);
+  auto [present, found] = readAndRemove(linemap,key,t,replica_index);
+
   if(present && !found) {
     error("keyword " + key +" could not be read correctly");
   }
 
   // If it isn't read and it is compulsory see if a default value was specified
   if ( !found && (keywords.style(key,"compulsory") || keywords.style(key,"hidden")) ) {
+    std::string def;
     if( keywords.getDefaultValue(key,def) ) {
       if( def.length()==0 || !Tools::convertNoexcept(def,t) ) {
         plumed_error() <<"ERROR in action "<<name<<" with label "<<label<<" : keyword "<<key<<" has weird default value";
@@ -423,7 +460,27 @@ bool Action::parseNumbered(const std::string&key, const int no, T&t) {
   // Now try to read the keyword
   std::string num;
   Tools::convert(no,num);
-  return Tools::parse(line,key+num,t,replica_index);
+  auto [present, found] = readAndRemove(linemap,key+num,t,replica_index);
+  return found;
+}
+
+template<typename T>
+Action::presentAndFound Action::readAndRemoveVector(KeyMap & lines,
+    std::string_view key,
+    std::vector<T>& value,
+    const int replica_index ) {
+  //bool present=Tools::findKeyword(line,key);
+  std::cerr << "Looking for" <<std::quoted(key) << "\n";
+  auto keytext = lines.find(key);
+  bool present = keytext != lines.end();
+  bool found=false;
+  if(present) {
+    found = Tools::parseVector(keytext->second, value,replica_index);
+    std::cerr << "reading" << std::quoted(keytext->first) << " : " << std::quoted(keytext->second) << "\n";
+    lines.erase(keytext);
+    std::cerr <<"read [0]\"" <<(value[0])<<"\"\n";
+  }
+  return {present, found};
 }
 
 template<class T>
@@ -435,12 +492,8 @@ void Action::parseVector(const std::string&key,std::vector<T>&t) {
   if(size==0) {
     skipcheck=true;
   }
-
   // Now try to read the keyword
-  std::string def;
-  T val;
-  bool present=Tools::findKeyword(line,key);
-  bool found=Tools::parseVector(line,key,t,replica_index);
+  auto [present, found] = readAndRemoveVector(linemap,key,t,replica_index);
   if(present && !found) {
     error("keyword " + key +" could not be read correctly");
   }
@@ -456,6 +509,8 @@ void Action::parseVector(const std::string&key,std::vector<T>&t) {
 
   // If it isn't read and it is compulsory see if a default value was specified
   if ( !found && (keywords.style(key,"compulsory") || keywords.style(key,"hidden")) ) {
+    T val;
+    std::string def;
     if( keywords.getDefaultValue(key,def) ) {
       if( def.length()==0 || !Tools::convertNoexcept(def,val) ) {
         plumed_error() <<"ERROR in action "<<name<<" with label "<<label<<" : keyword "<<key<<" has weird default value";
@@ -482,7 +537,9 @@ void Action::parseVector(const std::string&key,std::vector<T>&t) {
 }
 
 template<class T>
-bool Action::parseNumberedVector(const std::string&key, const int no, std::vector<T>&t) {
+bool Action::parseNumberedVector(const std::string&key,
+                                 const int no,
+                                 std::vector<T>&t) {
   plumed_massert(keywords.exists(key),"keyword " + key + " has not been registered");
   if( !keywords.numbered(key) ) {
     error("numbered keywords are not allowed for " + key );
@@ -492,8 +549,7 @@ bool Action::parseNumberedVector(const std::string&key, const int no, std::vecto
   bool skipcheck=size==0;
   std::string num;
   Tools::convert(no,num);
-  bool present=Tools::findKeyword(line,key);
-  bool found=Tools::parseVector(line,key+num,t,replica_index);
+  auto [present, found] = readAndRemoveVector(linemap,key+num,t,replica_index);
   if(present && !found) {
     error("keyword " + key +" could not be read correctly");
   }
