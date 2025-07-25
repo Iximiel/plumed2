@@ -267,17 +267,7 @@ std::vector<std::string> ActionShortcut::getSavedOutputs() const {
 }
 
 std::string ActionShortcut::convertInputLineToString() {
-  std::string output;
-  for(auto p=linemap.begin(); p!=linemap.end(); ++p) {
-    if( (p->second).find(" " )!=std::string::npos ) {
-      output += " " + p->first+ "={" + p->second + "}";
-    } else {
-      output += " "+ p->first+ "=" + p->second;
-    }
-  }
-
-  linemap.clear();
-  return output;
+  return linemap.convertToString(true);
 }
 
 void ActionShortcut::interpretDataLabel( const std::string& mystr, Action* myuser, std::vector<Value*>& arg ) const {

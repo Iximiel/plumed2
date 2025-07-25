@@ -63,7 +63,8 @@ void Action::registerKeywords( Keywords& keys ) {
 
 Action::Action(const ActionOptions&ao):
   name(ao.line[0]),
-//  line(ao.line),
+  //skipping the name with the +1
+  linemap(ao.line.begin()+1,ao.line.end()),
   update_from(std::numeric_limits<double>::max()),
   update_until(std::numeric_limits<double>::max()),
   timestep(0),
@@ -81,22 +82,6 @@ Action::Action(const ActionOptions&ao):
 
   //line.erase(line.begin());
   //making the line map
-  //TODO: extract this method
-  {
-    std::cerr <<"Action: "<< std::quoted(name) << "\n";
-
-    for (auto k = ao.line.begin()+1; k!=ao.line.end(); ++k) {
-      auto eqpos=k->find('=');
-      std::string key = k->substr(0,eqpos);
-      std::transform(key.begin(),key.end(),key.begin(),::toupper);
-      if(eqpos != std::string::npos) {
-        linemap[key]=k->substr(eqpos+1);
-      } else {
-        linemap[key]="";
-      }
-      std::cerr << "Key: "<< std::quoted(key) << " content: " << std::quoted(linemap[key])<< "\n";
-    }
-  }
   if( !keywords.exists("NO_ACTION_LOG") ) {
     log.printf("Action %s\n",name.c_str());
     if(ao.fullPath.length()>0) {
@@ -198,12 +183,10 @@ std::string Action::getKeyword(const std::string& key) {
   // Check keyword has been registered
   plumed_massert(keywords.exists(key), "keyword " + key + " has not been registered");
 
-  auto keyArg = linemap.find(key);
-  if( keyArg != linemap.end()) {
-    return key +"="+ keyArg->second;
+  std::string outkey=linemap.getKeyword(key);
+  if(!outkey.empty()) {
+    return outkey;
   }
-
-  std::string outkey;
   if( keywords.style(key,"compulsory") ) {
     if( keywords.getDefaultValue(key,outkey) ) {
       if( outkey.length()==0 ) {
@@ -224,11 +207,8 @@ void Action::parseFlag(const std::string&key,bool & t) {
   plumed_massert( keywords.style(key,"deprecated") || keywords.style(key,"flag") || keywords.style(key,"hidden"), "keyword " + key + " is not a flag");
 
   // Read in the flag otherwise get the default value from the keywords object
-  auto keytext = linemap.find(key);
-  t = keytext != linemap.end();
-  if(t) {
-    linemap.erase(keytext);
-  } else {
+  t = linemap.readAndRemoveFlag(key);
+  if(!t) {
     if( keywords.style(key,"nohtml") ) {
       t=false;
     } else if ( !keywords.getLogicalDefault(key,t) ) {
@@ -306,15 +286,7 @@ void Action::clearDependencies() {
 void Action::checkRead() {
   if (!linemap.empty()) {
     std::string msg="cannot understand the following words from the input line : ";
-    int i=0;
-    for(const auto & l:linemap) {
-      if(i>0) {
-        msg = msg + ", ";
-      }
-      ++i;
-      msg = msg + l.first;
-    }
-    std::cerr << msg << "\n";
+    msg += linemap.keyList(", ");
     error(msg);
   }
 
