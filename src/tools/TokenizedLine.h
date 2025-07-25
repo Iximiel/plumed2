@@ -48,7 +48,7 @@ public:
 /// Initializer from vector iterators
   TokenizedLine(const_vectorIt begin, const_vectorIt end);
 /// Initializer from vector
-  TokenizedLine(const std::vector<std::string>);
+  TokenizedLine(const std::vector<std::string>&);
 ///return a plain string with the all the current KEY=value combinations it is possible to clear the tokens after that
   std::string convertToString(bool alsoClear);
 ///returns the list of the keys:

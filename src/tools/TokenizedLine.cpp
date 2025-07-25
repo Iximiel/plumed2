@@ -53,7 +53,7 @@ TokenizedLine::TokenizedLine(const_vectorIt begin,
                              const_vectorIt end):
   tokens(mapCreator(begin, end)) {}
 
-TokenizedLine::TokenizedLine(const std::vector<std::string> line):
+TokenizedLine::TokenizedLine(const std::vector<std::string>& line):
   PLMD::TokenizedLine(line.begin(),line.end()) {}
 
 std::string TokenizedLine::convertToString(bool alsoClear) {

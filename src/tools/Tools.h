@@ -353,7 +353,7 @@ public:
     keytype conv(std::string_view str) {
       auto p=std::make_unique<char[]>(str.size()+1);
       std::memcpy(p.get(), str.data(), str.size()+1);
-      return std::move(p);
+      return p;
     }
 
   public:
