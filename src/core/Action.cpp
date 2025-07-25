@@ -200,14 +200,23 @@ std::string Action::getKeyword(const std::string& key) {
   return "";
 }
 
-void Action::parseFlag(const std::string&key,bool & t) {
+void Action::parseFlag(const std::string&key,bool & t, bool caseInsensitive) {
   // Check keyword has been registered
   plumed_massert(keywords.exists(key), "keyword " + key + " has not been registered");
   // Check keyword is a flag
   plumed_massert( keywords.style(key,"deprecated") || keywords.style(key,"flag") || keywords.style(key,"hidden"), "keyword " + key + " is not a flag");
 
   // Read in the flag otherwise get the default value from the keywords object
-  t = linemap.readAndRemoveFlag(key);
+  if (caseInsensitive) {
+    auto u = [](std::string_view const s) {
+      std::string out;
+      std::transform(s.begin(),s.end(),std::back_inserter(out),::toupper);
+      return out;
+    };
+    t = linemap.readAndRemoveFlag(u(key));
+  } else {
+    t = linemap.readAndRemoveFlag(key);
+  }
   if(!t) {
     if( keywords.style(key,"nohtml") ) {
       t=false;

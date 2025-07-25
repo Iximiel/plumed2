@@ -77,11 +77,11 @@ Debug::Debug(const ActionOptions&ao):
   logActivity(false),
   logRequestedAtoms(false),
   novirial(false) {
-  parseFlag("logActivity",logActivity);
+  parseFlag("logActivity",logActivity,true);
   if(logActivity) {
     log.printf("  logging activity\n");
   }
-  parseFlag("logRequestedAtoms",logRequestedAtoms);
+  parseFlag("logRequestedAtoms",logRequestedAtoms, true);
   if(logRequestedAtoms) {
     log.printf("  logging requested atoms\n");
   }
