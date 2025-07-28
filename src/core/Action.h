@@ -86,7 +86,6 @@ class Action {
 /// Directive line.
 /// This line is progressively erased during Action construction
 /// so as to check if all the present keywords are correct.
-//  std::vector<std::string> line;
   KeyMap linemap;
 /// Update only after this time.
   double update_from;
