@@ -22,10 +22,32 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "TokenizedLine.h"
 
+#include <iterator>
 #include <string>
 #include <algorithm>
 
 namespace PLMD {
+TokenizedLine::line wholeLineReplicas(const std::string& myLine) {
+//NOTE: as now (exactly like before this PR) a vector will not accept only the first element as replicas:
+// - @replicas:{1,2,3},4,5 do not work (KEY={@replicas:{1,2,3},4,5})
+// - @replicas:{1,4,5},{2,4,5},{3,4,5} works (KEY=@replicas:{{1,4,5},{2,4,5},{3,4,5}}), it should be equivalent to the line above
+// - 1,@replicas:{2,3,4},5 works (KEY={1,@replicas{2,3,4},5})
+// the problem will be solved by passing to TokenizedLine the line with the first parentheses not removed
+//
+  if(Tools::startWith(myLine,Tools::replicaToken)) {
+    auto tr = Tools::getWords(
+                myLine.substr(Tools::replicaToken.length()),
+                "\t\n ,");
+    tr.insert(tr.begin(),myLine);
+    return tr;
+  } else {
+    return {myLine};
+  }
+}
+
+inline auto render(const TokenizedLine::line& l) {
+  return l[0];
+}
 
 template <typename IT>
 auto mapCreator(IT k, IT const end) {
@@ -36,11 +58,11 @@ auto mapCreator(IT k, IT const end) {
     std::string key = k->substr(0,eqpos);
     std::transform(key.begin(),key.end(),key.begin(),::toupper);
     if(eqpos != std::string::npos) {
-      toret[key]=k->substr(eqpos+1);
+      toret[key]=wholeLineReplicas(k->substr(eqpos+1));
     } else {
       //is a flag
       //maybe giving it a special value to confirm that it is indeed a flag?
-      toret[key]="";
+      toret[key].emplace_back("");
     }
   }
   return std::move(toret);
@@ -59,10 +81,11 @@ TokenizedLine::TokenizedLine(const std::vector<std::string>& line):
 std::string TokenizedLine::convertToString(bool alsoClear) {
   std::string output;
   for(auto p=tokens.begin(); p!=tokens.end(); ++p) {
-    if( (p->second).find(" " )!=std::string::npos ) {
-      output += " " + p->first+ "={" + p->second + "}";
+    auto tmp = render(p->second);
+    if( tmp.find(" " )!=std::string::npos ) {
+      output += " " + p->first+ "={" + tmp + "}";
     } else {
-      output += " "+ p->first+ "=" + p->second;
+      output += " "+ p->first+ "=" + tmp;
     }
   }
   if(alsoClear) {
@@ -96,7 +119,7 @@ bool TokenizedLine::empty() const {
 std::string TokenizedLine::getKeyword(std::string_view key) const {
   auto keyArg = tokens.find(key);
   if( keyArg != tokens.end()) {
-    return std::string(key) +"="+ keyArg->second;
+    return std::string(key) +"="+ render(keyArg->second);
   }
   return "";
 }
@@ -110,5 +133,29 @@ bool TokenizedLine::readAndRemoveFlag(std::string_view key) {
   return false;
 }
 
+std::string TokenizedLine::getValue(std::string_view key, int rep) const {
+  auto keyArg = tokens.find(key);
+  rep = (rep<0) ? -1:rep;
+  if( keyArg != tokens.end()) {
+    if (keyArg->second.size() == 1) {
+      return keyArg->second[0];
+    } else {
+      if (rep < keyArg->second.size()-1) {
+        return keyArg->second[rep+1];
+      }
+    }
+  }
+  return "";
+}
+std::string_view TokenizedLine::replica(const line& l,int rep) {
+  rep = (rep<0) ? -1:rep;
+  if (l.size() == 1) {
+    return l[0];
+  } else {
+    //TODO: check that this does not go rep> l.size()
+    return l[rep+1];
+
+  }
+}
 } // namespace PLMD
 

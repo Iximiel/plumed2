@@ -96,6 +96,7 @@ class Tools {
   template <int exp, typename T=double, std::enable_if_t< (exp >=0), bool> = true>
   static inline /*consteval*/ T fastpow_rec(T base, T result);
 public:
+  static constexpr std::string_view replicaToken="@replicas:";
 /// Split the line in words using separators.
 /// It also take into account parenthesis. Outer parenthesis found are removed from
 /// output, and the text between them is considered as a single word. Only the
@@ -179,9 +180,7 @@ public:
                     int rep=-1);
 /// Parse the argument and eventually unrave the variant for the current replica
   template <typename T>
-  static bool parse(std::string_view argument,
-                    T&val,
-                    int rep=-1);
+  static bool parse(std::string_view argument, T&val);
 /// Find a keyword on the input line, eventually deleting it, and saving its value to a vector
   template <class T>
   static bool parseVector(std::vector<std::string>&line,const std::string&key,std::vector<T>&val,int rep=-1);
@@ -517,10 +516,9 @@ bool Tools::parse(std::vector<std::string>&line,
 
 template <class T>
 bool Tools::parse(std::string_view argument,
-                  T&val,
-                  int rep) {
-  auto s = std::string(unravelReplicas(argument,rep));
-  return s.length()>0 && convertNoexcept(s,val);
+                  T&val) {
+//NOTE: this expects the '@replica:' on the argument to be resolved by the caller
+  return argument.length()>0 && convertNoexcept(std::string(argument),val);
 }
 
 template <class T>
@@ -536,9 +534,8 @@ bool Tools::parseVector(std::vector<std::string>&line,const std::string&key,std:
   for(unsigned i=0; i<words.size(); ++i) {
     T v;
     std::string s=words[i];
-    const std::string multi("@replicas:");
-    if(rep>=0 && startWith(s,multi)) {
-      s=s.substr(multi.length(),s.length());
+    if(rep>=0 && startWith(s,replicaToken)) {
+      s=s.substr(replicaToken.length(),s.length());
       std::vector<std::string> words=getWords(s,"\t\n ,");
       plumed_assert(rep<static_cast<int>(words.size()));
       s=words[rep];
@@ -556,6 +553,7 @@ bool Tools::parseVector(
   const std::string_view argument,
   std::vector<T>&val,
   int rep) {
+//NOTE: this expects the '@replica' on the argument of the whole vector to be resolved by the caller
   val.clear();
   gch::small_vector<std::string_view> words;
   getWordsSimple(words,argument,"\t\n ,");
@@ -564,7 +562,6 @@ bool Tools::parseVector(
     T v;
     auto s=std::string(unravelReplicas(words[i],rep));
     s.erase(std::remove_if(s.begin(),s.end(),
-                           //'{'
     [](unsigned char x) {
       switch (x) {
       case '{':
@@ -573,7 +570,6 @@ bool Tools::parseVector(
       }
       return false;
     }),s.end());
-    // s.erase(std::remove(s.begin(),s.end(),'}'),s.end());
     if(!convertNoexcept(s,v)) {
       return false;
     }
