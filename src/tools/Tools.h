@@ -101,7 +101,11 @@ public:
 /// output, and the text between them is considered as a single word. Only the
 /// outer parenthesis are processed, to allow nesting them.
 /// parlevel, if not NULL, is increased or decreased according to the number of opened/closed parenthesis
-  static std::vector<std::string> getWords(std::string_view line,const char* sep=NULL,int* parlevel=NULL,const char* parenthesis="{", bool delete_parenthesis=true);
+  static std::vector<std::string> getWords(std::string_view line,
+      const char* sep=NULL,
+      int* parlevel=NULL,
+      const char* parenthesis="{",
+      bool delete_parenthesis=true);
 /// Faster version
 /// This version does not parse parenthesis and operates on a preallocated small_vector of string_view's
   static void getWordsSimple(gch::small_vector<std::string_view> & words,
@@ -526,6 +530,7 @@ bool Tools::parseVector(std::vector<std::string>&line,const std::string&key,std:
     return false;
   }
   val.clear();
+  //needs to get the parenteses
   std::vector<std::string> words=getWords(s,"\t\n ,");
   val.reserve(words.size());
   for(unsigned i=0; i<words.size(); ++i) {
@@ -558,6 +563,17 @@ bool Tools::parseVector(
   for(unsigned i=0; i<words.size(); ++i) {
     T v;
     auto s=std::string(unravelReplicas(words[i],rep));
+    s.erase(std::remove_if(s.begin(),s.end(),
+                           //'{'
+    [](unsigned char x) {
+      switch (x) {
+      case '{':
+      case '}':
+        return true;
+      }
+      return false;
+    }),s.end());
+    // s.erase(std::remove(s.begin(),s.end(),'}'),s.end());
     if(!convertNoexcept(s,v)) {
       return false;
     }

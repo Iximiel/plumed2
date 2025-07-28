@@ -296,23 +296,43 @@ void Tools::getWordsSimple(gch::small_vector<std::string_view> & words,
                            std::string_view line,
                            const std::string_view separators) {
   words.clear();
-  auto ptr=line.data();
+  //NOTE::this function is written assuming that we have only a level of parentesis
+  // so "{a b x},{s}" is ok, "x,{{a,r}}" is not
+  // unlike getWords it will not delete the parentesis, in the spirit of returning a view
+  // to remove the parentesis you have to use a erase-remove idiom (see parseVector)
+  constexpr char openPar='{';
+  constexpr char closePar = '}';
+  size_t init=0;
   std::size_t size=0;
+  int parlevel=0;
   for(unsigned i=0; i<line.length(); i++) {
-    const bool is_separator=(separators.find(line[i])!=separators.npos);
-    if(!is_separator) {
+    //being between parenthesis "suspends" the separator check
+    const bool is_separator=(separators.find(line[i])!=separators.npos)&&parlevel==0;
+    const bool is_par = line[i]==openPar || line[i] == closePar;
+    if(!is_separator && !is_par) {
       size++;
-    } else if(size==0) {
-      ptr++;
+    } else if(line[i]==openPar) {
+      ++parlevel;
+      ++size;
+    } else if(line[i] == closePar) {
+      --parlevel;
+      ++size;
     } else {
-      words.emplace_back(ptr,size);
-      ptr=&line[i]+1;
-      size=0;
+      if(size==0) {
+        init++;
+      } else {
+        words.emplace_back(line.substr(init,size));
+        init=i+1;
+        size=0;
+      }
     }
+    plumed_assert(parlevel<=1&& parlevel>=0) << "getWordsSimple do not support nested parenthesis ('" << line << "')";
   }
   if(size>0) {
-    words.emplace_back(ptr,size);
+    words.emplace_back(line.substr(init,size));
   }
+
+  plumed_assert(parlevel==0) << "Unmatching parenthesis in '" << line << "'";
 }
 
 bool Tools::getParsedLine(IFile& ifile,std::vector<std::string> & words, bool trimcomments) {
