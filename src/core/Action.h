@@ -186,7 +186,7 @@ public:
   bool parseNumberedVector(const std::string& key, const int no, std::vector<T>&t);
 
 /// Parse one keyword as boolean flag
-  void parseFlag(const std::string&key,bool&t,bool caseInsensitive=false);
+  void parseFlag(const std::string&key,bool&t);
 
 /// Crash calculation and print documentation
   [[noreturn]] void error( const std::string & msg ) const;
