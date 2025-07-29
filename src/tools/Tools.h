@@ -23,6 +23,7 @@
 #define __PLUMED_tools_Tools_h
 
 #include "AtomNumber.h"
+#include "Exception.h"
 #include "Vector.h"
 #include "Tensor.h"
 #include "small_vector/small_vector.h"
@@ -309,53 +310,15 @@ public:
   class FastStringUnorderedMap {
     using container=std::unordered_map<std::string_view,T>;
     using keytype = std::unique_ptr<const char[]>;
+    using keyholder = std::unordered_map<std::string_view,keytype>;
     container map;
-    /*
-     * this does not appear to work, as now,
-     * I would like to keep the skeleto to save some future development time
-     *
-     * Why a set? Deleting from ar rb tree is O(logN),
-     * becasue is find ( o(logN)) + the erasure,
-     * that is somehow constant time
-     * but insertions are O(logN),
-     * so until we are not erasing things is better to go on
-     * with the vector:
-     *
-     * for a vector those two are both o(N) operations,
-     * then you have the insert that is O(1) until your size is equal
-     * to the reserved space, and that is some extra allocations + o(N)
-     * for moving/copying data
-     *
-     * Another solution might be don't care about deleting
-     * elements from the vector and adding a clear() method
-     * that deletes everithing in the end (or maybe trigger that as a side
-     * effect of calling empty() when the map is empty)
-     *
-        struct myless {
-          using is_transparent=void;
-          bool operator()(const keytype & a, const keytype& b) const {
-            return strcmp(a.get(),b.get())<0;
-          }
-          bool operator()(const keytype & a, const char *b) const {
-            return strcmp(a.get(),b)<0;
-          }
-          bool operator()(const char *a, const keytype& b) const {
-            return strcmp(a,b.get())<0;
-          }
-          bool operator()(const keytype & a, std::string_view b) const {
-            return strcmp(a.get(),b.data())<0;
-          }
-          bool operator()(std::string_view a, const keytype & b) const {
-            return strcmp(a.data(),b.get())<0;
-          }
-        };
-        std::set<keytype,myless> keys;
-    */
-    std::vector <keytype> keys;
+    keyholder keys;
     // see https://stackoverflow.com/questions/34596768/stdunordered-mapfind-using-a-type-different-than-the-key-type
-    keytype conv(std::string_view str) {
+    static keytype conv(std::string_view const str) {
       auto p=std::make_unique<char[]>(str.size()+1);
-      std::memcpy(p.get(), str.data(), str.size()+1);
+      std::memcpy(p.get(), str.data(), str.size());
+      //the string_view might be a view of a longer string, so the last char might not be null
+      p[str.size()]='\0';
       return p;
     }
 
@@ -373,13 +336,17 @@ public:
       if(f!=map.end()) {
         return f->second;
       }
-      /*
-      auto[it,success]= keys.insert(conv(key));
-      plumed_dbg_assert(success);
-      return map[it->get()];
-      */
-      keys.emplace_back(std::move(conv(key)));
-      return map[keys.back().get()];
+      auto k = keys.insert([](std::string_view mykey)->keyholder::value_type{
+        //this contraption seems paranoid, but
+        //if I use "key" as a key and the pointed object is destroyed/changed,
+        //I won't be able to get to the value created
+        auto x = conv(mykey);
+        return {
+          std::string_view(x.get()),
+          std::move(x)};
+      }(key));
+      plumed_dbg_assert(k.second);
+      return map[k.first->second.get()];
     }
 
     auto begin() noexcept {
@@ -400,28 +367,19 @@ public:
     auto find(const std::string_view key) const {
       return map.find(key);
     }
-    /*
-        auto erase(typename container::iterator pos) {
-    //erasing with iterators is constant time, since the seach has already been done
-          if(pos == map.end()) {
-            return map.end();
-          }
-          keys.erase(keys.find(pos->first));
-          auto it = map.erase(pos);
-          return it;
-        }
-
-        auto erase(typename container::const_iterator pos) {
-          if(pos == map.end()) {
-            return map.end();
-          }
-          keys.erase(keys.find(pos->first));
-          auto it = map.erase(pos);
-          return it;
-        }
-    */
+    void erase(const std::string_view key) {
+      map.erase(key);
+      keys.erase(key);
+    }
+    //this is necessary for some testing
+    const auto & getKeys() const {
+      return keys;
+    }
     typename container::size_type size() const {
       return map.size();
+    }
+    bool empty() const {
+      return map.empty();
     }
   };
 
