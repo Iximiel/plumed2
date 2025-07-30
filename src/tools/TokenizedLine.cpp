@@ -65,7 +65,7 @@ auto mapCreator(IT k, IT const end) {
       toret[key].emplace_back("");
     }
   }
-  return std::move(toret);
+  return toret;
 }
 
 TokenizedLine::TokenizedLine(vectorIt begin, vectorIt end):

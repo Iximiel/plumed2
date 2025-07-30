@@ -337,9 +337,10 @@ public:
         return f->second;
       }
       auto k = keys.insert([](std::string_view mykey)->keyholder::value_type{
-        //this contraption seems paranoid, but
-        //if I use "key" as a key and the pointed object is destroyed/changed,
-        //I won't be able to get to the value created
+        //this contraption seems paranoid, but:
+        // if I use the input "key", that contains a pointer to something external,
+        // if anything happens to the pointed object we lose the possibility to
+        // access to actual the stored key with its actual value
         auto x = conv(mykey);
         return {
           std::string_view(x.get()),
@@ -367,6 +368,16 @@ public:
     auto find(const std::string_view key) const {
       return map.find(key);
     }
+    auto erase(typename container::iterator pos) {
+      if(pos != map.end()) {
+        std::string_view tmp = pos->first;
+        auto toret = map.erase(pos);
+        keys.erase(tmp);
+        return toret;
+      }
+      //I am not sure about this
+      return pos;
+    }
     void erase(const std::string_view key) {
       map.erase(key);
       keys.erase(key);
@@ -380,6 +391,10 @@ public:
     }
     bool empty() const {
       return map.empty();
+    }
+    void clear() {
+      map.clear();
+      keys.clear();
     }
   };
 
