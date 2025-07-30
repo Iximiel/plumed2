@@ -83,9 +83,9 @@ std::string TokenizedLine::convertToString(bool alsoClear) {
   for(auto p=tokens.begin(); p!=tokens.end(); ++p) {
     auto tmp = render(p->second);
     if( tmp.find(" " )!=std::string::npos ) {
-      output += " " + p->first+ "={" + tmp + "}";
+      output += " " + std::string(p->first) + "={" + tmp + "}";
     } else {
-      output += " "+ p->first+ "=" + tmp;
+      output += " "+ std::string(p->first) + "=" + tmp;
     }
   }
   if(alsoClear) {
@@ -99,7 +99,7 @@ std::string TokenizedLine::keyList(std::string_view sep ) {
   int i=0;
   std::string separator = "";
   for(const auto & l:tokens) {
-    mylist = mylist + separator + l.first;
+    mylist = mylist + separator + std::string(l.first);
     if(i==0) {
       separator = std::string(sep);
       ++i;

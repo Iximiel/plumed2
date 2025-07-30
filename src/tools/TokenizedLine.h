@@ -39,7 +39,7 @@ class TokenizedLine {
 public:
   // the first element is the whole line, if contains @replica: will get also divided
   using line=std::vector<std::string>;
-  using mapType=std::map<std::string,line,std::less<void>>;
+  using mapType=Tools::FastStringUnorderedMap<line>;
 private:
   using vectorIt = typename std::vector<std::string>::iterator;
   using const_vectorIt = typename std::vector<std::string>::const_iterator;
