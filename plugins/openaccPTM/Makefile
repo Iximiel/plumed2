@@ -7,7 +7,7 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 #tested with nvcc with :"Build cuda_11.7.r11.7/compiler.31442593_0"
 #-dc adds relocatable device code 
 #-dlto Perform link-time optimization of device code. 
-OBJS = Distance.o
+OBJS = Distance.o extra/colvar/ColvarInput.o extra/tools/Pbc.o
 
 ADDCPPFLAGS=$(PLUMED_INCLUDE) -D__PLUMED_HAS_OPENACC=1 -acc -acc="gpu"
 ADDCLDFLAGS=-acc -static-nvidia
@@ -28,7 +28,19 @@ all: $(PLUGIN)
 	@echo Compiling object $@
 	$(NVCXX) -c $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) $< -o $@
 
+extra/colvar/ColvarInput.o: plumed/colvar/ColvarInput.cpp $(DEPDIR)/extra/colvar/ColvarInput.d | $(DEPDIR)/extra/colvar extra/colvar
+	@echo Compiling object $@
+	$(NVCXX) -c $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) $< -o $@
+
+extra/tools/Pbc.o: plumed/tools/Pbc.cpp $(DEPDIR)/extra/tools/Pbc.d | $(DEPDIR)/extra/tools extra/tools
+	@echo Compiling object $@
+	$(NVCXX) -c $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) $< -o $@
+
 $(DEPDIR): ; @mkdir -p $@
+$(DEPDIR)/extra/colvar: ; @mkdir -p $@
+$(DEPDIR)/extra/tools: ; @mkdir -p $@
+extra/colvar: ; mkdir -p $@
+extra/tools: ; mkdir -p $@
 
 DEPFILES := $(OBJS:%.o=$(DEPDIR)/%.d)
 $(DEPFILES):
