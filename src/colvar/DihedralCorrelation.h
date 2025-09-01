@@ -19,6 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifndef __PLUMED_colvar_DihedralCorrelation_h
+#define __PLUMED_colvar_DihedralCorrelation_h
 #include "Colvar.h"
 #include "ColvarInput.h"
 #include "tools/Torsion.h"
@@ -152,3 +154,4 @@ void DihedralCorrelation::calculateCV( const ColvarInput& cvin, ColvarOutput& cv
 
 }
 }
+#endif  //__PLUMED_colvar_DihedralCorrelation_h

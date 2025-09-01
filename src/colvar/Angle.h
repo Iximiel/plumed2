@@ -19,6 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifndef __PLUMED_colvar_Angle_h
+#define __PLUMED_colvar_Angle_h
 #include "Colvar.h"
 #include "ColvarInput.h"
 #include "tools/Angle.h"
@@ -123,3 +125,4 @@ void Angle::calculateCV( const ColvarInput& cvin, ColvarOutput& cvout ) {
 } //namespace colvar
 } //namespace PLMD
 
+#endif //__PLUMED_colvar_Angle_h

@@ -19,6 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifndef __PLUMED_colvar_Torsion_h
+#define __PLUMED_colvar_Torsion_h
 #include "Colvar.h"
 #include "tools/Torsion.h"
 #include "ColvarInput.h"
@@ -199,6 +201,4 @@ void Torsion::calculateCV( const ColvarInput& cvin, ColvarOutput& cvout ) {
 
 }
 }
-
-
-
+#endif // __PLUMED_colvar_Torsion.h
