@@ -3,6 +3,7 @@
 nerror=0
 nok=0
 notapp=0
+exitcode=0
 html=
 fail=
 
@@ -32,7 +33,7 @@ dirs=$(
 
 file1=$(mktemp -t plumed.XXXXXX)
 file2=$(mktemp -t plumed.XXXXXX)
-
+errors=()
 for dir in $dirs
 do
   file=${dir}report.txt
@@ -46,6 +47,7 @@ do
     echo + check file $fullname for more information >> $file1
   elif grep -q FAILURE $file ; then
     ((nerror++))
+    errors[${#errors[@]}]="$dir"
     echo + ERROR in test $dir >> $file2
     echo + check file $fullname for more information >> $file2
   else
@@ -66,7 +68,7 @@ echo "+ Find the bug!"
 echo "+ To replace references, go to the test directory and"
 echo "+ type 'make reset'"
 if [ -n "$fail" ] ; then
-  exit 1
+  exitcode=1
 fi
 fi
 
@@ -75,8 +77,8 @@ if [ "$PLUMED_ALL_TESTS" = yes ] ; then
     echo "+ You are running with PLUMED_ALL_TESTS=yes and some tests are not applicable"
     echo "+ This is likely happening on the first job under TRAVIS-CI"
     echo "+ Please check that all modules have been properly enabled!"
-    if [ -n "$fail" ] ; then
-      exit 1
+    if [ -n "$fail" ]; then
+      exitcode=1
     fi
   fi
 fi
@@ -84,3 +86,43 @@ echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo
 echo
 
+PLUMED_CHECK_SAVE_ERRORS=${PLUMED_CHECK_SAVE_ERRORS:-no}
+if [[ ${#errors[@]} -gt 0 ]] && [[ $PLUMED_CHECK_SAVE_ERRORS == yes ]]; then
+  echo exporting failed tests in a easy to rerun format
+  {
+    cat <<EOF
+#!/bin/bash
+
+dirs=(
+EOF
+    for dir in "${errors[@]}"; do
+      echo "  $dir"
+    done
+    cat <<EOF
+)
+
+failures=()
+for dir in \${dirs[@]}"; do
+  echo -n "\$dir: "
+  if (
+    cd \$dir" || exit
+    make
+    grep -vzq FAILURE report.txt
+  ) >>/dev/null; then
+    echo -e "\e[32mSUCCESS\e[0m"
+    #add some processing if necessary
+  else
+    failures[\${#failures[@]}]="\$dir"
+    echo -e "\e[31mFAILURE\e[0m"
+    #add some processing if necessary
+  fi
+done
+N\${#dirs[@]}
+NF\${#failures[@]}
+successes\$((N - NF))
+echo -e "\e[32mSUCCESSES\e[0m:\${successes}\${N}"
+EOF
+  } >runFailedTests.sh
+  chmod +x runFailedTests.sh
+fi
+exit "$exitcode"
