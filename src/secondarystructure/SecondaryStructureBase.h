@@ -54,6 +54,7 @@ public:
   unsigned getNumberOfDerivatives() override ;
   void calculate() override;
   void getInputData( std::vector<double>& inputdata ) const override ;
+  void getInputData( std::vector<float>& inputdata ) const override ;
   void applyNonZeroRankForces( std::vector<double>& outforces ) override ;
   static void performTask( unsigned task_index, const T& actiondata, ParallelActionsInput& input, ParallelActionsOutput& output );
   static int getNumberOfValuesPerTask( std::size_t task_index, const T& actiondata );
@@ -273,6 +274,24 @@ void SecondaryStructureBase<T>::calculate() {
 
 template <class T>
 void SecondaryStructureBase<T>::getInputData( std::vector<double>& inputdata ) const {
+  if( inputdata.size()!=3*getNumberOfAtoms() ) {
+    inputdata.resize( 3*getNumberOfAtoms() );
+  }
+
+  std::size_t k=0;
+  for(unsigned i=0; i<getNumberOfAtoms(); ++i) {
+    Vector mypos( getPosition(i) );
+    inputdata[k] = mypos[0];
+    k++;
+    inputdata[k] = mypos[1];
+    k++;
+    inputdata[k] = mypos[2];
+    k++;
+  }
+}
+
+template <class T>
+void SecondaryStructureBase<T>::getInputData( std::vector<float>& inputdata ) const {
   if( inputdata.size()!=3*getNumberOfAtoms() ) {
     inputdata.resize( 3*getNumberOfAtoms() );
   }
