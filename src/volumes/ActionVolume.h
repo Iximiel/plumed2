@@ -46,34 +46,36 @@ struct VolumeData {
 #endif //__PLUMED_USE_OPENACC
 };
 
-struct VolumeInput {
+template <typename precision>
+struct VolumeIn {
   std::size_t task_index;
   const Pbc& pbc;
-  View<const double,3> cpos;
-  View2D<const double,helpers::dynamic_extent,3> refpos;
-  VolumeInput( std::size_t t, unsigned nref, double* p, double* rp, const Pbc& box ) :
+  View<const precision,3> cpos;
+  View2D<const precision,helpers::dynamic_extent,3> refpos;
+  VolumeIn( std::size_t t, unsigned nref, precision* p, precision* rp, const Pbc& box ) :
     task_index(t),pbc(box),cpos(p),refpos(rp,nref) {
   }
 };
 
-class VolumeOutput {
+template <typename precision>
+class VolumeOut {
 private:
   class RefderHelper {
   private:
-    double* derivatives;
+    precision* derivatives;
   public:
-    RefderHelper( double* d ) : derivatives(d) {}
-    View<double,3> operator[](std::size_t i) {
-      return View<double,3>( derivatives + 3*(i+1) );
+    RefderHelper( precision* d ) : derivatives(d) {}
+    View<precision,3> operator[](std::size_t i) {
+      return View<precision,3>( derivatives + 3*(i+1) );
     }
   };
-  ColvarOutput<double> fulldata;
+  ColvarOutput<precision> fulldata;
 public:
-  View<double>& values;
-  ColvarOutput<double>::VirialHelper& virial;
-  View<double,3> derivatives;
+  View<precision>& values;
+  typename ColvarOutput<precision>::VirialHelper& virial;
+  View<precision,3> derivatives;
   RefderHelper refders;
-  VolumeOutput( View<double>& v, std::size_t nder, double* d ) :
+  VolumeOut( View<precision>& v, std::size_t nder, precision* d ) :
     fulldata(v, nder, d),
     values(fulldata.values),
     virial(fulldata.virial),
@@ -95,6 +97,7 @@ public:
   using PTM = ParallelTaskManager<ActionVolume<T>>;
   typedef typename PTM::ParallelActionsInput ParallelActionsInput;
   typedef typename PTM::ParallelActionsOutput ParallelActionsOutput;
+  typedef cvprecision_t<T> precision;
 private:
 /// The parallel task manager
   PTM taskmanager;
@@ -106,9 +109,18 @@ public:
   void getInputData( std::vector<float>& inputdata ) const override ;
   void calculate() override ;
   void applyNonZeroRankForces( std::vector<double>& outforces ) override ;
-  static void performTask( std::size_t task_index, const VolumeData<T>& actiondata, ParallelActionsInput& input, ParallelActionsOutput& output );
-  static int getNumberOfValuesPerTask( std::size_t task_index, const VolumeData<T>& actiondata );
-  static void getForceIndices( std::size_t task_index, std::size_t colno, std::size_t ntotal_force, const VolumeData<T>& actiondata, const ParallelActionsInput& input, ForceIndexHolder force_indices );
+  static void performTask( std::size_t task_index,
+                           const VolumeData<T>& actiondata,
+                           ParallelActionsInput& input,
+                           ParallelActionsOutput& output );
+  static int getNumberOfValuesPerTask( std::size_t task_index,
+                                       const VolumeData<T>& actiondata );
+  static void getForceIndices( std::size_t task_index,
+                               std::size_t colno,
+                               std::size_t ntotal_force,
+                               const VolumeData<T>& actiondata,
+                               const ParallelActionsInput& input,
+                               ForceIndexHolder force_indices );
 };
 
 template <class T>
@@ -213,8 +225,10 @@ void ActionVolume<T>::calculate() {
     std::vector<double> deriv( getNumberOfDerivatives() );
     std::vector<double> val(1);
     View<double> valview(val.data(),1);
-    VolumeOutput output( valview, getNumberOfDerivatives(), deriv.data() );
-    T::calculateNumberInside( VolumeInput( 0, nref, posvec.data(), posvec.data()+3, getPbc() ), taskmanager.getActionInput().voldata, output );
+    VolumeOut output( valview, getNumberOfDerivatives(), deriv.data() );
+    T::calculateNumberInside( VolumeIn( 0, nref, posvec.data(), posvec.data()+3, getPbc() ),
+                              taskmanager.getActionInput().voldata,
+                              output );
     if( taskmanager.getActionInput().not_in ) {
       val[0] = 1.0 - val[0];
       for(unsigned i=0; i<deriv.size(); ++i) {
@@ -237,10 +251,15 @@ void ActionVolume<T>::applyNonZeroRankForces( std::vector<double>& outforces ) {
 }
 
 template <class T>
-void ActionVolume<T>::performTask( std::size_t task_index, const VolumeData<T>& actiondata, ParallelActionsInput& input, ParallelActionsOutput& output ) {
+void ActionVolume<T>::performTask( std::size_t task_index,
+                                   const VolumeData<T>& actiondata,
+                                   ParallelActionsInput& input,
+                                   ParallelActionsOutput& output ) {
   std::size_t nref = output.derivatives.size()/3 - 4; // This is the number of reference atoms
-  VolumeOutput volout( output.values, output.derivatives.size(), output.derivatives.data() );
-  T::calculateNumberInside( VolumeInput( task_index, nref, input.inputdata+3*task_index, input.inputdata+3*actiondata.numberOfNonReferenceAtoms, *input.pbc ), actiondata.voldata, volout );
+  VolumeOut volout( output.values, output.derivatives.size(), output.derivatives.data() );
+  T::calculateNumberInside( VolumeIn( task_index, nref, input.inputdata+3*task_index, input.inputdata+3*actiondata.numberOfNonReferenceAtoms, *input.pbc ),
+                            actiondata.voldata,
+                            volout );
 
   if( actiondata.not_in ) {
     output.values[0] = 1.0 - output.values[0];
