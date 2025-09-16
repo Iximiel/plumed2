@@ -31,11 +31,11 @@
 namespace PLMD {
 namespace function {
 
-template <class T>
+template <class CV, typename myPTM=defaultPTM>
 class FunctionOfMatrix : public ActionWithVector {
 public:
-  using input_type = FunctionData<T>;
-  using PTM = ParallelTaskManager<FunctionOfMatrix<T>>;
+  using input_type = FunctionData<CV>;
+  using PTM = typename myPTM::template PTM<FunctionOfMatrix<CV,myPTM>>;
   typedef typename PTM::ParallelActionsInput ParallelActionsInput;
   typedef typename PTM::ParallelActionsOutput ParallelActionsOutput;
 private:
@@ -64,23 +64,23 @@ public:
   void getInputData( std::vector<double>& inputdata ) const override ;
   void getInputData( std::vector<float>& inputdata ) const override ;
   static void performTask( std::size_t task_index,
-                           const FunctionData<T>& actiondata,
+                           const FunctionData<CV>& actiondata,
                            ParallelActionsInput& input,
                            ParallelActionsOutput& output );
 /// Add some forces
   void applyNonZeroRankForces( std::vector<double>& outforces ) override ;
 /// Get the indices of the forces
-  static int getNumberOfValuesPerTask( std::size_t task_index, const FunctionData<T>& actiondata );
+  static int getNumberOfValuesPerTask( std::size_t task_index, const FunctionData<CV>& actiondata );
   static void getForceIndices( std::size_t task_index,
                                std::size_t colno,
                                std::size_t ntotal_force,
-                               const FunctionData<T>& actiondata,
+                               const FunctionData<CV>& actiondata,
                                const ParallelActionsInput& input,
                                ForceIndexHolder force_indices );
 };
 
-template <class T>
-void FunctionOfMatrix<T>::registerKeywords(Keywords& keys ) {
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::registerKeywords(Keywords& keys ) {
   ActionWithVector::registerKeywords(keys);
   std::string name = keys.getDisplayName();
   std::size_t und=name.find("_MATRIX");
@@ -89,7 +89,7 @@ void FunctionOfMatrix<T>::registerKeywords(Keywords& keys ) {
   keys.addInputKeyword("optional","MASK","matrix","a matrix that is used to used to determine which elements of the output matrix to compute");
   keys.add("hidden","NO_ACTION_LOG","suppresses printing from action on the log");
   keys.reserve("compulsory","PERIODIC","if the output of your function is periodic then you should specify the periodicity of the function.  If the output is not periodic you must state this using PERIODIC=NO");
-  T::registerKeywords( keys );
+  CV::registerKeywords( keys );
   if( keys.getDisplayName()=="SUM" ) {
     keys.setValueDescription("scalar","the sum of all the elements in the input matrix");
   } else if( keys.getDisplayName()=="HIGHEST" ) {
@@ -102,8 +102,8 @@ void FunctionOfMatrix<T>::registerKeywords(Keywords& keys ) {
   PTM::registerKeywords( keys );
 }
 
-template <class T>
-unsigned FunctionOfMatrix<T>::getNumberOfFunctionArguments() const {
+template <class CV, typename myPTM>
+unsigned FunctionOfMatrix<CV,myPTM>::getNumberOfFunctionArguments() const {
   unsigned nargs=getNumberOfArguments();
   if( getNumberOfMasks()>0 ) {
     return nargs - getNumberOfMasks();
@@ -111,8 +111,8 @@ unsigned FunctionOfMatrix<T>::getNumberOfFunctionArguments() const {
   return nargs;
 }
 
-template <class T>
-FunctionOfMatrix<T>::FunctionOfMatrix(const ActionOptions&ao):
+template <class CV, typename myPTM>
+FunctionOfMatrix<CV,myPTM>::FunctionOfMatrix(const ActionOptions&ao):
   Action(ao),
   ActionWithVector(ao),
   taskmanager(this),
@@ -174,7 +174,7 @@ FunctionOfMatrix<T>::FunctionOfMatrix(const ActionOptions&ao):
   auto & myfunc = taskmanager.getActionInput();
   myfunc.argstart = argstart;
   myfunc.nscalars = nscalars;
-  FunctionData<T>::setup( myfunc.f, keywords.getOutputComponents(), shape, false, this );
+  FunctionData<CV>::setup( myfunc.f, keywords.getOutputComponents(), shape, false, this );
   // Copy the fact that this is a symmetric matrix if the input matrices are all symmetric
   for(unsigned i=0; i<getNumberOfComponents(); ++i) {
     getPntrToComponent(i)->setSymmetric( symmetric );
@@ -183,14 +183,14 @@ FunctionOfMatrix<T>::FunctionOfMatrix(const ActionOptions&ao):
                                         nscalars );
 }
 
-template <class T>
-std::string FunctionOfMatrix<T>::writeInGraph() const {
+template <class CV, typename myPTM>
+std::string FunctionOfMatrix<CV,myPTM>::writeInGraph() const {
   std::size_t und = getName().find_last_of("_");
   return getName().substr(0,und);
 }
 
-template <class T>
-unsigned FunctionOfMatrix<T>::getNumberOfDerivatives() {
+template <class CV, typename myPTM>
+unsigned FunctionOfMatrix<CV,myPTM>::getNumberOfDerivatives() {
   unsigned nder=0;
   for(unsigned i=argstart; i<getNumberOfFunctionArguments(); ++i) {
     nder += getPntrToArgument(i)->getNumberOfStoredValues();
@@ -198,8 +198,8 @@ unsigned FunctionOfMatrix<T>::getNumberOfDerivatives() {
   return nder;
 }
 
-template <class T>
-void FunctionOfMatrix<T>::prepare() {
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::prepare() {
   std::vector<std::size_t> shape(getPntrToArgument(argstart)->getShape());
   for(unsigned i=0; i<getNumberOfComponents(); ++i) {
     Value* myval = getPntrToComponent(i);
@@ -211,13 +211,13 @@ void FunctionOfMatrix<T>::prepare() {
   active_tasks.resize(0);
 }
 
-template <class T>
-void FunctionOfMatrix<T>::getNumberOfTasks( unsigned& ntasks ) {
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::getNumberOfTasks( unsigned& ntasks ) {
   ntasks=getPntrToComponent(0)->getNumberOfStoredValues();
 }
 
-template <class T>
-std::vector<unsigned>& FunctionOfMatrix<T>::getListOfActiveTasks( ActionWithVector* action ) {
+template <class CV, typename myPTM>
+std::vector<unsigned>& FunctionOfMatrix<CV,myPTM>::getListOfActiveTasks( ActionWithVector* action ) {
   if( active_tasks.size()>0 ) {
     return active_tasks;
   }
@@ -267,8 +267,8 @@ std::vector<unsigned>& FunctionOfMatrix<T>::getListOfActiveTasks( ActionWithVect
   return active_tasks;
 }
 
-template <class T>
-void FunctionOfMatrix<T>::getInputData( std::vector<double>& inputdata ) const {
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::getInputData( std::vector<double>& inputdata ) const {
   int nmasks = getNumberOfMasks();
   unsigned nargs = getNumberOfFunctionArguments();
 
@@ -308,8 +308,8 @@ void FunctionOfMatrix<T>::getInputData( std::vector<double>& inputdata ) const {
   }
 }
 
-template <class T>
-void FunctionOfMatrix<T>::getInputData( std::vector<float>& inputdata ) const {
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::getInputData( std::vector<float>& inputdata ) const {
   int nmasks = getNumberOfMasks();
   unsigned nargs = getNumberOfFunctionArguments();
 
@@ -349,8 +349,8 @@ void FunctionOfMatrix<T>::getInputData( std::vector<float>& inputdata ) const {
   }
 }
 
-template <class T>
-void FunctionOfMatrix<T>::calculate() {
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::calculate() {
   Value* myarg = NULL;
   if( getNumberOfMasks()>0 ) {
     myarg = getPntrToArgument(getNumberOfArguments()-getNumberOfMasks());
@@ -365,41 +365,41 @@ void FunctionOfMatrix<T>::calculate() {
   taskmanager.runAllTasks();
 }
 
-template <class T>
-void FunctionOfMatrix<T>::performTask( std::size_t task_index,
-                                       const FunctionData<T>& actiondata,
-                                       ParallelActionsInput& input,
-                                       ParallelActionsOutput& output ) {
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::performTask( std::size_t task_index,
+    const FunctionData<CV>& actiondata,
+    ParallelActionsInput& input,
+    ParallelActionsOutput& output ) {
   auto funcout = FunctionOutput::create( input.ncomponents,
                                          output.values.data(),
                                          input.nderivatives_per_scalar,
                                          output.derivatives.data() );
-  T::calc( actiondata.f,
-           input.noderiv,
-           View<const double>( input.inputdata + task_index*input.nderivatives_per_scalar,
-                               input.nderivatives_per_scalar ),
-           funcout );
+  CV::calc( actiondata.f,
+            input.noderiv,
+            View<const double>( input.inputdata + task_index*input.nderivatives_per_scalar,
+                                input.nderivatives_per_scalar ),
+            funcout );
 }
 
-template <class T>
-void FunctionOfMatrix<T>::applyNonZeroRankForces( std::vector<double>& outforces ) {
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::applyNonZeroRankForces( std::vector<double>& outforces ) {
   taskmanager.applyForces( outforces );
 }
 
-template <class T>
-int FunctionOfMatrix<T>::getNumberOfValuesPerTask( std::size_t task_index, const FunctionData<T>& actiondata ) {
+template <class CV, typename myPTM>
+int FunctionOfMatrix<CV,myPTM>::getNumberOfValuesPerTask( std::size_t task_index, const FunctionData<CV>& actiondata ) {
   return 1;
 }
 
-template <class T>
-void FunctionOfMatrix<T>::getForceIndices( std::size_t task_index,
+template <class CV, typename myPTM>
+void FunctionOfMatrix<CV,myPTM>::getForceIndices( std::size_t task_index,
     std::size_t colno,
     std::size_t ntotal_force,
-    const FunctionData<T>& actiondata,
+    const FunctionData<CV>& actiondata,
     const ParallelActionsInput& input,
     ForceIndexHolder force_indices ) {
   // The force indices are found in the same way as in FunctionOfVector so we reuse that function here
-  FunctionOfVector<T>::getForceIndices( task_index, colno, ntotal_force, actiondata, input, force_indices );
+  FunctionOfVector<CV>::getForceIndices( task_index, colno, ntotal_force, actiondata, input, force_indices );
 }
 
 }

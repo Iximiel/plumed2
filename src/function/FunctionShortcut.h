@@ -40,7 +40,10 @@ private:
 public:
   static void registerKeywords(Keywords&);
   explicit FunctionShortcut(const ActionOptions&);
-  static void createAction( ActionShortcut* action, const std::vector<Value*>& vals, const std::string& allargs );
+  static void createAction( ActionShortcut* action,
+                            const std::vector<Value*>& vals,
+                            const std::string& allargs,
+                            bool useGPU=false);
 };
 
 template <class T>
@@ -51,9 +54,11 @@ void FunctionShortcut<T>::registerKeywords(Keywords& keys ) {
   keys.addActionNameSuffix("_ONEARG");
   keys.addActionNameSuffix("_VECTOR");
   keys.addActionNameSuffix("_MATRIX");
+  keys.addActionNameSuffix("_MATRIXACC");
   keys.addActionNameSuffix("_GRID");
-  T tfunc;
-  tfunc.registerKeywords( keys );
+  keys.addFlag("USEGPU",false,"run this calculation on the GPU");
+  keys.addLinkInDocForFlag("USEGPU","gpu.md");
+  T::registerKeywords( keys );
   if( keys.getDisplayName()=="SUM" || keys.getDisplayName()=="CUSTOM" || keys.getDisplayName()=="MATHEVAL" ) {
     keys.addInputKeyword("compulsory","ARG","scalar/vector/matrix/grid","the values input to this function");
   } else {
@@ -79,13 +84,19 @@ FunctionShortcut<T>::FunctionShortcut(const ActionOptions&ao):
   if( vals.size()==0 ) {
     error("found no input arguments to function");
   }
-  createAction( this, vals, allargs );
+  bool usegpuFLAG=false;
+  parseFlag("USEGPU",usegpuFLAG);
+  createAction( this, vals, allargs,usegpuFLAG);
 }
 
 template <class T>
-void FunctionShortcut<T>::createAction( ActionShortcut* action, const std::vector<Value*>& vals, const std::string& allargs ) {
+void FunctionShortcut<T>::createAction( ActionShortcut* action,
+                                        const std::vector<Value*>& vals,
+                                        const std::string& allargs,
+                                        const bool useGPU) {
   unsigned maxrank=vals[0]->getRank();
   bool isgrid=false;
+  const std::string doUSEGPU = useGPU?"ACC":"";
   for(unsigned i=0; i<vals.size(); ++i) {
     if( vals[i]->getRank()>0 && vals[i]->hasDerivatives() ) {
       isgrid=true;
@@ -95,8 +106,8 @@ void FunctionShortcut<T>::createAction( ActionShortcut* action, const std::vecto
     }
   }
   if( isgrid ) {
-    if( actionRegister().check( action->getName() + "_GRID") ) {
-      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_GRID ARG=" + allargs + " " + action->convertInputLineToString() );
+    if( actionRegister().check( action->getName() + "_GRID"+doUSEGPU) ) {
+      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_GRID"+doUSEGPU+" ARG=" + allargs + " " + action->convertInputLineToString() );
     } else {
       plumed_merror("there is no action registered that allows you to do " + action->getName() + " with functions on a grid");
     }
@@ -109,14 +120,14 @@ void FunctionShortcut<T>::createAction( ActionShortcut* action, const std::vecto
   } else if( vals.size()==1 && actionRegister().check( action->getName() + "_ONEARG") ) {
     action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_ONEARG ARG=" + allargs + " " + action->convertInputLineToString() );
   } else if( maxrank==1 ) {
-    if( actionRegister().check( action->getName() + "_VECTOR") ) {
-      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_VECTOR ARG=" + allargs + " " + action->convertInputLineToString() );
+    if( actionRegister().check( action->getName() + "_VECTOR"+doUSEGPU) ) {
+      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_VECTOR"+doUSEGPU+" ARG=" + allargs + " " + action->convertInputLineToString() );
     } else {
       plumed_merror("there is no action registered that allows you to do " + action->getName() + " with vectors");
     }
   } else if( maxrank==2  ) {
-    if( actionRegister().check( action->getName() + "_MATRIX") ) {
-      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_MATRIX ARG=" + allargs + " " + action->convertInputLineToString() );
+    if( actionRegister().check( action->getName() + "_MATRIX"+doUSEGPU) ) {
+      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_MATRIX"+doUSEGPU+" ARG=" + allargs + " " + action->convertInputLineToString() );
     } else {
       plumed_merror("there is no action registered that allows you to do " + action->getName() + " with matrices");
     }
