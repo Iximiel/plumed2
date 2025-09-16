@@ -29,12 +29,12 @@
 namespace PLMD {
 namespace volumes {
 
-template <class T>
+template <class CV>
 struct VolumeData {
   bool not_in;
   std::size_t numberOfNonReferenceAtoms;
-  T voldata;
-#ifdef __PLUMED_USE_OPENACC
+  CV voldata;
+#ifdef __PLUMED_HAS_OPENACC
   void toACCDevice() const {
 #pragma acc enter data copyin(this[0:1],not_in,numberOfNonReferenceAtoms)
     voldata.toACCDevice();
@@ -43,7 +43,7 @@ struct VolumeData {
     voldata.removeFromACCDevice();
 #pragma acc exit data delete(numberOfNonReferenceAtoms,not_in,this[0:1])
   }
-#endif //__PLUMED_USE_OPENACC
+#endif //__PLUMED_HAS_OPENACC
 };
 
 template <typename precision>
@@ -90,14 +90,15 @@ box. You can use this to calculate the number of atoms inside that part or the a
 coordination number inside that part of the cell.
 */
 
-template <class T>
+template <class CV, typename myPTM=defaultPTM>
 class ActionVolume : public ActionWithVector {
 public:
-  using input_type = VolumeData<T>;
-  using PTM = ParallelTaskManager<ActionVolume<T>>;
+  using input_type = VolumeData<CV>;
+  using mytype=ActionVolume<CV,myPTM>;
+  using PTM =typename myPTM::template PTM<mytype>;
   typedef typename PTM::ParallelActionsInput ParallelActionsInput;
   typedef typename PTM::ParallelActionsOutput ParallelActionsOutput;
-  typedef cvprecision_t<T> precision;
+  typedef cvprecision_t<CV> precision;
 private:
 /// The parallel task manager
   PTM taskmanager;
@@ -110,36 +111,36 @@ public:
   void calculate() override ;
   void applyNonZeroRankForces( std::vector<double>& outforces ) override ;
   static void performTask( std::size_t task_index,
-                           const VolumeData<T>& actiondata,
+                           const VolumeData<CV>& actiondata,
                            ParallelActionsInput& input,
                            ParallelActionsOutput& output );
   static int getNumberOfValuesPerTask( std::size_t task_index,
-                                       const VolumeData<T>& actiondata );
+                                       const VolumeData<CV>& actiondata );
   static void getForceIndices( std::size_t task_index,
                                std::size_t colno,
                                std::size_t ntotal_force,
-                               const VolumeData<T>& actiondata,
+                               const VolumeData<CV>& actiondata,
                                const ParallelActionsInput& input,
                                ForceIndexHolder force_indices );
 };
 
-template <class T>
-unsigned ActionVolume<T>::getNumberOfDerivatives() {
+template <class CV, typename myPTM>
+unsigned ActionVolume<CV, myPTM>::getNumberOfDerivatives() {
   return 3*getNumberOfAtoms()+9;
 }
 
-template <class T>
-void ActionVolume<T>::registerKeywords( Keywords& keys ) {
+template <class CV, typename myPTM>
+void ActionVolume<CV, myPTM>::registerKeywords( Keywords& keys ) {
   ActionWithVector::registerKeywords( keys );
   PTM::registerKeywords( keys );
   keys.add("atoms","ATOMS","the group of atoms that you would like to investigate");
   keys.addFlag("OUTSIDE",false,"calculate quantities for colvars that are on atoms outside the region of interest");
   keys.setValueDescription("scalar/vector","vector of numbers between 0 and 1 that measure the degree to which each atom is within the volume of interest");
-  T::registerKeywords( keys );
+  CV::registerKeywords( keys );
 }
 
-template <class T>
-ActionVolume<T>::ActionVolume(const ActionOptions&ao):
+template <class CV, typename myPTM>
+ActionVolume<CV, myPTM>::ActionVolume(const ActionOptions&ao):
   Action(ao),
   ActionWithVector(ao),
   taskmanager(this) {
@@ -157,12 +158,12 @@ ActionVolume<T>::ActionVolume(const ActionOptions&ao):
   shape[0]=atoms.size();
 
   std::vector<AtomNumber> refatoms;
-  T::parseAtoms( this, refatoms );
+  CV::parseAtoms( this, refatoms );
   for(unsigned i=0; i<refatoms.size(); ++i) {
     atoms.push_back( refatoms[i] );
   }
   requestAtoms( atoms );
-  VolumeData<T> actioninput;
+  VolumeData<CV> actioninput;
   actioninput.voldata.parseInput(this);
 
   actioninput.numberOfNonReferenceAtoms=shape[0];
@@ -180,8 +181,8 @@ ActionVolume<T>::ActionVolume(const ActionOptions&ao):
   taskmanager.setActionInput( actioninput );
 }
 
-template <class T>
-void ActionVolume<T>::getInputData( std::vector<double>& inputdata ) const {
+template <class CV, typename myPTM>
+void ActionVolume<CV, myPTM>::getInputData( std::vector<double>& inputdata ) const {
   if( inputdata.size()!=3*getNumberOfAtoms() ) {
     inputdata.resize( 3*getNumberOfAtoms() );
   }
@@ -194,8 +195,8 @@ void ActionVolume<T>::getInputData( std::vector<double>& inputdata ) const {
   }
 }
 
-template <class T>
-void ActionVolume<T>::getInputData( std::vector<float>& inputdata ) const {
+template <class CV, typename myPTM>
+void ActionVolume<CV, myPTM>::getInputData( std::vector<float>& inputdata ) const {
   if( inputdata.size()!=3*getNumberOfAtoms() ) {
     inputdata.resize( 3*getNumberOfAtoms() );
   }
@@ -208,8 +209,8 @@ void ActionVolume<T>::getInputData( std::vector<float>& inputdata ) const {
   }
 }
 
-template <class T>
-void ActionVolume<T>::calculate() {
+template <class CV, typename myPTM>
+void ActionVolume<CV, myPTM>::calculate() {
   unsigned k=0;
   std::vector<Vector> positions( getNumberOfAtoms()-getPntrToComponent(0)->getNumberOfValues() );
   for(unsigned i=getPntrToComponent(0)->getNumberOfValues(); i<getNumberOfAtoms(); ++i) {
@@ -226,9 +227,9 @@ void ActionVolume<T>::calculate() {
     std::vector<double> val(1);
     View<double> valview(val.data(),1);
     VolumeOut output( valview, getNumberOfDerivatives(), deriv.data() );
-    T::calculateNumberInside( VolumeIn( 0, nref, posvec.data(), posvec.data()+3, getPbc() ),
-                              taskmanager.getActionInput().voldata,
-                              output );
+    CV::calculateNumberInside( VolumeIn( 0, nref, posvec.data(), posvec.data()+3, getPbc() ),
+                               taskmanager.getActionInput().voldata,
+                               output );
     if( taskmanager.getActionInput().not_in ) {
       val[0] = 1.0 - val[0];
       for(unsigned i=0; i<deriv.size(); ++i) {
@@ -245,21 +246,21 @@ void ActionVolume<T>::calculate() {
   }
 }
 
-template <class T>
-void ActionVolume<T>::applyNonZeroRankForces( std::vector<double>& outforces ) {
+template <class CV, typename myPTM>
+void ActionVolume<CV, myPTM>::applyNonZeroRankForces( std::vector<double>& outforces ) {
   taskmanager.applyForces( outforces );
 }
 
-template <class T>
-void ActionVolume<T>::performTask( std::size_t task_index,
-                                   const VolumeData<T>& actiondata,
-                                   ParallelActionsInput& input,
-                                   ParallelActionsOutput& output ) {
+template <class CV, typename myPTM>
+void ActionVolume<CV, myPTM>::performTask( std::size_t task_index,
+    const VolumeData<CV>& actiondata,
+    ParallelActionsInput& input,
+    ParallelActionsOutput& output ) {
   std::size_t nref = output.derivatives.size()/3 - 4; // This is the number of reference atoms
   VolumeOut volout( output.values, output.derivatives.size(), output.derivatives.data() );
-  T::calculateNumberInside( VolumeIn( task_index, nref, input.inputdata+3*task_index, input.inputdata+3*actiondata.numberOfNonReferenceAtoms, *input.pbc ),
-                            actiondata.voldata,
-                            volout );
+  CV::calculateNumberInside( VolumeIn( task_index, nref, input.inputdata+3*task_index, input.inputdata+3*actiondata.numberOfNonReferenceAtoms, *input.pbc ),
+                             actiondata.voldata,
+                             volout );
 
   if( actiondata.not_in ) {
     output.values[0] = 1.0 - output.values[0];
@@ -272,19 +273,19 @@ void ActionVolume<T>::performTask( std::size_t task_index,
   }
 }
 
-template <class T>
-int ActionVolume<T>::getNumberOfValuesPerTask( std::size_t task_index,
-    const VolumeData<T>& actiondata ) {
+template <class CV, typename myPTM>
+int ActionVolume<CV, myPTM>::getNumberOfValuesPerTask( std::size_t task_index,
+    const VolumeData<CV>& actiondata ) {
   return 1;
 }
 
-template<class T>
-void ActionVolume<T>::getForceIndices( std::size_t task_index,
-                                       std::size_t colno,
-                                       std::size_t ntotal_force,
-                                       const VolumeData<T>& actiondata,
-                                       const ParallelActionsInput& input,
-                                       ForceIndexHolder force_indices ) {
+template<class CV, typename myPTM>
+void ActionVolume<CV, myPTM>::getForceIndices( std::size_t task_index,
+    std::size_t colno,
+    std::size_t ntotal_force,
+    const VolumeData<CV>& actiondata,
+    const ParallelActionsInput& input,
+    ForceIndexHolder force_indices ) {
   std::size_t base = 3*task_index;
   force_indices.indices[0][0] = base;
   force_indices.indices[0][1] = base + 1;

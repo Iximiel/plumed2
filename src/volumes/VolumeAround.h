@@ -19,6 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifndef __PLUMED_volumes_VolumeAround_h
+#define __PLUMED_volumes_VolumeAround_h
 #include "tools/Pbc.h"
 #include "tools/HistogramBead.h"
 #include "ActionVolume.h"
@@ -39,16 +41,19 @@ public:
   double zlow{0.0}, zhigh{0.0};
   HistogramBead::KernelType kerneltype;
   static void registerKeywords( Keywords& keys );
-  void parseInput( ActionVolume<VolumeAround>* action );
-  void setupRegions( ActionVolume<VolumeAround>* action,
+  template<typename TPM>
+  void parseInput( ActionVolume<VolumeAround, TPM>* action );
+  template<typename TPM>
+  void setupRegions( ActionVolume<VolumeAround, TPM>* action,
                      const Pbc& pbc,
                      const std::vector<Vector>& positions ) {}
-  static void parseAtoms( ActionVolume<VolumeAround>* action,
+  template<typename TPM>
+  static void parseAtoms( ActionVolume<VolumeAround, TPM>* action,
                           std::vector<AtomNumber>& atom );
   static void calculateNumberInside( const VolumeInput& input,
                                      const VolumeAround& actioninput,
                                      VolumeOutput& output );
-#ifdef __PLUMED_USE_OPENACC
+#ifdef __PLUMED_HAS_OPENACC
   void toACCDevice() const {
 #pragma acc enter data copyin(this[0:1],dox,doy,doz,sigma,\
   xlow,xhigh,ylow,yhigh,zlow,zhigh,kerneltype)
@@ -57,7 +62,7 @@ public:
 #pragma acc exit data delete(kerneltype,zhigh,zlow,yhigh,ylow,xhigh,xlow,\
   sigma,doz,doy,dox,this[0:1])
   }
-#endif //__PLUMED_USE_OPENACC
+#endif //__PLUMED_HAS_OPENACC
 };
 
 void VolumeAround::registerKeywords( Keywords& keys ) {
@@ -74,7 +79,8 @@ void VolumeAround::registerKeywords( Keywords& keys ) {
   keys.add("compulsory","ZUPPER","0.0","the upper boundary in z relative to the z coordinate of the atom (0 indicates use full extent of box).");
 }
 
-void VolumeAround::parseAtoms( ActionVolume<VolumeAround>* action, std::vector<AtomNumber>& atom ) {
+template<typename TPM>
+void VolumeAround::parseAtoms( ActionVolume<VolumeAround, TPM>* action, std::vector<AtomNumber>& atom ) {
   action->parseAtomList("ORIGIN",atom);
   if( atom.size()==0 ) {
     action->parseAtomList("ATOM",atom);
@@ -85,7 +91,8 @@ void VolumeAround::parseAtoms( ActionVolume<VolumeAround>* action, std::vector<A
   action->log.printf("  boundaries for region are calculated based on positions of atom : %d\n",atom[0].serial() );
 }
 
-void VolumeAround::parseInput( ActionVolume<VolumeAround>* action ) {
+template<typename TPM>
+void VolumeAround::parseInput( ActionVolume<VolumeAround, TPM>* action ) {
   action->parse("SIGMA",sigma);
   std::string mykerneltype;
   action->parse("KERNEL",mykerneltype);
@@ -157,3 +164,4 @@ void VolumeAround::calculateNumberInside( const VolumeInput& input,
 
 }
 }
+#endif //__PLUMED_volumes_VolumeAround_h 

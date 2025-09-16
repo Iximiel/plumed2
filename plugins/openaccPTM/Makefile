@@ -8,7 +8,7 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 #-dc adds relocatable device code 
 #-dlto Perform link-time optimization of device code. 
 CVS_OBJS = $(wildcard *.cpp)
-TOOLS_OBJS = extra/colvar/ColvarInput.o extra/tools/Pbc.o
+TOOLS_OBJS = extra/colvar/ColvarInput.o extra/tools/Pbc.o extra/tools/SwitchingFunction.o extra/tools/HistogramBead.o
 
 OBJS = $(CVS_OBJS:.cpp=.o) $(TOOLS_OBJS)
 ADDCPPFLAGS=$(PLUMED_INCLUDE) -D__PLUMED_HAS_OPENACC=1 -acc -acc="gpu"
@@ -30,11 +30,11 @@ all: $(PLUGIN)
 	@echo Compiling object $@
 	$(NVCXX) -c $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) $< -o $@
 
-extra/colvar/ColvarInput.o: plumed/colvar/ColvarInput.cpp $(DEPDIR)/extra/colvar/ColvarInput.d | $(DEPDIR)/extra/colvar extra/colvar
+extra/colvar/%.o: plumed/colvar/%.cpp $(DEPDIR)/extra/colvar/%.d | $(DEPDIR)/extra/colvar extra/colvar
 	@echo Compiling object $@
 	$(NVCXX) -c $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) $< -o $@
 
-extra/tools/Pbc.o: plumed/tools/Pbc.cpp $(DEPDIR)/extra/tools/Pbc.d | $(DEPDIR)/extra/tools extra/tools
+extra/tools/%.o: plumed/tools/%.cpp $(DEPDIR)/extra/tools/%.d | $(DEPDIR)/extra/tools extra/tools
 	@echo Compiling object $@
 	$(NVCXX) -c $(DEPFLAGS) $(CPPFLAGS) $(ADDCPPFLAGS) $(CXXFLAGS) $< -o $@
 

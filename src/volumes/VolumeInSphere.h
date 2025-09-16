@@ -19,6 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifndef __PLUMED_volumes_VolumeInSphere_h
+#define __PLUMED_volumes_VolumeInSphere_h
 #include "tools/Pbc.h"
 #include "tools/SwitchingFunction.h"
 #include "ActionVolume.h"
@@ -30,22 +32,25 @@ struct VolumeInSphere {
   using precision=double;
   typedef VolumeIn<precision> VolumeInput;
   typedef VolumeOut<precision> VolumeOutput;
-#ifdef __PLUMED_USE_OPENACC
+#ifdef __PLUMED_HAS_OPENACC
   SwitchingFunctionAccelerable switchingFunction;
 #else
   SwitchingFunction switchingFunction;
-#endif //__PLUMED_USE_OPENACC
+#endif //__PLUMED_HAS_OPENACC
   static void registerKeywords( Keywords& keys );
-  void parseInput( ActionVolume<VolumeInSphere>* action );
-  void setupRegions( ActionVolume<VolumeInSphere>* action,
+  template<typename TPM>
+  void parseInput( ActionVolume<VolumeInSphere, TPM>* action );
+  template<typename TPM>
+  void setupRegions( ActionVolume<VolumeInSphere, TPM>* action,
                      const Pbc& pbc,
                      const std::vector<Vector>& positions ) {}
-  static void parseAtoms( ActionVolume<VolumeInSphere>* action,
+  template<typename TPM>
+  static void parseAtoms( ActionVolume<VolumeInSphere, TPM>* action,
                           std::vector<AtomNumber>& atom );
   static void calculateNumberInside( const VolumeInput& input,
                                      const VolumeInSphere& actioninput,
                                      VolumeOutput& output );
-#ifdef __PLUMED_USE_OPENACC
+#ifdef __PLUMED_HAS_OPENACC
   void toACCDevice() const {
 #pragma acc enter data copyin(this[0:1])
     switchingFunction.toACCDevice();
@@ -54,7 +59,7 @@ struct VolumeInSphere {
     switchingFunction.removeFromACCDevice();
 #pragma acc exit data delete(this[0:1])
   }
-#endif //__PLUMED_USE_OPENACC
+#endif //__PLUMED_HAS_OPENACC
 };
 
 void VolumeInSphere::registerKeywords( Keywords& keys ) {
@@ -65,7 +70,8 @@ void VolumeInSphere::registerKeywords( Keywords& keys ) {
   keys.linkActionInDocs("RADIUS","LESS_THAN");
 }
 
-void VolumeInSphere::parseInput( ActionVolume<VolumeInSphere>* action ) {
+template<typename TPM>
+void VolumeInSphere::parseInput( ActionVolume<VolumeInSphere, TPM>* action ) {
   std::string errors;
   std::string swinput;
   action->parse("RADIUS",swinput);
@@ -82,7 +88,8 @@ void VolumeInSphere::parseInput( ActionVolume<VolumeInSphere>* action ) {
                      switchingFunction.description().c_str() );
 }
 
-void VolumeInSphere::parseAtoms( ActionVolume<VolumeInSphere>* action,
+template<typename TPM>
+void VolumeInSphere::parseAtoms( ActionVolume<VolumeInSphere, TPM>* action,
                                  std::vector<AtomNumber>& atom ) {
   action->parseAtomList("CENTER",atom);
   if( atom.size()==0 ) {
@@ -111,3 +118,4 @@ void VolumeInSphere::calculateNumberInside( const VolumeInput& input,
 
 }
 }
+#endif //__PLUMED_volumes_VolumeInSphere_h
