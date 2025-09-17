@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2013-2020 The plumed team
+   Copyright (c) 2015-2023 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -19,4 +19,16 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "ContactMatrixShortcut.h"
+#include "plumed/adjmat/ContactMatrix.h"
+#include "plumed/core/ActionRegister.h"
+
+#include "ACCParallelTaskManager.h"
+
+namespace PLMD {
+namespace adjmat {
+
+typedef AdjacencyMatrixBase<ContactMatrix, PLMD::ACCPTM> cmap;
+PLUMED_REGISTER_ACTION(cmap,"CONTACT_MATRIX_PROPERACC")
+
+} // namespace adjmat
+} // namespace PLMD
