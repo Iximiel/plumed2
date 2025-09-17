@@ -20,7 +20,7 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "SecondaryStructureDRMSD.h"
-#include "SecondaryStructureShortcut.h"
+#include "core/AccelerableShortcut.h"
 #include "core/ActionRegister.h"
 
 
@@ -122,7 +122,7 @@ namespace secondarystructure {
 
 typedef SecondaryStructureBase<SecondaryStructureDRMSDInput<double>> colv;
 PLUMED_REGISTER_ACTION(colv,"SECONDARY_STRUCTURE_DRMSD_CPU");
-typedef SecondaryStructureShortcut<colv> shortcut;
+typedef AccelerableShortcut<colv> shortcut;
 PLUMED_REGISTER_ACTION(shortcut,"SECONDARY_STRUCTURE_DRMSD");
 
 }

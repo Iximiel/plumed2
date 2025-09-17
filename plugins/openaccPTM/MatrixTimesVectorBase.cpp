@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2025 The plumed team
+   Copyright (c) 2011-2023 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -19,5 +19,17 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "SecondaryStructureShortcut.h"
+#include "plumed/matrixtools/MatrixTimesVectorBase.h"
+#include "plumed/core/ActionRegister.h"
 
+#include "ACCParallelTaskManager.h"
+namespace PLMD {
+namespace matrixtools {
+typedef MatrixTimesVectorBase<MatrixTimesVectorRowSums<float>,PLMD::ACCPTM> mycr;
+PLUMED_REGISTER_ACTION(mycr,"MATRIX_VECTOR_PRODUCT_ROWSUMSACC")
+typedef MatrixTimesVectorBase<MatrixTimesVectorProper<double>,PLMD::ACCPTM> mycp;
+PLUMED_REGISTER_ACTION(mycp,"MATRIX_VECTOR_PRODUCT_PROPERACC")
+
+
+}
+}

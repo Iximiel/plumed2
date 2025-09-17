@@ -19,16 +19,15 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#ifndef __PLUMED_secondarystructure_SecondaryStructureShortcut_h
-#define __PLUMED_secondarystructure_SecondaryStructureShortcut_h
+#ifndef __PLUMED_core_AccelerableShortcut_h
+#define __PLUMED_core_AccelerableShortcut_h
 
-#include "core/ActionShortcut.h"
+#include "ActionShortcut.h"
 
 namespace PLMD {
-namespace secondarystructure {
 
 template <class CV>
-struct SecondaryStructureShortcut : public ActionShortcut {
+struct AccelerableShortcut : public ActionShortcut {
 
   static void registerKeywords(Keywords& keys ) {
     CV::registerKeywords( keys );
@@ -40,14 +39,15 @@ struct SecondaryStructureShortcut : public ActionShortcut {
     keys.addActionNameSuffix("_CPU");
     keys.addActionNameSuffix("_ACC");
     //GPU related settings
-    //keys.addFlag("USEGPU",false,"run this calculation on the GPU or the accelerated version, if avaiable");
-    //keys.addLinkInDocForFlag("USEGPU","gpu.md");
+    if (!keys.exists("USEGPU")) {
+      keys.addFlag("USEGPU",false,"run this calculation on the GPU or the accelerated version, if avaiable");
+      keys.addLinkInDocForFlag("USEGPU","gpu.md");
+    }
   }
 
-  SecondaryStructureShortcut(const ActionOptions&ao):
+  AccelerableShortcut(const ActionOptions&ao):
     Action(ao),
     ActionShortcut(ao) {
-    bool scalar=true;
     bool usegpuFLAG=false;
     parseFlag("USEGPU",usegpuFLAG);
     readInputLine( getShortcutLabel() + ": "
@@ -55,6 +55,5 @@ struct SecondaryStructureShortcut : public ActionShortcut {
                    + convertInputLineToString() );
   }
 };
-} // namespace secondarystructure
 } // namespace PLMD
 #endif

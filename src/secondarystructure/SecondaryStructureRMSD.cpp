@@ -20,7 +20,6 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "SecondaryStructureBase.h"
-#include "SecondaryStructureShortcut.h"
 #include "core/ActionRegister.h"
 #include "tools/RMSD.h"
 
@@ -167,9 +166,9 @@ public:
 
 typedef SecondaryStructureBase<SecondaryStructureRMSDInput> colv;
 PLUMED_REGISTER_ACTION(colv,"SECONDARY_STRUCTURE_RMSD");
-//PLUMED_REGISTER_ACTION(colv,"SECONDARY_STRUCTURE_RMSD_CPU");
-//typedef SecondaryStructureShortcut<colv> shortcut;
-//PLUMED_REGISTER_ACTION(shortcut,"SECONDARY_STRUCTURE_RMSD");
+//_REGISTER_ACTION(colv,"SECONDARY_STRUCTURE_RMSD_CPU");
+//typedef AccelerableShortcut<colv> shortcut;
+//_REGISTER_ACTION(shortcut,"SECONDARY_STRUCTURE_RMSD");
 
 void SecondaryStructureRMSDInput::setReferenceStructure( const std::string& type, double bondlength, std::vector<Vector>& structure ) {
   Vector center;

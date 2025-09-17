@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2017-2023 The plumed team
+   Copyright (c) 2025 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -19,15 +19,5 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "plumed/secondarystructure/SecondaryStructureDRMSD.h"
-#include "plumed/core/ActionRegister.h"
-#include "ACCParallelTaskManager.h"
+#include "AccelerableShortcut.h"
 
-namespace PLMD {
-namespace secondarystructure {
-
-typedef SecondaryStructureBase<SecondaryStructureDRMSDInput<double>,PLMD::ACCPTM> colv;
-PLUMED_REGISTER_ACTION(colv,"SECONDARY_STRUCTURE_DRMSD_ACC");
-
-}
-}

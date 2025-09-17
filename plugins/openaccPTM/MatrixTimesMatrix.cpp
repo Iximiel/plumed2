@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2017-2023 The plumed team
+   Copyright (c) 2011-2023 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -19,15 +19,19 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "plumed/secondarystructure/SecondaryStructureDRMSD.h"
+#include "plumed/matrixtools/MatrixDissimilarities.h"
+#include "plumed/matrixtools/MatrixProduct.h"
 #include "plumed/core/ActionRegister.h"
+
 #include "ACCParallelTaskManager.h"
 
 namespace PLMD {
-namespace secondarystructure {
+namespace matrixtools {
 
-typedef SecondaryStructureBase<SecondaryStructureDRMSDInput<double>,PLMD::ACCPTM> colv;
-PLUMED_REGISTER_ACTION(colv,"SECONDARY_STRUCTURE_DRMSD_ACC");
+typedef MatrixTimesMatrix<MatrixProduct, PLMD::ACCPTM> mtimes;
+PLUMED_REGISTER_ACTION(mtimes,"MATRIX_PRODUCT_ACC")
+typedef MatrixTimesMatrix<Dissimilarities, PLMD::ACCPTM> dissims;
+PLUMED_REGISTER_ACTION(dissims,"DISSIMILARITIES_ACC")
 
 }
 }
