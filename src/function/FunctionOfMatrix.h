@@ -35,7 +35,8 @@ template <class CV, typename myPTM=defaultPTM>
 class FunctionOfMatrix : public ActionWithVector {
 public:
   using input_type = FunctionData<CV>;
-  using PTM = typename myPTM::template PTM<FunctionOfMatrix<CV,myPTM>>;
+  using mytype = FunctionOfMatrix<CV,myPTM>;
+  using PTM = typename myPTM::template PTM<mytype>;
   typedef typename PTM::ParallelActionsInput ParallelActionsInput;
   typedef typename PTM::ParallelActionsOutput ParallelActionsOutput;
 private:

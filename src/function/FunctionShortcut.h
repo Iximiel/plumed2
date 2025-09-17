@@ -53,9 +53,11 @@ void FunctionShortcut<T>::registerKeywords(Keywords& keys ) {
   keys.addActionNameSuffix("_SCALAR");
   keys.addActionNameSuffix("_ONEARG");
   keys.addActionNameSuffix("_VECTOR");
+  keys.addActionNameSuffix("_VECTORACC");
   keys.addActionNameSuffix("_MATRIX");
   keys.addActionNameSuffix("_MATRIXACC");
   keys.addActionNameSuffix("_GRID");
+  //keys.addActionNameSuffix("_GRIDACC");
   keys.addFlag("USEGPU",false,"run this calculation on the GPU");
   keys.addLinkInDocForFlag("USEGPU","gpu.md");
   T::registerKeywords( keys );
@@ -106,8 +108,8 @@ void FunctionShortcut<T>::createAction( ActionShortcut* action,
     }
   }
   if( isgrid ) {
-    if( actionRegister().check( action->getName() + "_GRID"+doUSEGPU) ) {
-      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_GRID"+doUSEGPU+" ARG=" + allargs + " " + action->convertInputLineToString() );
+    if( actionRegister().check( action->getName() + "_GRID") ) {
+      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_GRID ARG=" + allargs + " " + action->convertInputLineToString() );
     } else {
       plumed_merror("there is no action registered that allows you to do " + action->getName() + " with functions on a grid");
     }
