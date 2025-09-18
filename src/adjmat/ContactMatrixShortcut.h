@@ -19,6 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifndef __PLUMED_adjmat_ContactMatrixShortcut_h
+#define __PLUMED_adjmat_ContactMatrixShortcut_h
 #include "core/ActionShortcut.h"
 #include "core/ActionRegister.h"
 #include "core/PlumedMain.h"
@@ -140,3 +142,4 @@ ContactMatrixShortcut<CM>::ContactMatrixShortcut(const ActionOptions& ao):
 
 }
 }
+#endif // __PLUMED_adjmat_ContactMatrixShortcut_h

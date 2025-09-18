@@ -30,9 +30,9 @@ namespace PLMD {
 namespace function {
 
 typedef FunctionOfVector<Combine,PLMD::ACCPTM> VectorCombine;
-PLUMED_REGISTER_ACTION(VectorCombine,"COMBINE_VECTOR_ACC")
+PLUMED_REGISTER_ACTION(VectorCombine,"COMBINE_VECTORACC")
 typedef FunctionOfMatrix<Combine,PLMD::ACCPTM> MatrixCombine;
-PLUMED_REGISTER_ACTION(MatrixCombine,"COMBINE_MATRIX_ACC")
+PLUMED_REGISTER_ACTION(MatrixCombine,"COMBINE_MATRIXACC")
 
 } // namespace function
 } // namespace PLMD
