@@ -78,7 +78,6 @@ ActionShortcut::ActionShortcut(const ActionOptions&ao):
 }
 
 void ActionShortcut::readInputLine( const std::string& input, bool saveline ) {
-//	std::cerr << "readInputLine: " << input << "\n";
   std::vector<std::string> words=Tools::getWords(input);
   Tools::interpretLabel(words);
   // Check if this action name has been registered
@@ -148,6 +147,7 @@ void ActionShortcut::readInputLine( const std::string& input, bool saveline ) {
         error("shortcut is using suffix but action created is not ActionWithValue");
       }
       Keywords thiskeys;
+      //TODO: check if it is possible to do this: plumed.getKeywordsForAction(av->getName(),thiskeys);	
       actionRegister().getKeywords( av->getName(), thiskeys );
       if( thiskeys.getDisplayName()!=getName() ) {
         //NOTE: this was an error
