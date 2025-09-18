@@ -1,3 +1,4 @@
+LOAD FILE=../../../../plumedOpenACC.so
 d1: DISTANCE ...
    ATOMS1=1,2
    ATOMS2=1,3

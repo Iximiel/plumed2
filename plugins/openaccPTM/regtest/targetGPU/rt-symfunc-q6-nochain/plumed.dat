@@ -1,3 +1,4 @@
+LOAD FILE=../../../../plumedOpenACC.so
 Q6 SPECIES=1-64 D_0=3.0 R_0=1.5 NN=12 MEAN LABEL=q6 USEGPU
 PRINT ARG=q6.* FILE=colv 
 

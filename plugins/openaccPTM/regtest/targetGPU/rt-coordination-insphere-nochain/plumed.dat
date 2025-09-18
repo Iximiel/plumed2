@@ -1,3 +1,4 @@
+LOAD FILE=../../../../plumedOpenACC.so
 # Water oxygens: atoms 1-N with stride 4 (TIP4P geometry)
 ow: GROUP ATOMS=1-16500:4
 

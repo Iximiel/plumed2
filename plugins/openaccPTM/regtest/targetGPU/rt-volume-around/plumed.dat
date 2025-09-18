@@ -1,3 +1,4 @@
+LOAD FILE=../../../../plumedOpenACC.so
 c1: CENTER ATOMS=2,3
 c2: CENTER ATOMS=4,5
 c3: CENTER ATOMS=6,7

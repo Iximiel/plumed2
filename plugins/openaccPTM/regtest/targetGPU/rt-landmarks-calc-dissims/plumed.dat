@@ -1,3 +1,4 @@
+LOAD FILE=../../../../plumedOpenACC.so
 d1: READ FILE=colv_in VALUES=data
 
 ff: COLLECT_FRAMES ARG=d1 STRIDE=1 
