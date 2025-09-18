@@ -49,7 +49,10 @@ public:
 template <class T>
 void FunctionShortcut<T>::registerKeywords(Keywords& keys ) {
   ActionShortcut::registerKeywords( keys );
-  keys.reserve("compulsory","PERIODIC","if the output of your function is periodic then you should specify the periodicity of the function.  If the output is not periodic you must state this using PERIODIC=NO");
+  keys.reserve("compulsory","PERIODIC",
+               "if the output of your function is periodic then you should specify "
+               "the periodicity of the function.  "
+               "If the output is not periodic you must state this using PERIODIC=NO");
   keys.addActionNameSuffix("_SCALAR");
   keys.addActionNameSuffix("_ONEARG");
   keys.addActionNameSuffix("_VECTOR");
@@ -67,7 +70,9 @@ void FunctionShortcut<T>::registerKeywords(Keywords& keys ) {
     keys.addInputKeyword("compulsory","ARG","scalar/vector/matrix","the values input to this function");
   }
   if( keys.outputComponentExists(".#!value") && keys.getDisplayName()!="DIFFERENCE" ) {
-    keys.addInputKeyword("optional","MASK","vector/matrix","the label for a sparse vector/matrix that should be used to determine which elements of the vector/matrix should be computed");
+    keys.addInputKeyword("optional","MASK","vector/matrix",
+                         "the label for a sparse vector/matrix that should be used "
+                         "to determine which elements of the vector/matrix should be computed");
   }
 }
 
@@ -109,29 +114,43 @@ void FunctionShortcut<T>::createAction( ActionShortcut* action,
   }
   if( isgrid ) {
     if( action->plumed.checkAction( action->getName() + "_GRID") ) {
-      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_GRID ARG=" + allargs + " " + action->convertInputLineToString() );
+      action->readInputLine( action->getShortcutLabel() + ": "
+                             + action->getName() + "_GRID ARG=" + allargs
+                             + " " + action->convertInputLineToString() );
     } else {
-      plumed_merror("there is no action registered that allows you to do " + action->getName() + " with functions on a grid");
+      plumed_merror("there is no action registered that allows you to do "
+                    + action->getName() + " with functions on a grid");
     }
   } else if( maxrank==0 ) {
     if( action->plumed.checkAction(action->getName() + "_SCALAR") ) {
-      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_SCALAR ARG=" + allargs + " " + action->convertInputLineToString() );
+      action->readInputLine( action->getShortcutLabel() + ": "
+                             + action->getName() + "_SCALAR ARG=" + allargs
+                             + " " + action->convertInputLineToString() );
     } else {
-      plumed_merror("there is no action registered that allows you to do " + action->getName() + " with scalars");
+      plumed_merror("there is no action registered that allows you to do "
+                    + action->getName() + " with scalars");
     }
   } else if( vals.size()==1 && action->plumed.checkAction(action->getName() + "_ONEARG") ) {
-    action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_ONEARG ARG=" + allargs + " " + action->convertInputLineToString() );
+    action->readInputLine( action->getShortcutLabel() + ": "
+                           + action->getName() + "_ONEARG ARG=" + allargs
+                           + " " + action->convertInputLineToString() );
   } else if( maxrank==1 ) {
     if( action->plumed.checkAction( action->getName() + "_VECTOR"+doUSEGPU) ) {
-      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_VECTOR"+doUSEGPU+" ARG=" + allargs + " " + action->convertInputLineToString() );
+      action->readInputLine( action->getShortcutLabel() + ": "
+                             + action->getName() + "_VECTOR"+doUSEGPU+" ARG=" + allargs
+                             + " " + action->convertInputLineToString() );
     } else {
-      plumed_merror("there is no action registered that allows you to do " + action->getName() + " with vectors");
+      plumed_merror("there is no action registered that allows you to do "
+                    + action->getName() + " with vectors"+ (useGPU?" (with USEGPU)":""));
     }
   } else if( maxrank==2  ) {
     if( action->plumed.checkAction( action->getName() + "_MATRIX"+doUSEGPU) ) {
-      action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_MATRIX"+doUSEGPU+" ARG=" + allargs + " " + action->convertInputLineToString() );
+      action->readInputLine( action->getShortcutLabel() + ": "
+                             + action->getName() + "_MATRIX"+doUSEGPU+" ARG=" + allargs
+                             + " " + action->convertInputLineToString() );
     } else {
-      plumed_merror("there is no action registered that allows you to do " + action->getName() + " with matrices");
+      plumed_merror("there is no action registered that allows you to do "
+                    + action->getName() + " with matrices" + (useGPU?" (with USEGPU)":""));
     }
   } else {
     plumed_error();
