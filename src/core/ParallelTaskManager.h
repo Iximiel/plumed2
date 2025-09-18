@@ -600,72 +600,6 @@ void ParallelTaskManager<T>::setWorkspaceSize( std::size_t size ) {
   workspace_size = size;
 }
 
-#ifdef __PLUMED_USE_OPENACC
-//use the __PLUMED_USE_OPENACC_TASKSMINE macro to debug the ptm ins a single file
-//so that compiling witha a small modification will be faster (the ptm is included nearly everywhere)
-#ifndef __PLUMED_USE_OPENACC_TASKSMINE
-template <class T, typename precision>
-void runAllTasksACC(typename T::input_type actiondata,
-                    ParActionsInput<precision> myinput,
-                    std::vector<precision>& value_stash,
-                    const std::vector<unsigned> & partialTaskList,
-                    const unsigned nactive_tasks,
-                    const std::size_t nderivatives_per_task,
-                    const std::size_t workspace_size
-                   ) {
-  auto myinput_acc = OpenACC::fromToDataHelper(myinput);
-  auto actiondata_acc = OpenACC::fromToDataHelper(actiondata);
-
-  //template type is deduced
-  OpenACC::memoryManager vs{value_stash};
-  auto value_stash_data = vs.devicePtr();
-
-  OpenACC::memoryManager ptl{partialTaskList};
-  auto partialTaskList_data = ptl.devicePtr();
-
-  OpenACC::memoryManager<precision> buff{workspace_size*nactive_tasks};
-
-  auto buffer = buff.devicePtr();
-  OpenACC::memoryManager<precision> dev(nderivatives_per_task*nactive_tasks);
-  auto derivatives = dev.devicePtr();
-#pragma acc parallel loop present(myinput, actiondata) \
-                           copyin(nactive_tasks, \
-                                 nderivatives_per_task, \
-                                 workspace_size)\
-                        deviceptr(derivatives, \
-                                  partialTaskList_data, \
-                                  value_stash_data, \
-                                  buffer) \
-                          default(none)
-  for(unsigned i=0; i<nactive_tasks; ++i) {
-    std::size_t task_index = partialTaskList_data[i];
-    std::size_t val_pos = task_index*myinput.nscalars;
-    auto myout = ParActionsOutput<precision>::create (myinput.nscalars,
-                 value_stash_data+val_pos,
-                 nderivatives_per_task,
-                 derivatives+nderivatives_per_task*i,
-                 workspace_size,
-                 (workspace_size>0)?
-                 buffer+workspace_size*i
-                 :nullptr  );
-    // Calculate the stuff in the loop for this action
-    T::performTask( task_index, actiondata, myinput, myout );
-  }
-  vs.copyFromDevice(value_stash.data());
-}
-#else
-template <class T, typename precision>
-void runAllTasksACC(typename T::input_type actiondata,
-                    ParActionsInput<precision> myinput,
-                    std::vector<precision>& value_stash,
-                    const std::vector<unsigned> & partialTaskList,
-                    const unsigned nactive_tasks,
-                    const std::size_t nderivatives_per_task,
-                    const std::size_t workspace_size
-                   );
-#endif //__PLUMED_USE_OPENACC_TASKSMINE
-#endif //__PLUMED_USE_OPENACC
-
 template <class T>
 void ParallelTaskManager<T>::runAllTasks() {
   // Get the list of active tasks
@@ -692,22 +626,8 @@ void ParallelTaskManager<T>::runAllTasks() {
   }
   std::fill (value_stash.begin(),value_stash.end(), precision(0.0));
   if( useacc ) {
-#ifdef __PLUMED_USE_OPENACC
-    if (comm.Get_rank()== 0) {// no multigpu shenanigans until this works
-      runAllTasksACC<T>(
-        actiondata,
-        myinput,
-        value_stash,
-        partialTaskList,
-        nactive_tasks,
-        nderivatives_per_task,
-        workspace_size
-      );
-    }
-    comm.Bcast( value_stash.data(), value_stash.size(), 0);
-#else
-    plumed_merror("cannot use USEGPU flag if PLUMED has not been compiled with openACC");
-#endif
+    // there should not be any avaiable path to get here
+    plumed_merror("to use the USEGPU flag you need to LOAD a plugin like \"openaccPTM\"");
   } else {
     // Get the MPI details
     unsigned stride=comm.Get_size();
@@ -753,155 +673,6 @@ void ParallelTaskManager<T>::runAllTasks() {
   action->transferStashToValues( value_stash );
 }
 
-#ifdef __PLUMED_USE_OPENACC
-//use the __PLUMED_USE_OPENACC_FORCESMINE macro to debug the ptm ins a single file
-//so that compiling witha a small modification will be faster (the ptm is included nearly everywhere)
-#ifndef __PLUMED_USE_OPENACC_FORCESMINE
-template <class T, typename precision>
-void applyForcesWithACC(PLMD::View<precision> forcesForApply,
-                        typename T::input_type actiondata,
-                        ParActionsInput<precision> myinput,
-                        const std::vector<precision>& value_stash,
-                        const std::vector<unsigned> & partialTaskList,
-                        const unsigned nactive_tasks,
-                        const std::size_t nderivatives_per_task,
-                        const std::size_t workspace_size
-                       ) {
-  auto myinput_acc = OpenACC::fromToDataHelper(myinput);
-  auto actiondata_acc = OpenACC::fromToDataHelper(actiondata);
-
-  //template type is deduced
-  OpenACC::memoryManager vs{value_stash};
-  auto value_stash_data = vs.devicePtr();
-
-  OpenACC::memoryManager ptl{partialTaskList};
-  auto partialTaskList_data = ptl.devicePtr();
-
-  OpenACC::memoryManager ffa {forcesForApply};
-  auto forcesForApply_data = ffa.devicePtr();
-  const auto forcesForApply_size = ffa.size();
-  const auto nind_per_scalar = ForceIndexHolder::indexesPerScalar(myinput);
-  //nscalars is >=ncomponents (see setupParallelTaskManager )
-  const auto nind_per_task = nind_per_scalar*myinput.nscalars;
-
-  OpenACC::memoryManager<precision> dev{nderivatives_per_task*nactive_tasks};
-  auto derivatives = dev.devicePtr();
-  OpenACC::memoryManager<std::size_t> ind{nind_per_task*nactive_tasks};
-  auto indices = ind.devicePtr();
-  OpenACC::memoryManager<precision> vtmp{myinput.sizeOfFakeVals()*nactive_tasks};
-  auto valstmp = vtmp.devicePtr();
-  OpenACC::memoryManager<precision> buff{workspace_size*nactive_tasks};
-  auto buffer = buff.devicePtr();
-
-#define forces_indicesArg(taskID,scalarID) ForceIndexHolder::create(myinput, \
-                          indices + taskID*nind_per_task + scalarID*nind_per_scalar)
-#define derivativeDrift(taskID,scalarID)  taskID*nderivatives_per_task \
-                           + scalarID*myinput.ncomponents*myinput.nderivatives_per_scalar
-#define stashDrift(taskID,scalarID) taskID*myinput.nscalars \
-                           + scalarID*myinput.ncomponents
-
-#pragma acc data present(myinput,actiondata) \
-                  copyin(nactive_tasks, \
-                         forcesForApply_size, \
-                         nderivatives_per_task, nind_per_task,nind_per_scalar, \
-                         workspace_size) \
-               deviceptr(derivatives, \
-                         indices, \
-                         value_stash_data, \
-                         partialTaskList_data, \
-                         forcesForApply_data, \
-                         valstmp, \
-                         buffer) \
-                 default(none)
-  {
-#pragma acc parallel loop
-    for(unsigned t=0; t<nactive_tasks; ++t) {
-      std::size_t task_index = partialTaskList_data[t];
-      auto myout = ParallelActionsOutput::create( myinput.nscalars,
-                   valstmp+myinput.nscalars*t,
-                   nderivatives_per_task,
-                   derivatives+nderivatives_per_task*t,
-                   workspace_size,
-                   (workspace_size>0)?buffer+workspace_size*t:nullptr);
-      // Calculate the stuff in the loop for this action
-      T::performTask( task_index, actiondata, myinput, myout );
-      // If this is a matrix this returns a number that isn't one as we have to loop over the columns
-      const std::size_t nvpt = T::getNumberOfValuesPerTask( task_index, actiondata );
-#pragma acc loop seq
-      for(unsigned vID=0; vID<nvpt; ++vID) {
-        auto force_indices = forces_indicesArg(t,vID);
-        // Create a force index holder
-        // Get the indices for forces
-        T::getForceIndices( task_index,
-                            vID,
-                            forcesForApply_size,
-                            actiondata,
-                            myinput,
-                            force_indices );
-
-        // Create a force input object
-        auto finput = ForcesInput<precision>::create ( myinput.nscalars,
-                      value_stash_data + stashDrift(task_index,vID),
-                      myinput.nderivatives_per_scalar,
-                      derivatives + derivativeDrift(t,vID));
-
-        // Gather forces that can be gathered locally
-        ParallelTaskManager<T>::gatherThreadSafeForces( myinput,
-            force_indices,
-            finput,
-            View<precision>(forcesForApply_data,
-                            forcesForApply_size));
-      }
-    }
-
-#pragma acc parallel loop
-    for(unsigned v=myinput.threadunsafe_forces_start; v<forcesForApply_size; ++v) {
-      //using double for paranoid reasons
-      double tmp = 0.0;
-#pragma acc loop reduction(+:tmp)
-      for(unsigned t=0; t<nactive_tasks; ++t) {
-        const std::size_t task_index = partialTaskList_data[t];
-        const std::size_t nvpt = T::getNumberOfValuesPerTask( task_index, actiondata );
-        for(unsigned vID=0; vID<nvpt; ++vID) {
-          auto force_indices = forces_indicesArg(t,vID);
-
-          auto fdata = ForcesInput<precision>::create( myinput.nscalars,
-                       value_stash_data + stashDrift(task_index,vID),
-                       myinput.nderivatives_per_scalar,
-                       derivatives + derivativeDrift(t,vID));
-          for(unsigned i=0; i<myinput.ncomponents; ++i) {
-            const double ff = fdata.force[i];
-            for(unsigned d=force_indices.threadsafe_derivatives_end[i];
-                d<force_indices.tot_indices[i]; ++d) {
-              if( force_indices.indices[i][d]==v ) {
-                tmp += ff*fdata.deriv[i][d];
-                // break;
-              }
-            }
-          }
-        }
-      }
-      forcesForApply_data[v] = tmp;
-    }
-  }
-#undef forces_indicesArg
-#undef derivativeDrift
-#undef stashDrift
-  ffa.copyFromDevice(forcesForApply.data());
-}
-#else
-void applyForcesWithACC(PLMD::View<precision> forcesForApply,
-                        typename T::input_type actiondata,
-                        ParActionsInput<precision> myinput,
-                        const std::vector<precision>& value_stash,
-                        const std::vector<unsigned> & partialTaskList,
-                        const unsigned nactive_tasks,
-                        const std::size_t nderivatives_per_task,
-                        const std::size_t workspace_size
-                       );
-#endif //__PLUMED_USE_OPENACC_FORCESMINE
-#endif //__PLUMED_USE_OPENACC
-
 template<typename prec>
 struct forceData {
   std::vector<prec> ffa;
@@ -936,23 +707,8 @@ void ParallelTaskManager<T>::applyForces( std::vector<double>& forcesForApply ) 
   action->transferForcesToStash( value_stash );
 
   if( useacc ) {
-#ifdef __PLUMED_USE_OPENACC
-    std::fill (omp_forces[0].begin(),omp_forces[0].end(), 0.0);
-    if (comm.Get_rank() == 0) {
-      applyForcesWithACC<T>(
-        PLMD::View<precision> { forcesForApply.data(), forcesForApply.size() },
-        actiondata,
-        myinput,
-        value_stash,
-        partialTaskList,
-        nactive_tasks,
-        nderivatives_per_task,
-        workspace_size
-      );
-    }
-#else
-    plumed_merror("cannot use USEGPU flag if PLUMED has not been compiled with openACC");
-#endif
+    // there should not be any avaiable path to get here
+    plumed_merror("to use the USEGPU flag you need to LOAD a plugin like \"openaccPTM\"");
   } else {
     // Get the MPI details
     unsigned stride=comm.Get_size();
