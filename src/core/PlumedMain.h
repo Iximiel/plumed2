@@ -535,6 +535,8 @@ public:
   void getKeywordsForAction( const std::string& action, Keywords& keys ) const ;
 /// Check if the input has been initialized
   bool hasBeenInitialized() const ;
+/// Returns the images from the dlloader
+  const std::vector <void*>& getDLHandles() const noexcept;
 };
 
 /////

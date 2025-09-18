@@ -108,27 +108,27 @@ void FunctionShortcut<T>::createAction( ActionShortcut* action,
     }
   }
   if( isgrid ) {
-    if( actionRegister().check( action->getName() + "_GRID") ) {
+    if( actionRegister().check(/*action->plumed.getDLHandles(),*/ action->getName() + "_GRID") ) {
       action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_GRID ARG=" + allargs + " " + action->convertInputLineToString() );
     } else {
       plumed_merror("there is no action registered that allows you to do " + action->getName() + " with functions on a grid");
     }
   } else if( maxrank==0 ) {
-    if( actionRegister().check( action->getName() + "_SCALAR") ) {
+    if( actionRegister().check(/*action->plumed.getDLHandles(),*/action->getName() + "_SCALAR") ) {
       action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_SCALAR ARG=" + allargs + " " + action->convertInputLineToString() );
     } else {
       plumed_merror("there is no action registered that allows you to do " + action->getName() + " with scalars");
     }
-  } else if( vals.size()==1 && actionRegister().check( action->getName() + "_ONEARG") ) {
+  } else if( vals.size()==1 && actionRegister().check(/*action->plumed.getDLHandles(),*/action->getName() + "_ONEARG") ) {
     action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_ONEARG ARG=" + allargs + " " + action->convertInputLineToString() );
   } else if( maxrank==1 ) {
-    if( actionRegister().check( action->getName() + "_VECTOR"+doUSEGPU) ) {
+    if( actionRegister().check(action->plumed.getDLHandles(), action->getName() + "_VECTOR"+doUSEGPU) ) {
       action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_VECTOR"+doUSEGPU+" ARG=" + allargs + " " + action->convertInputLineToString() );
     } else {
       plumed_merror("there is no action registered that allows you to do " + action->getName() + " with vectors");
     }
   } else if( maxrank==2  ) {
-    if( actionRegister().check( action->getName() + "_MATRIX"+doUSEGPU) ) {
+    if( actionRegister().check( action->plumed.getDLHandles(), action->getName() + "_MATRIX"+doUSEGPU) ) {
       action->readInputLine( action->getShortcutLabel() + ": " + action->getName() + "_MATRIX"+doUSEGPU+" ARG=" + allargs + " " + action->convertInputLineToString() );
     } else {
       plumed_merror("there is no action registered that allows you to do " + action->getName() + " with matrices");

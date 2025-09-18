@@ -1753,6 +1753,9 @@ void PlumedMain::getKeywordsForAction( const std::string& action, Keywords& keys
   actionRegister().getKeywords( dlloader.getHandles(), action, keys );
 }
 
+const std::vector <void*>& PlumedMain::getDLHandles() const noexcept {
+  return dlloader.getHandles();
+}
 #ifdef __PLUMED_HAS_PYTHON
 // This is here to stop cppcheck throwing an error
 #endif
