@@ -19,6 +19,8 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#ifndef __PLUMED_symfunc_Fccubic_h
+#define __PLUMED_symfunc_Fccubic_h
 #include "function/FunctionSetup.h"
 
 #include <string>
@@ -113,3 +115,4 @@ void Fccubic<T>::calc( const Fccubic& func,
 }
 }
 
+#endif //__PLUMED_symfunc_Fccubic_h
