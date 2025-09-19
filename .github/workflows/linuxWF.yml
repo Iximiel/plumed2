@@ -69,7 +69,7 @@ jobs:
     - name: Install system boost
       if: ${{ ! contains( matrix.variant, '-debug-' ) }}
       run: |
-        sudo apt-get install -y libboost-serialization-dev
+        sudo apt-get install -y libboost-serialization-dev libboost-graph-dev
     - name: Install boost with debug flags
       if: contains( matrix.variant, '-debug-' )
       run: |
