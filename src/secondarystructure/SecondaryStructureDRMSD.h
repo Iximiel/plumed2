@@ -110,8 +110,8 @@ public:
   bool align_strands{false};
 /// The atoms involved in each of the secondary structure segments
   Matrix<unsigned> colvar_atoms{};
-  static void calculateDistance( unsigned n,
-                                 bool noderiv,
+  static void calculateDistance( const unsigned n,
+                                 const bool noderiv,
                                  const SecondaryStructureDRMSDInput& actiondata,
                                  View<VectorT<precision>> pos,
                                  ColvarOutput<precision>& output ) {
@@ -152,8 +152,6 @@ public:
       double scalef = inpairs / output.values[n];
 
       PLMD::LoopUnroller<9>::_mul(output.virial.getView(n).data(),scalef);
-      const auto targetList = actiondata.drmsd_atoms.get(n);
-      const auto targetAtoms=targetList.size();
       for(unsigned i=0; i<actiondata.natoms; ++i ) {
         output.derivs[n][targetList[i]] *= scalef;
       }
