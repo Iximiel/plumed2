@@ -90,7 +90,7 @@ void test (PLMD::Communicator &comm) {
   std::vector<double> basebox(9);
   unsigned nat = atoms.size();
   auto rep= std::make_unique<repliedTrajectory>([&]() {
-    auto d = getAtomDistribution("sphere");
+    auto d = AtomDistribution::getAtomDistribution("sphere");
 //getting some base informations
     d->frame(atoms,basebox,0,rng);
     return d;
@@ -155,7 +155,7 @@ void bench (PLMD::Communicator &comm) {
   std::vector<double> basebox(9);
   unsigned nat = atoms.size();
   auto rep= std::make_unique<repliedTrajectory>([&]() {
-    auto d = getAtomDistribution("cube");
+    auto d = AtomDistribution::getAtomDistribution("cube");
 //getting some base informations
     d->frame(atoms,basebox,0,rng);
     return d;
