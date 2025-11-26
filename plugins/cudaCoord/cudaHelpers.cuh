@@ -405,5 +405,19 @@ void doReductionND (T *inputArray,
   doReductionND_t<DATAPERTHREAD> (
     inputArray, outputArray, len, blocks, nthreads, stream);
 }
+
+// this make possible to use shared memory within a templated kernel
+template <typename T> __device__ T *shared_memory() {
+  // do we need an __align__() here?
+  extern __shared__ unsigned char memory[];
+  return reinterpret_cast<T *> (memory);
+}
+
+template <typename T, typename Y> __device__ T *shared_memory(unsigned stride) {
+  // do we need an __align__() here?
+  extern __shared__ unsigned char memory[];
+  return reinterpret_cast<T *> (&memory[stride*sizeof(Y)]);
+}
+
 } // namespace CUDAHELPERS
 #endif //__PLUMED_cuda_helpers_cuh
