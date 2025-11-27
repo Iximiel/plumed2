@@ -46,8 +46,35 @@
 
 #include <iostream>
 #include <vector>
+#include <utility>
 
 namespace PLMD {
+
+//this trio of things is used to keep the backward compatibility of this:
+//get_data can be used to drop all the weight of setting up the parameter to SwitchingFunction in future iterations
+template<typename, typename = void>
+constexpr bool has_get_data = false;
+
+template<typename T>
+constexpr bool has_get_data <T, std::void_t<decltype(std::declval<T>().get_data())> > = true;
+
+template <typename T>
+std::pair<int,int> getNNandMM(T sf, std::string_view NNs, std::string_view MMs) {
+  int nn_ = 6;
+  int mm_ = 0;
+  if constexpr (has_get_data<T>) {
+    nn_=sf.get_data().nn;
+    mm_=sf.get_data().mm;
+  } else {
+    Tools::parse(NNs,nn_);
+    Tools::parse(MMs,mm_);
+    if (mm_ == 0) {
+      mm_ = 2 * nn_;
+    }
+  }
+  return {nn_,mm_};
+}
+
 namespace colvar {
 //+PLUMEDOC COLVAR CUDACOORDINATION
 /*
@@ -152,7 +179,10 @@ void CudaCoordination<calculateFloat>::setUpPermanentGPUMemory() {
   }
   cudaTrueIndexes = trueIndexes;
 }
-
+constexpr auto NNdefault="6";
+constexpr auto MMdefault="0";
+constexpr auto D_0default="0.0";
+constexpr auto D_MAXdefault="-1.0";
 template <typename calculateFloat>
 void CudaCoordination<calculateFloat>::registerKeywords (Keywords &keys) {
   Colvar::registerKeywords (keys);
@@ -166,16 +196,16 @@ void CudaCoordination<calculateFloat>::registerKeywords (Keywords &keys) {
                 "the second, etc");
 
   keys.add (
-    "compulsory", "NN", "6", "The n parameter of the switching function ");
+    "compulsory", "NN", NNdefault, "The n parameter of the switching function ");
   keys.add ("compulsory",
             "MM",
-            "0",
+            MMdefault,
             "The m parameter of the switching function; 0 implies 2*NN");
   keys.add ("compulsory", "R_0", "The r_0 parameter of the switching function");
   keys.add (
-    "compulsory", "D_MAX", "-1.0", "The cut off of the switching function");
+    "compulsory", "D_MAX", D_MAXdefault, "The cut off of the switching function");
   keys.add (
-    "compulsory", "D_0", "0.0", "The value of d_0 in the switching function");
+    "compulsory", "D_0", D_0default, "The value of d_0 in the switching function");
   keys.add("compulsory","NL_CUTOFF","8.0","The cutoff for the neighbor list");
   keys.add("compulsory","NL_STRIDE","1","The frequency with which we are updating the atoms in the neighbor list");
 }
@@ -1027,178 +1057,197 @@ CudaCoordination<calculateFloat>::CudaCoordination (const ActionOptions &ao)
   }
   std::string sw, errors;
 
-  // loading data to the GPU
-  int nn_ = 6;
-  int mm_ = 0;
+    PLMD::SwitchingFunction sf;
 
-  calculateFloat r0_ = 0.0;
-  parse ("R_0", r0_);
-  if (r0_ <= 0.0) {
-    error ("R_0 should be explicitly specified and positive");
-  }
+    int nn_ = 6;
+    int mm_ = 0;
+    calculateFloat dmax;
+    calculateFloat d0 = 0.0;
+    calculateFloat r0_ = 0.0;
+    std::string dmaxs = "-1.0";
+    parse ("D_MAX", dmaxs);
+    if (dmaxs==D_MAXdefault) {
 
-  parse ("NN", nn_);
-  parse ("MM", mm_);
-  if (mm_ == 0) {
-    mm_ = 2 * nn_;
-  }
-
-  switchingParameters.nn = nn_;
-  switchingParameters.mm = mm_;
-  switchingParameters.stretch = 1.0;
-  switchingParameters.shift = 0.0;
-
-  calculateFloat dmax = -1.0;
-  parse ("D_MAX", dmax);
-  calculateFloat d0 = 0.0;
-  parse ("D_0", d0);
-  if (dmax <= 0.0) { // TODO:check for a "non present flag"
-    // set dmax to where the switch is ~0.00001
-    dmax = d0 + r0_ * std::pow (0.00001, 1.0 / (nn_ - mm_));
-    // ^This line is equivalent to:
-    // SwitchingFunction tsw;
-    // tsw.set(nn_,mm_,r0_,0.0);
-    // dmax=tsw.get_dmax();
-    // in plain plumed
-  }
-
-  switchingParameters.calcSquared= (! d0 > calculateFloat(0.0) ) && (nn_%2 == 0 && mm_%2 == 0);
-  switchingParameters.d0=d0;
-  switchingParameters.dmaxSQ = dmax * dmax;
-  calculateFloat invr0 = 1.0 / r0_;
-  if (switchingParameters.calcSquared) {
-    switchingParameters.invr0_2 = invr0 * invr0;
-  } else {
-    switchingParameters.invr0_2 = invr0;
-  }
-  constexpr bool dostretch = true;
-  if (dostretch && mpiActive) {
-    std::vector<calculateFloat> inputs = {0.0, (dmax-switchingParameters.d0) * invr0};
-
-    thrust::device_vector<calculateFloat> inputZeroMax = inputs;
-    thrust::device_vector<calculateFloat> dummydfunc (2);
-    thrust::device_vector<calculateFloat> resZeroMax (2);
-
-    PLMD::GPU::getpcuda_func<PLMD::GPU::Rational><<<1, 2>>> (
-      thrust::raw_pointer_cast (inputZeroMax.data()),
-      switchingParameters,
-      thrust::raw_pointer_cast (dummydfunc.data()),
-      thrust::raw_pointer_cast (resZeroMax.data()));
-
-    switchingParameters.stretch = 1.0 / (resZeroMax[0] - resZeroMax[1]);
-    switchingParameters.shift = -resZeroMax[1] * switchingParameters.stretch;
-  }
-  if (switchingParameters.calcSquared) {
-    switchingParameters.nn/=2;
-    switchingParameters.mm/=2;
-  }
-  comm.Bcast (switchingParameters.dmaxSQ,0);
-  comm.Bcast (switchingParameters.invr0_2,0);
-  comm.Bcast (switchingParameters.d0,0);
-  comm.Bcast (switchingParameters.stretch,0);
-  comm.Bcast (switchingParameters.shift,0);
-  comm.Bcast (switchingParameters.nn,0);
-  comm.Bcast (switchingParameters.mm,0);
-
-
-
-  parse("NL_CUTOFF",NL.cutoff);
-  parse("NL_STRIDE",NL.stride);
-  if(NL.cutoff < dmax) {
-    NL.cutoff = dmax;
-    NL.stride=1;
-  }
-
-  checkRead();
-  if (mpiActive) {
-
-    cudaStreamCreate (&streamDerivatives);
-    cudaStreamCreate (&streamVirial);
-    cudaStreamCreate (&streamCoordination);
-
-    setUpPermanentGPUMemory();
-
-    maxReductionNumThreads = min (1024, maxNumThreads);
-
-    cudaFuncAttributes attr;
-    // the kernels are heavy on registers, this adjust the maximum number of
-    // threads accordingly
-    switch (mode) {
-    case calculationMode::self:
-      if (pbc) {
-        cudaFuncGetAttributes (&attr, &getSelfCoord<true, calculateFloat>);
-      } else {
-        cudaFuncGetAttributes (&attr, &getSelfCoord<false, calculateFloat>);
+      parse ("R_0", r0_);
+      if (r0_ <= 0.0) {
+        error ("R_0 should be explicitly specified and positive");
       }
-      break;
-    case calculationMode::dual:
-      if (pbc) {
-        cudaFuncGetAttributes (&attr, &getDerivDual<true, calculateFloat>);
-        maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
-        cudaFuncGetAttributes (&attr, &getCoordDual<true, calculateFloat>);
-      } else {
-        cudaFuncGetAttributes (&attr, &getDerivDual<false, calculateFloat>);
-        maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
-        cudaFuncGetAttributes (&attr, &getCoordDual<false, calculateFloat>);
+
+      parse ("NN", nn_);
+      parse ("MM", mm_);
+      if (mm_ == 0) {
+        mm_ = 2 * nn_;
       }
-      break;
-    case calculationMode::pair:
-      if (pbc) {
-        cudaFuncGetAttributes (&attr, &getCoordPair<true, calculateFloat>);
-      } else {
-        cudaFuncGetAttributes (&attr, &getCoordPair<false, calculateFloat>);
+      parse ("D_0", d0);
+      sf.set(nn_,mm_,r0_,d0);
+    } else {
+      std::string R_0s="";
+      parse ("R_0", R_0s);
+      if (R_0s=="") {
+        error ("R_0 should be explicitly specified and positive");
       }
-      break;
-    case calculationMode::none:
-      // throw"this should not have been happened"
-      break;
+      std::string switchs="RATIONAL R_0="+R_0s+" D_MAX="+dmaxs;
+#define defParse(pn) std::string pn ## s=pn ## default;\
+      parse(#pn,pn ## s); \
+      if (pn ## s!=pn ## default) {\
+        switchs+=" " #pn "="+pn ## s;\
+      }
+      defParse(NN);
+      defParse(MM);
+      defParse(D_0);
+      std::string errmsg;
+      sf.set(switchs,errmsg);
+      if (errmsg!="") {
+        error(errmsg);
+      }
+      r0_ = sf.get_r0();
+      d0=sf.get_d0();
+      std::tie (nn_,mm_) = getNNandMM(sf,NNs,MMs);
     }
-    maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
+    dmax = sf.get_dmax();
+
+    plumed_assert (!(d0<0.0)) << "d0 should be >=0, d0="<<d0;
+    switchingParameters.nn = nn_;
+    switchingParameters.mm = mm_;
+    switchingParameters.stretch = 1.0;
+    switchingParameters.shift = 0.0;
+    switchingParameters.calcSquared= (! d0 > calculateFloat(0.0) ) && (nn_%2 == 0 && mm_%2 == 0);
+    switchingParameters.d0=d0;
+    switchingParameters.dmaxSQ=sf.get_dmax2();
+    calculateFloat invr0 = 1.0 / r0_;
+    if (switchingParameters.calcSquared) {
+      switchingParameters.invr0_2 = invr0 * invr0;
+    } else {
+      switchingParameters.invr0_2 = invr0;
+    }
+    constexpr bool dostretch = true;
+    if (dostretch && mpiActive) {
+      std::vector<calculateFloat> inputs = {0.0, (dmax-switchingParameters.d0) * invr0};
+
+      thrust::device_vector<calculateFloat> inputZeroMax = inputs;
+      thrust::device_vector<calculateFloat> dummydfunc (2);
+      thrust::device_vector<calculateFloat> resZeroMax (2);
+
+      PLMD::GPU::getpcuda_func<PLMD::GPU::Rational><<<1, 2>>> (
+        thrust::raw_pointer_cast (inputZeroMax.data()),
+        switchingParameters,
+        thrust::raw_pointer_cast (dummydfunc.data()),
+        thrust::raw_pointer_cast (resZeroMax.data()));
+
+      switchingParameters.stretch = 1.0 / (resZeroMax[0] - resZeroMax[1]);
+      switchingParameters.shift = -resZeroMax[1] * switchingParameters.stretch;
+    }
+    if (switchingParameters.calcSquared) {
+      switchingParameters.nn/=2;
+      switchingParameters.mm/=2;
+    }
+    comm.Bcast (switchingParameters.dmaxSQ,0);
+    comm.Bcast (switchingParameters.invr0_2,0);
+    comm.Bcast (switchingParameters.d0,0);
+    comm.Bcast (switchingParameters.stretch,0);
+    comm.Bcast (switchingParameters.shift,0);
+    comm.Bcast (switchingParameters.nn,0);
+    comm.Bcast (switchingParameters.mm,0);
+
+
+
+    parse("NL_CUTOFF",NL.cutoff);
+    parse("NL_STRIDE",NL.stride);
+    if(NL.cutoff < dmax) {
+      NL.cutoff = dmax;
+      NL.stride=1;
+    }
+
+    checkRead();
+    if (mpiActive) {
+
+      cudaStreamCreate (&streamDerivatives);
+      cudaStreamCreate (&streamVirial);
+      cudaStreamCreate (&streamCoordination);
+
+      setUpPermanentGPUMemory();
+
+      maxReductionNumThreads = min (1024, maxNumThreads);
+
+      cudaFuncAttributes attr;
+      // the kernels are heavy on registers, this adjust the maximum number of
+      // threads accordingly
+      switch (mode) {
+      case calculationMode::self:
+        if (pbc) {
+          cudaFuncGetAttributes (&attr, &getSelfCoord<true, calculateFloat>);
+        } else {
+          cudaFuncGetAttributes (&attr, &getSelfCoord<false, calculateFloat>);
+        }
+        break;
+      case calculationMode::dual:
+        if (pbc) {
+          cudaFuncGetAttributes (&attr, &getDerivDual<true, calculateFloat>);
+          maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
+          cudaFuncGetAttributes (&attr, &getCoordDual<true, calculateFloat>);
+        } else {
+          cudaFuncGetAttributes (&attr, &getDerivDual<false, calculateFloat>);
+          maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
+          cudaFuncGetAttributes (&attr, &getCoordDual<false, calculateFloat>);
+        }
+        break;
+      case calculationMode::pair:
+        if (pbc) {
+          cudaFuncGetAttributes (&attr, &getCoordPair<true, calculateFloat>);
+        } else {
+          cudaFuncGetAttributes (&attr, &getCoordPair<false, calculateFloat>);
+        }
+        break;
+      case calculationMode::none:
+        // throw"this should not have been happened"
+        break;
+      }
+      maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
+    }
+    comm.Bcast (maxNumThreads, 0);
+    comm.Bcast (maxReductionNumThreads, 0);
+
+
+    log << "  contacts are counted with cutoff (dmax)="
+        << sqrt (switchingParameters.dmaxSQ)
+        << ", with a rational switch with parameters: "
+        "d0="<< switchingParameters.d0
+        <<", r0="<< 1.0 / ((switchingParameters.calcSquared)?(sqrt (switchingParameters.invr0_2)):switchingParameters.invr0_2)
+        << ", N=" << switchingParameters.nn * ((switchingParameters.calcSquared)?2:1)
+        << ", M=" << switchingParameters.mm * ((switchingParameters.calcSquared)?2:1)
+        << ".\n";
+    log << "GPU info:\n"
+        << "\t max threads per coordination" << maxNumThreads << "\n"
+        << "\t max threads per reduction" << maxReductionNumThreads << "\n";
+
+    // cudaFuncGetAttributes (&attr, &getSelfCoord<true, calculateFloat>);
+    // std::cout<< "Attributes for pbc: \n";
+
+    // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
+    // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
+    // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
+    // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
+    // attr.sharedSizeBytes <<"\n" ;
+
+    // cudaFuncGetAttributes ( &attr, &getSelfCoord<false,calculateFloat> );
+    // std::cout<< "Attributes for no pbc: \n";
+
+    // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
+    // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
+    // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
+    // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
+    // attr.sharedSizeBytes <<"\n" ;
+
+    // cudaFuncGetAttributes ( &attr,
+    // &CUDAHELPERS::reduction1DKernel<calculateFloat, 128, 4> ); std::cout<<
+    // "Attributes for reduction kernel (128): \n";
+
+    // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
+    // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
+    // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
+    // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
+    // attr.sharedSizeBytes <<"\n" ;
   }
-  comm.Bcast (maxNumThreads, 0);
-  comm.Bcast (maxReductionNumThreads, 0);
-
-
-  log << "  contacts are counted with cutoff (dmax)="
-      << sqrt (switchingParameters.dmaxSQ)
-      << ", with a rational switch with parameters: "
-      "d0="<< switchingParameters.d0
-      <<", r0="<< 1.0 / ((switchingParameters.calcSquared)?(sqrt (switchingParameters.invr0_2)):switchingParameters.invr0_2)
-      << ", N=" << switchingParameters.nn * ((switchingParameters.calcSquared)?2:1)
-      << ", M=" << switchingParameters.mm * ((switchingParameters.calcSquared)?2:1)
-      << ".\n";
-  log << "GPU info:\n"
-      << "\t max threads per coordination" << maxNumThreads << "\n"
-      << "\t max threads per reduction" << maxReductionNumThreads << "\n";
-
-  // cudaFuncGetAttributes (&attr, &getSelfCoord<true, calculateFloat>);
-  // std::cout<< "Attributes for pbc: \n";
-
-  // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
-  // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
-  // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
-  // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
-  // attr.sharedSizeBytes <<"\n" ;
-
-  // cudaFuncGetAttributes ( &attr, &getSelfCoord<false,calculateFloat> );
-  // std::cout<< "Attributes for no pbc: \n";
-
-  // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
-  // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
-  // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
-  // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
-  // attr.sharedSizeBytes <<"\n" ;
-
-  // cudaFuncGetAttributes ( &attr,
-  // &CUDAHELPERS::reduction1DKernel<calculateFloat, 128, 4> ); std::cout<<
-  // "Attributes for reduction kernel (128): \n";
-
-  // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
-  // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
-  // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
-  // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
-  // attr.sharedSizeBytes <<"\n" ;
-}
 
 } // namespace colvar
 } // namespace PLMD
