@@ -289,13 +289,14 @@ void CudaCoordination<calculateFloat>::calculate() {
 
     cudaDeviceSynchronize();
     CUDAHELPERS::plmdDataFromGPU (cudaDerivatives, deriv, streamDerivatives);
-    auto tmp = std::vector<calculateFloat> (cudaCoordination.size());
-    cudaMemcpy (tmp.data(),
-                thrust::raw_pointer_cast (cudaCoordination.data()),
-                tmp.size() * sizeof (calculateFloat),
-                cudaMemcpyDeviceToHost);
-    std::copy(tmp.begin(),tmp.end(),std::ostream_iterator<calculateFloat>(std::cerr, " "));
-    std::cerr <<"\n";
+    /*    auto tmp = std::vector<calculateFloat> (cudaCoordination.size());
+        cudaMemcpy (tmp.data(),
+                    thrust::raw_pointer_cast (cudaCoordination.data()),
+                    tmp.size() * sizeof (calculateFloat),
+                    cudaMemcpyDeviceToHost);
+        std::copy(tmp.begin(),tmp.end(),std::ostream_iterator<calculateFloat>(std::cerr, " "));
+        std::cerr <<"\n";
+    */
 
     auto N = t2br;
     // if (N>1){
@@ -381,20 +382,14 @@ T __device__ __forceinline__ calculatePBC (T const val,
   }
 }
 
-//input:all the atoms -> A gets in register, Bs gets in shared memory
-//list of idx atoms A (number is the number of threads)
-// list of idx atoms B
-// number of B atoms
-//cuda indexes, in case
-//Derivatives
-//virial
+//FUN FACT: using the shared memory seems to pay if the system is quite bigger
+//#define PLMD_CUDA_COORDINATION_SELF_USESHMEM
 template <bool usePBC, typename calculateFloat>
 __global__ void
 getSelfCoord (const unsigned nat,
               const unsigned nOfA,
               const unsigned nOfB,
-              const PLMD::GPU::rationalSwitchParameters<calculateFloat>
-              switchingParameters,
+              const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters,
               const unsigned *cellIndexes,
               const unsigned *neighIndexes,
               const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
@@ -403,7 +398,7 @@ getSelfCoord (const unsigned nat,
               calculateFloat *ncoordOut,
               calculateFloat *devOut,
               calculateFloat *virialOut) {
-  /*
+#ifdef PLMD_CUDA_COORDINATION_SELF_USESHMEM
   auto sPos = CUDAHELPERS::shared_memory<calculateFloat>();
   auto realIndexes = CUDAHELPERS::shared_memory<unsigned,calculateFloat>(3*nOfB);
   // // loading shared memory
@@ -414,7 +409,7 @@ getSelfCoord (const unsigned nat,
     realIndexes[k] = trueIndexes[neighIndexes[k]];
   }
   __syncthreads();
-  */
+#endif //PLMD_CUDA_COORDINATION_SELF_USESHMEM
   // blockDIm are the number of threads in your block
   unsigned i = threadIdx.x + blockIdx.x * blockDim.x;
   // __syncthreads();
@@ -450,30 +445,31 @@ getSelfCoord (const unsigned nat,
   calculateFloat t_0, t_1, t_2;
   calculateFloat dfunc;
   calculateFloat coord;
-  if(threadIdx.x==0) {
-    dprintf("dxcomp %f %f %f\n",x,y,z);
-  }
   for (unsigned j = 0; j < nOfB; ++j) {
     // const unsigned j = threadIdx.y + blockIdx.y * blockDim.y;
     const unsigned jB=neighIndexes[j];
     // Safeguard
-    //if (idx == realIndexes[j]) {
-    if (idx == trueIndexes[jB]) {
+    if (idx ==
+#ifdef PLMD_CUDA_COORDINATION_SELF_USESHMEM
+        realIndexes[j]
+#else
+        trueIndexes[jB]
+#endif //PLMD_CUDA_COORDINATION_SELF_USESHMEM
+       ) {
       continue;
     }
 
-    //d_0 = calculatePBC<usePBC> (sPos[X (j)] - x, myPBC.X);
-    //d_1 = calculatePBC<usePBC> (sPos[Y (j)] - y, myPBC.Y);
-    //d_2 = calculatePBC<usePBC> (sPos[Z (j)] - z, myPBC.Z);
+#ifdef PLMD_CUDA_COORDINATION_SELF_USESHMEM
+#define posarray(xyz) sPos[xyz(j)]
+#else
+#define posarray(xyz) coordinates[xyz(jB)]
+#endif //PLMD_CUDA_COORDINATION_SELF_USESHMEM
 
-    d_0 = calculatePBC<usePBC> (coordinates[X (jB)] - x, myPBC.X);
-    d_1 = calculatePBC<usePBC> (coordinates[Y (jB)] - y, myPBC.Y);
-    d_2 = calculatePBC<usePBC> (coordinates[Z (jB)] - z, myPBC.Z);
+    d_0 = calculatePBC<usePBC> (posarray(X) - x, myPBC.X);
+    d_1 = calculatePBC<usePBC> (posarray(Y) - y, myPBC.Y);
+    d_2 = calculatePBC<usePBC> (posarray(Z) - z, myPBC.Z);
+#undef posarray
 
-    if(threadIdx.x==0) {
-      dprintf("dxcomp- \"%3u\" %f %f %f\n",jB,coordinates[X (jB)],coordinates[Y (jB)],coordinates[Z (jB)]);
-      dprintf("dxcomp++       %f %f %f\n",d_0,d_1,d_2);
-    }
     dfunc = 0.;
     coord = calculateSqr (
               d_0 * d_0 + d_1 * d_1 + d_2 * d_2,
@@ -531,7 +527,7 @@ size_t CudaCoordination<calculateFloat>::doSelf() {
   vdbg("doSelf()");
   vdbg(switchingParameters);
   vdbg(myPBC);
-  std::set <unsigned> check;
+  //std::set <unsigned> check;
   for(unsigned c =0; c < cells.getNumberOfCells() ; ++c) {
     auto atomsInC= cs.listA.getCellIndexes(c);
     if(atomsInC.size()>0) {
@@ -558,37 +554,38 @@ size_t CudaCoordination<calculateFloat>::doSelf() {
         threads = maxNumThreads;
         ngroups = ceil (double (nat) / maxNumThreads);
       }
-      check.insert(atomsIncells.begin(),atomsIncells.end());
+      //check.insert(atomsIncells.begin(),atomsIncells.end());
       vdbg(ngroups);
       vdbg(threads);
       vdbg(aic.size());
 //      vdbg(oa.size())<< "\t";
       //  std::copy(otherAtoms.begin(),otherAtoms.end(),std::ostream_iterator<calculateFloat>(std::cerr, " "));
       //    std::cerr << "\n";
+      const auto memSize= otherAtoms.size() * (3*sizeof(calculateFloat) + sizeof(unsigned));
       if(pbc) {
-        getSelfCoord<true><<<ngroups,
-                     threads,
-                     3 * nat * sizeof (calculateFloat) +
-                     nat * sizeof(unsigned),
-                     0//        streamDerivatives
-                     >>> (
-                       nat,
-                       atomsIncells.size(),
-                       otherAtoms.size(),
-                       switchingParameters,
-                       thrust::raw_pointer_cast (aic.data()),
-                       thrust::raw_pointer_cast (oa.data()),
-                       myPBC,
-                       thrust::raw_pointer_cast (cudaPositions.data()),
-                       thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-                       thrust::raw_pointer_cast (cudaCoordination.data()),
-                       thrust::raw_pointer_cast (cudaDerivatives.data()),
-                       thrust::raw_pointer_cast (cudaVirial.data()));
+        getSelfCoord<true>
+        <<<ngroups,
+        threads,
+        memSize,
+        0//        streamDerivatives
+        >>> (
+          nat,
+          atomsIncells.size(),
+          otherAtoms.size(),
+          switchingParameters,
+          thrust::raw_pointer_cast (aic.data()),
+          thrust::raw_pointer_cast (oa.data()),
+          myPBC,
+          thrust::raw_pointer_cast (cudaPositions.data()),
+          thrust::raw_pointer_cast (cudaTrueIndexes.data()),
+          thrust::raw_pointer_cast (cudaCoordination.data()),
+          thrust::raw_pointer_cast (cudaDerivatives.data()),
+          thrust::raw_pointer_cast (cudaVirial.data())
+        );
       } else {
         getSelfCoord<false><<<ngroups,
                      threads,
-                     3 * nat * sizeof (calculateFloat) +
-                     nat * sizeof(unsigned),
+                     memSize,
                      0//        streamDerivatives
                      >>> (
                        nat,
@@ -602,11 +599,12 @@ size_t CudaCoordination<calculateFloat>::doSelf() {
                        thrust::raw_pointer_cast (cudaTrueIndexes.data()),
                        thrust::raw_pointer_cast (cudaCoordination.data()),
                        thrust::raw_pointer_cast (cudaDerivatives.data()),
-                       thrust::raw_pointer_cast (cudaVirial.data()));
+                       thrust::raw_pointer_cast (cudaVirial.data())
+                     );
       }
     }
   }
-  vdbg(check.size());
+  //vdbg(check.size());
   //vdbg(processedAtoms)<<"\n";
   plumed_assert(processedAtoms==nat) << "The number of atoms does not coincides";
   return nat;
@@ -660,27 +658,41 @@ getCoordDual (const unsigned natActive,
   calculateFloat myVirial_7 = 0.0;
   calculateFloat myVirial_8 = 0.0;
   // local calculation aid
-  const calculateFloat x = coordActive[X (i)];
-  const calculateFloat y = coordActive[Y (i)];
-  const calculateFloat z = coordActive[Z (i)];
+  const calculateFloat x = coordinates[X (i)];
+  const calculateFloat y = coordinates[Y (i)];
+  const calculateFloat z = coordinates[Z (i)];
   calculateFloat d_0, d_1, d_2;
   calculateFloat t;
   calculateFloat dfunc;
-  for (unsigned j = 0; j < natLoop; ++j) {
-    // const unsigned j = threadIdx.y + blockIdx.y * blockDim.y;
-
+  for (unsigned j = 0; j < nOfB; ++j) {
+    const unsigned jB=neighIndexes[j];
     // Safeguard
-    if (idx == trueIndexesLoop[j]) {
+    if (idx ==
+#ifdef PLMD_CUDA_COORDINATION_SELF_USESHMEM
+        realIndexes[j]
+#else
+        trueIndexes[jB]
+#endif //PLMD_CUDA_COORDINATION_SELF_USESHMEM
+       ) {
       continue;
     }
 
-    d_0 = calculatePBC<usePBC> (coordLoop[X (j)] - x, myPBC.X);
-    d_1 = calculatePBC<usePBC> (coordLoop[Y (j)] - y, myPBC.Y);
-    d_2 = calculatePBC<usePBC> (coordLoop[Z (j)] - z, myPBC.Z);
+#ifdef PLMD_CUDA_COORDINATION_SELF_USESHMEM
+#define posarray(xyz) sPos[xyz(j)]
+#else
+#define posarray(xyz) coordinates[xyz(jB)]
+#endif //PLMD_CUDA_COORDINATION_SELF_USESHMEM
+
+    d_0 = calculatePBC<usePBC> (posarray(X) - x, myPBC.X);
+    d_1 = calculatePBC<usePBC> (posarray(Y) - y, myPBC.Y);
+    d_2 = calculatePBC<usePBC> (posarray(Z) - z, myPBC.Z);
+#undef posarray
 
     dfunc = 0.;
     mycoord += calculateSqr (
-                 d_0 * d_0 + d_1 * d_1 + d_2 * d_2, switchingParameters, dfunc);
+                 d_0 * d_0 + d_1 * d_1 + d_2 * d_2,
+                 switchingParameters,
+                 dfunc);
 
     t = -dfunc * d_0;
     mydevX += t;
