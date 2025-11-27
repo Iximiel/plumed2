@@ -1048,23 +1048,20 @@ CudaCoordination<calculateFloat>::CudaCoordination (const ActionOptions &ao)
   switchingParameters.stretch = 1.0;
   switchingParameters.shift = 0.0;
 
-  const calculateFloat dmax =  [&] {
-    calculateFloat d=-1.0;
-    parse ("D_MAX", d);
-    if (d < 0.0) { // TODO:check for a "non present flag"
-      // set dmax to where the switch is ~0.00001
-      d = r0_ * std::pow (0.00001, 1.0 / (nn_ - mm_));
-      // ^This line is equivalent to:
-      // SwitchingFunction tsw;
-      // tsw.set(nn_,mm_,r0_,0.0);
-      // dmax=tsw.get_dmax();
-      // in plain plumed
-    }
-    return d;
-  }();
-
+  calculateFloat dmax = -1.0;
+  parse ("D_MAX", dmax);
   calculateFloat d0 = 0.0;
   parse ("D_0", d0);
+  if (dmax <= 0.0) { // TODO:check for a "non present flag"
+    // set dmax to where the switch is ~0.00001
+    dmax = d0 + r0_ * std::pow (0.00001, 1.0 / (nn_ - mm_));
+    // ^This line is equivalent to:
+    // SwitchingFunction tsw;
+    // tsw.set(nn_,mm_,r0_,0.0);
+    // dmax=tsw.get_dmax();
+    // in plain plumed
+  }
+
   switchingParameters.calcSquared= (! d0 > calculateFloat(0.0) ) && (nn_%2 == 0 && mm_%2 == 0);
   switchingParameters.d0=d0;
   switchingParameters.dmaxSQ = dmax * dmax;
@@ -1076,10 +1073,9 @@ CudaCoordination<calculateFloat>::CudaCoordination (const ActionOptions &ao)
   }
   constexpr bool dostretch = true;
   if (dostretch && mpiActive) {
-    std::vector<calculateFloat> inputs = {0.0, dmax * invr0};
+    std::vector<calculateFloat> inputs = {0.0, (dmax-switchingParameters.d0) * invr0};
 
-    thrust::device_vector<calculateFloat> inputZeroMax (2);
-    inputZeroMax = inputs;
+    thrust::device_vector<calculateFloat> inputZeroMax = inputs;
     thrust::device_vector<calculateFloat> dummydfunc (2);
     thrust::device_vector<calculateFloat> resZeroMax (2);
 
