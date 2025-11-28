@@ -36,8 +36,8 @@ using std::cerr;
 
 
 #define hdbg(...) __LINE__ << ":" #__VA_ARGS__ " = " << (__VA_ARGS__) << '\n'
-#define vdbg(...) std::cerr << hdbg(__VA_ARGS__)
-//#define vdbg(...)
+//#define vdbg(...) std::cerr << hdbg(__VA_ARGS__)
+#define vdbg(...)
 
 //#define dprintf(...) printf(__VA_ARGS__)
 #define dprintf(...)
