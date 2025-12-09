@@ -192,7 +192,7 @@ __global__ void getpcuda_func (const calculateFloat *rdists,
   // printf("stretch: %i: %f -> %f\n",i,rdists[i],res[i]);
 }
 
-template <typename calculateFloat>
+template <typename mySwitch, typename calculateFloat>
 __device__ __forceinline__ calculateFloat calculate (
   calculateFloat distance,
   const rationalSwitchParameters<calculateFloat> switchingParameters,
@@ -201,7 +201,7 @@ __device__ __forceinline__ calculateFloat calculate (
   dfunc = 0.0;
   //if (distance < switchingParameters.dmaxSQ) { already tested in caclulateSqr
   const calculateFloat rdist_2 = (distance-switchingParameters.d0) * switchingParameters.invr0_2;
-  result = Rational::pcuda_func (
+  result = mySwitch::pcuda_func (
              rdist_2, switchingParameters, dfunc);
   // chain rule:
   dfunc *=  switchingParameters.invr0_2;
@@ -211,7 +211,7 @@ __device__ __forceinline__ calculateFloat calculate (
   return result;
 }
 
-template <typename calculateFloat>
+template <typename mySwitch, typename calculateFloat>
 __device__ __forceinline__ calculateFloat calculateSqr (
   const calculateFloat distancesq,
   const rationalSwitchParameters<calculateFloat> switchingParameters,
@@ -222,7 +222,7 @@ __device__ __forceinline__ calculateFloat calculateSqr (
   if (distancesq < switchingParameters.dmaxSQ) {
     if(switchingParameters.calcSquared)  {
       const calculateFloat rdist_2 = distancesq * switchingParameters.invr0_2;
-      result = Rational::pcuda_func (
+      result = mySwitch::pcuda_func (
                  rdist_2, switchingParameters, dfunc);
       // chain rule:
       dfunc *= 2 * switchingParameters.invr0_2;
@@ -230,7 +230,7 @@ __device__ __forceinline__ calculateFloat calculateSqr (
       result = result * switchingParameters.stretch + switchingParameters.shift;
       dfunc *= switchingParameters.stretch;
     } else {
-      result = calculate(std::sqrt(distancesq),switchingParameters,dfunc);
+      result = calculate<mySwitch>(std::sqrt(distancesq),switchingParameters,dfunc);
     }
   }
   return result;

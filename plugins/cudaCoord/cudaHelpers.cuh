@@ -108,6 +108,7 @@ inline void plmdDataToGPU (thrust::device_vector<double> &dvmem,
                    stream);
 }
 
+/// @brief the specialized asyncronous function for tranferring the data in a view to the GPUtemplate <typename T>
 template <typename T>
 inline void plmdDataToGPU (thrust::device_vector<T> &dvmem,
                            PLMD::View<T> data,
@@ -119,6 +120,18 @@ inline void plmdDataToGPU (thrust::device_vector<T> &dvmem,
                    cudaMemcpyHostToDevice,
                    stream);
 }
+
+/// @brief the specialized function for tranferring the data in a view to the GPUtemplate <typename T>
+template <typename T>
+inline void plmdDataToGPU (thrust::device_vector<T> &dvmem,
+                           PLMD::View<T> data) {
+  dvmem.resize (data.size());
+  cudaMemcpyAsync (thrust::raw_pointer_cast (dvmem.data()),
+                   data.data(),
+                   data.size() * sizeof (T),
+                   cudaMemcpyHostToDevice);
+}
+
 /// @brief the specialized function for getting single precision data from the
 /// gpu to a PLMD container
 /// @param dvmem the cuda interface to the data on the device

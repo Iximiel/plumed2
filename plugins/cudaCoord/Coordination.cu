@@ -21,14 +21,12 @@
 
 #include "plumed/core/ActionRegister.h"
 #include "plumed/core/Colvar.h"
-#include "plumed/tools/NeighborList.h"
-#include "plumed/tools/SwitchingFunction.h"
 #include "plumed/tools/Communicator.h"
+#include "plumed/tools/SwitchingFunction.h"
 #include "plumed/tools/LinkCells.h"
 
 
 #include "cudaHelpers.cuh"
-// #include "ndReduction.h"
 
 #include "Coordination.cuh"
 
@@ -36,6 +34,7 @@
 #include <cmath>
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_reduce.cuh>
+#include <memory>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
@@ -111,6 +110,625 @@ CUDACOORDINATION GROUPA=group R_0=0.3
 */
 //+ENDPLUMEDOC
 
+template <typename precision>
+struct worker {
+  virtual void runSelf(
+    unsigned ngroups,
+    unsigned threads,
+    unsigned nat,
+    unsigned memSize,
+    cudaStream_t mystream,
+    PLMD::GPU::rationalSwitchParameters<precision> switchingParameters,
+    PLMD::GPU::ortoPBCs<precision> myPBC,
+    unsigned maxAtomsInCells,
+    unsigned const * nat_InCells,
+    unsigned const * atomsInCellsIdxs,
+    unsigned maxOtherAtoms,
+    unsigned const * nat_OtherAtoms,
+    unsigned const * otherAtomsIdxs,
+    precision const * coordinates,
+    unsigned const * trueIndexes,
+    precision* ncoordOut,
+    precision* devOut,
+    precision* virialOut ) =0;
+
+  virtual void runDual(
+    unsigned ngroups,
+    unsigned threads,
+    unsigned nat,
+    unsigned memSize,
+    cudaStream_t mystream,
+    PLMD::GPU::rationalSwitchParameters<precision> switchingParameters,
+    PLMD::GPU::ortoPBCs<precision> myPBC,
+    unsigned maxAtomsInCells,
+    unsigned const * nat_InCells,
+    unsigned const * atomsInCellsIdxs,
+    unsigned maxOtherAtoms,
+    unsigned const * nat_OtherAtoms,
+    unsigned const * otherAtomsIdxs,
+    precision const * coordinates,
+    unsigned const * trueIndexes,
+    precision* ncoordOut,
+    precision* devOut,
+    precision* virialOut ) =0;
+
+  virtual void runDualDev(
+    unsigned  ngroups,
+    unsigned  threads,
+    unsigned  nat,
+    unsigned  memSize,
+    cudaStream_t mystream,
+    PLMD::GPU::rationalSwitchParameters<precision> switchingParameters,
+    PLMD::GPU::ortoPBCs<precision> myPBC,
+    unsigned  maxAtomsInCells,
+    unsigned const * nat_InCells,
+    unsigned const * atomsInCellsIdxs,
+    unsigned const maxOtherAtoms,
+    unsigned const *nat_OtherAtoms,
+    unsigned const *otherAtomsIdxs,
+    precision const * coordinates,
+    unsigned const * trueIndexes,
+    precision* devOut)=0;
+
+  virtual void runPair (
+    unsigned const ngroups,
+    unsigned const threads,
+    cudaStream_t mystream,
+    unsigned couples,
+    unsigned totThreads,
+    PLMD::GPU::rationalSwitchParameters<precision> switchingParameters,
+    PLMD::GPU::ortoPBCs<precision> myPBC,
+    precision const * coordinatesI, // const pointer to const values
+    precision const * coordinatesJ, // const pointer to const values
+    unsigned const* trueIndexes,
+    precision *ncoordOut, // const pointer
+    precision *devOutI,
+    precision *devOutJ,
+    precision *virialOut)=0;
+
+//virtual void runDevDual()=0;
+  virtual void getSelfAttr(cudaFuncAttributes& attr)=0;
+  virtual void getDualAttr(cudaFuncAttributes& attr)=0;
+  virtual void getDualDevAttr(cudaFuncAttributes& attr)=0;
+  virtual void getPairAttr(cudaFuncAttributes& attr)=0;
+};
+
+#define X(I) 3 * I
+#define Y(I) 3 * I + 1
+#define Z(I) 3 * I + 2
+
+template <bool usePBC = false, typename T>
+T __device__ __forceinline__ calculatePBC (T const val,
+    PLMD::GPU::invData<T> const pbc) {
+  if constexpr (usePBC) {
+    return PLMD::GPU::pbcClamp (val * pbc.inv) * pbc.val;
+  } else {
+    return val;
+  }
+}
+
+template <typename calcType,typename calculateFloat>
+__global__ void getCoord (const unsigned nat,
+                          const unsigned max_inCell,
+                          const unsigned max_neigh,
+                          const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters,
+                          const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
+                          unsigned const * n_inCell,
+                          unsigned const * cellIndexes,
+                          unsigned const * n_neigh,
+                          unsigned const * neighIndexes,
+                          calculateFloat const* coordinates,
+                          unsigned const* trueIndexes,
+                          calculateFloat* ncoordOut,
+                          calculateFloat* devOut,
+                          calculateFloat* virialOut) {
+  unsigned cellId=blockIdx.x;
+  CUDAHELPERS::sharedArena arena;
+  auto sPos = arena.get_shared_memory<calculateFloat>(3 * n_neigh[cellId]);
+  auto realIndexes = arena.get_shared_memory<unsigned>(n_neigh[cellId]);
+  // loading shared memory
+  //mocking a View
+  auto nnI=neighIndexes+cellId*max_neigh;
+  for (auto k = threadIdx.x; k < n_neigh[cellId]; k += blockDim.x) {
+    sPos[X (k)] = coordinates[X (nnI[k])];
+    sPos[Y (k)] = coordinates[Y (nnI[k])];
+    sPos[Z (k)] = coordinates[Z (nnI[k])];
+    realIndexes[k] = trueIndexes[nnI[k]];
+  }
+
+  __syncthreads();
+
+  if (threadIdx.x >= n_inCell[cellId]) { // blocks are initializated with 'ceil (nat/threads)'
+    return;
+  }
+  const unsigned i = cellIndexes[threadIdx.x + cellId * max_inCell];
+  // we try working with less global memory possible, so we set up a bunch of
+  // temporary variables
+  const unsigned idx = trueIndexes[i];
+  // local results
+  calculateFloat mydev[3]  = {0.0,0.0,0.0};
+  calculateFloat mycoord = 0.0;
+//static array became regsters with the compiler (cuda 12)
+  calculateFloat myVirial[9] = {0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0
+                               };
+  // local calculation aid
+  const calculateFloat xyz[3] = {coordinates[X (i)],
+                                 coordinates[Y (i)],
+                                 coordinates[Z (i)]
+                                };
+  for (unsigned j = 0; j < n_neigh[cellId]; ++j) {
+    // Safeguard
+    if (idx == realIndexes[j] ) {
+      continue;
+    }
+    mycoord+=calcType:: coordLoop(j,
+                                  i,
+                                  nnI,
+                                  xyz,
+                                  sPos,
+                                  myVirial,
+                                  mydev,
+                                  myPBC,
+                                  switchingParameters);
+
+  }
+  // working in global memory ONLY at the end
+  devOut[X (i)] = mydev[0];
+  devOut[Y (i)] = mydev[1];
+  devOut[Z (i)] = mydev[2];
+  ncoordOut[i] = mycoord;
+  virialOut[nat * 0 + i] = myVirial[0];
+  virialOut[nat * 1 + i] = myVirial[1];
+  virialOut[nat * 2 + i] = myVirial[2];
+  virialOut[nat * 3 + i] = myVirial[3];
+  virialOut[nat * 4 + i] = myVirial[4];
+  virialOut[nat * 5 + i] = myVirial[5];
+  virialOut[nat * 6 + i] = myVirial[6];
+  virialOut[nat * 7 + i] = myVirial[7];
+  virialOut[nat * 8 + i] = myVirial[8];
+}
+
+template <bool usePBC, typename mySwitch, typename calculateFloat>
+__global__ void
+getDualDev (
+  const unsigned max_inCell,
+  const unsigned max_neigh,
+  const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters,
+  const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
+  unsigned const * n_inCell,
+  unsigned const * cellIndexes,
+  unsigned const * n_neigh,
+  unsigned const * neighIndexes,
+  calculateFloat const* coordinates,
+  unsigned const* trueIndexes,
+  calculateFloat* devOut
+) {
+  unsigned cellId=blockIdx.x;
+  CUDAHELPERS::sharedArena arena;
+  auto sPos = arena.get_shared_memory<calculateFloat>(3 * n_neigh[cellId]);
+  auto realIndexes = arena.get_shared_memory<unsigned>(n_neigh[cellId]);
+  // loading shared memory
+  //mocking a View
+  auto nnI=neighIndexes+cellId*max_neigh;
+  for (auto k = threadIdx.x; k < n_neigh[cellId]; k += blockDim.x) {
+    sPos[X (k)] = coordinates[X (nnI[k])];
+    sPos[Y (k)] = coordinates[Y (nnI[k])];
+    sPos[Z (k)] = coordinates[Z (nnI[k])];
+    realIndexes[k] = trueIndexes[nnI[k]];
+  }
+
+  __syncthreads();
+
+  if (threadIdx.x >= n_inCell[cellId]) { // blocks are initializated with 'ceil (nat/threads)'
+    return;
+  }
+  const unsigned i = cellIndexes[threadIdx.x + cellId * max_inCell];
+  // we try working with less global memory possible, so we set up a bunch of
+  // temporary variables
+  const unsigned idx = trueIndexes[i];
+  // local results
+  calculateFloat mydevX = 0.0;
+  calculateFloat mydevY = 0.0;
+  calculateFloat mydevZ = 0.0;
+
+  // local calculation aid
+  const calculateFloat x = coordinates[X (i)];
+  const calculateFloat y = coordinates[Y (i)];
+  const calculateFloat z = coordinates[Z (i)];
+  calculateFloat d[3];
+  calculateFloat t;
+  calculateFloat dfunc;
+
+  for (unsigned j = 0; j < n_neigh[cellId]; ++j) {
+    // Safeguard
+    if (idx == realIndexes[j] ) {
+      continue;
+    }
+
+    d[0] = calculatePBC<usePBC> (sPos[X(j)] - x, myPBC.X);
+    d[1] = calculatePBC<usePBC> (sPos[Y(j)] - y, myPBC.Y);
+    d[2] = calculatePBC<usePBC> (sPos[Z(j)] - z, myPBC.Z);
+
+    dfunc = 0.;
+    t = GPU::calculateSqr<mySwitch> (
+          d[0] * d[0] + d[1] * d[1] + d[2] * d[2],
+          switchingParameters,
+          dfunc);
+
+    mydevX -= dfunc * d[0];
+    mydevY -= dfunc * d[1];
+    mydevZ -= dfunc * d[2];
+  }
+  // working in global memory ONLY at the end
+  devOut[X (i)] = mydevX;
+  devOut[Y (i)] = mydevY;
+  devOut[Z (i)] = mydevZ;
+}
+
+constexpr unsigned couplesPerThreads = 8;
+template <bool usePBC, typename mySwitch, typename calculateFloat>
+__global__ void getCoordPair (
+  const unsigned couples,
+  const unsigned totThreads,
+  const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters,
+  const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
+  const calculateFloat *const coordinatesI, // const pointer to const values
+  const calculateFloat *const coordinatesJ, // const pointer to const values
+  const unsigned *const trueIndexes,
+  calculateFloat *const ncoordOut, // const pointer
+  calculateFloat *const devOutI,
+  calculateFloat *const devOutJ,
+  calculateFloat *const virialOut) {
+  // blockDIm are the number of threads in your block
+  const unsigned tid = threadIdx.x + blockIdx.x * blockDim.x;
+  const unsigned firstCouple = couplesPerThreads * tid;
+
+  if (tid >= totThreads) { // blocks are initializated with 'ceil (nat/threads)'
+    return;
+  }
+
+  calculateFloat myVirial[9] = {0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0
+                               };
+
+  calculateFloat d[3];
+  // calculateFloat t;
+  calculateFloat dfunc;
+  calculateFloat t;
+  calculateFloat myCoord = 0.0;
+  for (unsigned k = 0; k < couplesPerThreads; ++k) {
+    const unsigned i = k + firstCouple;
+
+    if (i >= couples) { // blocks are initializated with 'ceil (nat/threads)'
+      break;
+    }
+    // I do not understand why I need to invert
+    d[0] = calculatePBC<usePBC> (coordinatesJ[X (i)] - coordinatesI[X (i)],
+                                 myPBC.X);
+    d[1] = calculatePBC<usePBC> (coordinatesJ[Y (i)] - coordinatesI[Y (i)],
+                                 myPBC.Y);
+    d[2] = calculatePBC<usePBC> (coordinatesJ[Z (i)] - coordinatesI[Z (i)],
+                                 myPBC.Z);
+    dfunc = 0.;
+    if (trueIndexes[i] != trueIndexes[i + couples]) {
+      myCoord += GPU::calculateSqr<mySwitch> (
+                   d[0] * d[0] + d[1] * d[1] + d[2] * d[2], switchingParameters, dfunc);
+    } else {
+      d[0] = d[1] = d[2] = 0.0;
+    }
+
+    t = -dfunc * d[0];
+    myVirial[0] += t * d[0];
+    myVirial[1] += t * d[1];
+    myVirial[2] += t * d[2];
+    devOutI[X (i)] = t;
+    devOutJ[X (i)] = -t;
+
+    t = -dfunc * d[1];
+    myVirial[3] += t * d[0];
+    myVirial[4] += t * d[1];
+    myVirial[5] += t * d[2];
+    devOutI[Y (i)] = t;
+    devOutJ[Y (i)] = -t;
+
+    t = -dfunc * d[2];
+    myVirial[6] += t * d[0];
+    myVirial[7] += t * d[1];
+    myVirial[8] += t * d[2];
+    devOutI[Z (i)] = t;
+    devOutJ[Z (i)] = -t;
+  }
+  ncoordOut[tid] = myCoord;
+  virialOut[totThreads * 0 + tid] = myVirial[0];
+  virialOut[totThreads * 1 + tid] = myVirial[1];
+  virialOut[totThreads * 2 + tid] = myVirial[2];
+  virialOut[totThreads * 3 + tid] = myVirial[3];
+  virialOut[totThreads * 4 + tid] = myVirial[4];
+  virialOut[totThreads * 5 + tid] = myVirial[5];
+  virialOut[totThreads * 6 + tid] = myVirial[6];
+  virialOut[totThreads * 7 + tid] = myVirial[7];
+  virialOut[totThreads * 8 + tid] = myVirial[8];
+}
+
+template <bool usePBC, typename mySwitch, typename calculateFloat>
+struct selfCalc {
+  static __device__ __forceinline__ calculateFloat coordLoop(
+    unsigned const j,
+    unsigned const i,
+    unsigned const * nnI,
+    calculateFloat const * xyz,
+    calculateFloat const * sPos,
+    calculateFloat * myVirial,
+    calculateFloat * myDev,
+    const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
+    const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters
+  ) {
+    calculateFloat d[3],t[3];
+
+    d[0] = calculatePBC<usePBC> (sPos[X(j)] - xyz[0], myPBC.X);
+    d[1] = calculatePBC<usePBC> (sPos[Y(j)] - xyz[1], myPBC.Y);
+    d[2] = calculatePBC<usePBC> (sPos[Z(j)] - xyz[2], myPBC.Z);
+
+    calculateFloat dfunc = 0.;
+    calculateFloat coord = GPU::calculateSqr<mySwitch> (
+                             d[0] * d[0] + d[1] * d[1] + d[2] * d[2],
+                             switchingParameters,
+                             dfunc);
+
+    t[0] = -dfunc * d[0];
+    t[1] = -dfunc * d[1];
+    t[2] = -dfunc * d[2];
+    myDev[0] += t[0];
+    myDev[1] += t[1];
+    myDev[2] += t[2];
+    if (i < nnI[j]) {
+      myVirial[0] += t[0] * d[0];
+      myVirial[1] += t[0] * d[1];
+      myVirial[2] += t[0] * d[2];
+      myVirial[3] += t[1] * d[0];
+      myVirial[4] += t[1] * d[1];
+      myVirial[5] += t[1] * d[2];
+      myVirial[6] += t[2] * d[0];
+      myVirial[7] += t[2] * d[1];
+      myVirial[8] += t[2] * d[2];
+      return coord;
+    } else {
+      return 0.0;
+    }
+  }
+};
+
+template <bool usePBC, typename mySwitch, typename calculateFloat>
+struct dualCalc {
+  static __device__ __forceinline__ calculateFloat coordLoop(
+    unsigned const j,
+    unsigned const i,
+    unsigned const * /*nnI*/,
+    calculateFloat const * xyz,
+    calculateFloat const * sPos,
+    calculateFloat * myVirial,
+    calculateFloat * myDev,
+    const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
+    const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters
+  ) {
+    calculateFloat d[3],t;
+
+    d[0] = calculatePBC<usePBC> (sPos[X(j)] - xyz[0], myPBC.X);
+    d[1] = calculatePBC<usePBC> (sPos[Y(j)] - xyz[1], myPBC.Y);
+    d[2] = calculatePBC<usePBC> (sPos[Z(j)] - xyz[2], myPBC.Z);
+
+    calculateFloat dfunc = 0.;
+    calculateFloat coord = GPU::calculateSqr<mySwitch> (
+                             d[0] * d[0] + d[1] * d[1] + d[2] * d[2],
+                             switchingParameters,
+                             dfunc);
+
+    t = -dfunc * d[0];
+    myDev[0] += t;
+
+    myVirial[0] += t * d[0];
+    myVirial[1] += t * d[1];
+    myVirial[2] += t * d[2];
+
+    t = -dfunc * d[1];
+    myDev[1] += t;
+
+    myVirial[3] += t * d[0];
+    myVirial[4] += t * d[1];
+    myVirial[5] += t * d[2];
+
+    t = -dfunc * d[2];
+    myDev[2] += t;
+
+    myVirial[6] += t * d[0];
+    myVirial[7] += t * d[1];
+    myVirial[8] += t * d[2];
+    return coord;
+  }
+};
+
+template <bool pbc, typename function, typename precision>
+struct runFunction:
+  public worker<precision> {
+  using self = selfCalc<pbc,function,precision>;
+  using dual = dualCalc<pbc,function,precision>;
+  void runSelf(
+    unsigned const ngroups,
+    unsigned const threads,
+    unsigned const nat,
+    unsigned const memSize,
+    cudaStream_t mystream,
+    PLMD::GPU::rationalSwitchParameters<precision> switchingParameters,
+    PLMD::GPU::ortoPBCs<precision> myPBC,
+    unsigned const maxAtomsInCells,
+    unsigned const * nat_InCells,
+    unsigned const * atomsInCellsIdxs,
+    unsigned const maxOtherAtoms,
+    unsigned const * nat_OtherAtoms,
+    unsigned const * otherAtomsIdxs,
+    precision const * coordinates,
+    unsigned const * trueIndexes,
+    precision* ncoordOut,
+    precision* devOut,
+    precision* virialOut) override {
+    getCoord<self,precision>
+    <<<ngroups,threads,
+    memSize,
+    mystream
+    >>> (nat,
+         maxAtomsInCells,
+         maxOtherAtoms,
+         switchingParameters,
+         myPBC,
+         nat_InCells,
+         atomsInCellsIdxs,
+         nat_OtherAtoms,
+         otherAtomsIdxs,
+         coordinates,
+         trueIndexes,
+         ncoordOut,
+         devOut,
+         virialOut
+        );
+  }
+
+  void runDual(
+    unsigned const ngroups,
+    unsigned const threads,
+    unsigned const nat,
+    unsigned const memSize,
+    cudaStream_t mystream,
+    PLMD::GPU::rationalSwitchParameters<precision> switchingParameters,
+    PLMD::GPU::ortoPBCs<precision> myPBC,
+    unsigned const maxAtomsInCells,
+    unsigned const * nat_InCells,
+    unsigned const * atomsInCellsIdxs,
+    unsigned const maxOtherAtoms,
+    unsigned const * nat_OtherAtoms,
+    unsigned const * otherAtomsIdxs,
+    precision const * coordinates,
+    unsigned const * trueIndexes,
+    precision* ncoordOut,
+    precision* devOut,
+    precision* virialOut) override {
+    getCoord<dual,precision>
+    <<<ngroups,threads,
+    memSize,
+    mystream
+    >>> (nat,
+         maxAtomsInCells,
+         maxOtherAtoms,
+         switchingParameters,
+         myPBC,
+         nat_InCells,
+         atomsInCellsIdxs,
+         nat_OtherAtoms,
+         otherAtomsIdxs,
+         coordinates,
+         trueIndexes,
+         ncoordOut,
+         devOut,
+         virialOut
+        );
+  }
+
+  void runDualDev(
+    unsigned const ngroups,
+    unsigned const threads,
+    unsigned const /*nat*/,
+    unsigned const memSize,
+    cudaStream_t mystream,
+    PLMD::GPU::rationalSwitchParameters<precision> switchingParameters,
+    PLMD::GPU::ortoPBCs<precision> myPBC,
+    unsigned const maxAtomsInCells,
+    unsigned const * nat_InCells,
+    unsigned const * atomsInCellsIdxs,
+    unsigned const maxOtherAtoms,
+    unsigned const * nat_OtherAtoms,
+    unsigned const * otherAtomsIdxs,
+    precision const * coordinates,
+    unsigned const * trueIndexes,
+    precision* devOut) override {
+    getDualDev<pbc,function,precision>
+    <<<ngroups,threads,
+    memSize,
+    mystream
+    >>> (
+      maxAtomsInCells,
+      maxOtherAtoms,
+      switchingParameters,
+      myPBC,
+      nat_InCells,
+      atomsInCellsIdxs,
+      nat_OtherAtoms,
+      otherAtomsIdxs,
+      coordinates,
+      trueIndexes,
+      devOut
+    );
+  }
+
+  void runPair(
+    unsigned const ngroups,
+    unsigned const threads,
+    cudaStream_t mystream,
+    unsigned const couples,
+    unsigned const totThreads,
+    PLMD::GPU::rationalSwitchParameters<precision> const switchingParameters,
+    PLMD::GPU::ortoPBCs<precision> const myPBC,
+    precision const *const coordinatesI,
+    precision const *const coordinatesJ,
+    unsigned const *const trueIndexes,
+    precision *const ncoordOut,
+    precision *const devOutI,
+    precision *const devOutJ,
+    precision *const virialOut) override {
+    getCoordPair<pbc,function,precision>
+    <<<ngroups, threads,
+    0,
+    mystream>>> (
+      couples,
+      totThreads,
+      switchingParameters,
+      myPBC,
+      coordinatesI,
+      coordinatesJ,
+      trueIndexes,
+      ncoordOut,
+      devOutI,
+      devOutJ,
+      virialOut);
+  }
+
+  void getSelfAttr(cudaFuncAttributes& attr) override {
+    cudaFuncGetAttributes (&attr, &getCoord<self,precision>);
+  }
+  void getDualAttr(cudaFuncAttributes& attr)override {
+    cudaFuncGetAttributes (&attr, &getCoord<dual,precision>);
+  }
+  void getDualDevAttr(cudaFuncAttributes& attr) override {
+    cudaFuncGetAttributes (&attr, &getDualDev<pbc,function,precision>);
+  }
+  void getPairAttr(cudaFuncAttributes& attr) override {
+    cudaFuncGetAttributes (&attr, &getCoordPair<pbc,function,precision>);
+  }
+};
+
+template <typename calculateFloat>
+std::unique_ptr<worker<calculateFloat>> make_worker(bool usePBC,
+                                     //for now this is here for deducing the precision
+                                     PLMD::GPU::rationalSwitchParameters<calculateFloat> /*switchingParameters*/
+) {
+  if (usePBC) {
+    return std::make_unique<runFunction<true,GPU::Rational,calculateFloat>>();
+  } else {
+    return std::make_unique<runFunction<false,GPU::Rational,calculateFloat>>();
+  }
+}
+
 //A way of moving all the informations about the cell setup in the least possible numbers of data movements
 class cellSetup {
   struct lims {
@@ -152,15 +770,15 @@ public:
     auto aic=get_atomsInCells();
     std::fill(aic.begin(),aic.end(),cellUpper);
     auto oa=get_otherAtoms();
-    std::fill(oa.begin(),oa.end(),maxExpected);
+    std::fill(oa.begin(),oa.end(),otherUpper);
   }
-#define getter(tp) PLMD::View<unsigned> get_##tp(){return {data.data()+tp.start,tp.size};}
+#define getter(tp) PLMD::View<unsigned> get_##tp() {return {data.data()+tp.start,tp.size};}
   getter(atomsInCells)
   getter(otherAtoms)
   getter(nat_InCells)
   getter(nat_otherAtoms)
 #undef getter
-#define deviceMap(tp) unsigned* deviceMap_##tp(thrust::device_vector<unsigned> &deviceData){ \
+#define deviceMap(tp) unsigned* deviceMap_##tp(thrust::device_vector<unsigned> &deviceData) const { \
     return thrust::raw_pointer_cast (deviceData.data()) + tp.start; }
   deviceMap(atomsInCells)
   deviceMap(otherAtoms)
@@ -174,8 +792,8 @@ void updateCellists(
   const PLMD::LinkCells& cells,
   const PLMD::LinkCells::CellCollection& listCell,
   const PLMD::LinkCells::CellCollection& listNeigh,
-  const unsigned nat,// for checking
-  const unsigned maxExpected,
+  const unsigned upperCheck,// for checking
+  const unsigned maxNNExpected,
   const unsigned biggestCell,
   const bool pbc,
   PLMD::View<unsigned> atomsIncells,
@@ -187,25 +805,28 @@ void updateCellists(
   for(unsigned c =0; c < cells.getNumberOfCells() ; ++c) {
     auto atomsInC= listCell.getCellIndexes(c);
     if(atomsInC.size()>0) {
+      plumed_assert(atomsInC.size() <= biggestCell)
+          << "Unexpected number of atoms in cell " << c << " (" <<atomsInC.size() <<"!<=" << biggestCell<< ")";
       nat_InCells[c]=atomsInC.size();
       //todo: setup a check to see if the cell needs pbcs (inner)
       auto cell = cells.findMyCell(c);
       unsigned ncells_required=0;
       cells.addRequiredCells(cell,ncells_required, cells_required,pbc);
       std::copy(atomsInC.begin(),atomsInC.end(),atomsIncells.begin()+biggestCell*c);
-      unsigned otherAtomsId=c*maxExpected;
+      unsigned otherAtomsId=c*maxNNExpected;
       for (unsigned cb=0; cb <ncells_required ; ++cb) {
         for (auto B : listNeigh.getCellIndexes(cells_required[cb])) {
           otherAtoms[otherAtomsId]=B;
           ++otherAtomsId;
         }
       }
-      nat_otherAtoms[c]=otherAtomsId - c*maxExpected;
+      nat_otherAtoms[c]=otherAtomsId - c*maxNNExpected;
       if(nat_otherAtoms[c]>0) {
         //no sense in risking to check the address before the start of otherAtoms or to check if no atoms have been added
-        plumed_assert(otherAtoms[otherAtomsId-1]<nat) << "otherAtoms["<<otherAtomsId-1<<"]"<<"("<<otherAtoms[otherAtomsId-1]<<")"<<"<"<<nat;
+        plumed_assert(otherAtoms[otherAtomsId-1]<upperCheck)
+            << "otherAtoms["<<otherAtomsId-1<<"]"<<"("<<otherAtoms[otherAtomsId-1]<<")"<<"<"<<upperCheck;
       }
-      plumed_assert(nat_otherAtoms[c] <= maxExpected);
+      plumed_assert(nat_otherAtoms[c] <= maxNNExpected);
       plumed_assert(nat_InCells[c] <= biggestCell);
     }
   }
@@ -234,14 +855,21 @@ class CudaCoordination : public Colvar {
   cudaStream_t streamCoordination;
 
   unsigned maxNumThreads = 512;
+//used in dual mode for the derivative
+  unsigned maxNumThreads_dualDev = 512;
   unsigned maxReductionNumThreads = 512;
-  unsigned maxDynamiSharedMemory=0;
+  unsigned maxDynamicSharedMemory=0;
+  unsigned maxDynamicSharedMemory_dualDev=0;
+  unsigned maxNumberOfAtomsPerCell=0;
+  unsigned maxNumberOfAtomsPerCell_dev=0;
   unsigned atomsInA = 0;
   unsigned atomsInB = 0;
   struct nlSettings {
     calculateFloat cutoff=-1.0;
     unsigned stride=1;
   } NL;
+
+  std::unique_ptr<worker<calculateFloat>> runner=nullptr;
 
   PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters;
   PLMD::GPU::ortoPBCs<calculateFloat> myPBC;
@@ -258,46 +886,7 @@ class CudaCoordination : public Colvar {
   //used in dual mode for the derivatives of group b
   cellSetup cellConfiguration_dev;
   size_t doSelf();
-  void runSelf(
-    unsigned ngroups,
-    unsigned threads,
-    unsigned nat,
-    unsigned memSize,
-    cudaStream_t mystream,
-    unsigned maxAtomsInCells,
-    unsigned * const nat_InCells,
-    unsigned * const atomsInCellsIdxs,
-    unsigned maxOtherAtoms,
-    unsigned * const nat_OtherAtoms,
-    unsigned * const otherAtomsIdxs
-  );
   size_t doDual();
-  void runDualCoord(
-    unsigned ngroups,
-    unsigned threads,
-    unsigned nat,
-    unsigned memSize,
-    cudaStream_t mystream,
-    unsigned maxAtomsInCells,
-    unsigned * const nat_InCells,
-    unsigned * const atomsInCellsIdxs,
-    unsigned maxOtherAtoms,
-    unsigned * const nat_OtherAtoms,
-    unsigned * const otherAtomsIdxs
-  );
-  void runDualDev(
-    unsigned ngroups,
-    unsigned threads,
-    unsigned nat,
-    unsigned memSize,
-    cudaStream_t mystream,
-    unsigned maxAtomsInCells,
-    unsigned * const nat_InCells,
-    unsigned * const atomsInCellsIdxs,
-    unsigned maxOtherAtoms,
-    unsigned * const nat_OtherAtoms,
-    unsigned * const otherAtomsIdxs
-  );
   size_t doPair();
 
 public:
@@ -375,7 +964,6 @@ void CudaCoordination<calculateFloat>::calculate() {
     } else {
       cells.setupCells(getPositions());
     }
-    //cells.setupCells(getPositions(),getPbc());
     std::vector<unsigned> indexesForCells(getPositions().size());
     std::iota(indexesForCells.begin(),indexesForCells.end(),0);
     const size_t nat = cudaPositions.size() / 3;
@@ -384,28 +972,16 @@ void CudaCoordination<calculateFloat>::calculate() {
       cells.resetCollection(cs.listA,
                             make_const_view(getPositions()),
                             make_const_view(indexesForCells));
-    }
-    break;
-    case calculationMode::dual: {
-      cells.resetCollection(cs.listA,
-                            View{getPositions().data(), atomsInA},
-                            View<const unsigned> {indexesForCells.data(), atomsInA});
-      cells.resetCollection(cs.listB,
-                            View{getPositions().data() + atomsInA, atomsInB},
-                            View<const unsigned> {indexesForCells.data() + atomsInA, atomsInB});
-    }
-    break;
-    default:
-    {}
-    }
-    if(mpiActive) {
-      switch (mode) {
-      case calculationMode::self: {
+      if (mpiActive) {
         const auto maxExpected = cs.listA.getMaximimumCombination(27);
-        const auto memSize = maxExpected * (3*sizeof(calculateFloat) + sizeof(unsigned));
         const auto biggestCell = (*std::max_element(cs.listA.lcell_tots.begin(),cs.listA.lcell_tots.end()));
-        //plumed_assert(maxExpected <= maxNumberOfAtomsPerCell) << "The number of atoms exceed the current compute capability, try by reducing the cell dimensions";
-        cellConfiguration_coord.reset(cells.getNumberOfCells(),biggestCell,nat,maxExpected,nat);
+        plumed_assert(maxExpected <= maxNumberOfAtomsPerCell)
+            << "The number of atoms exceed the current compute capability, try by reducing the cell dimensions";
+        cellConfiguration_coord.reset(cells.getNumberOfCells(),
+                                      biggestCell,
+                                      nat,
+                                      maxExpected,
+                                      nat);
 
         updateCellists(cells,
                        cs.listA,
@@ -418,21 +994,43 @@ void CudaCoordination<calculateFloat>::calculate() {
                        cellConfiguration_coord.get_otherAtoms(),
                        cellConfiguration_coord.get_nat_InCells(),
                        cellConfiguration_coord.get_nat_otherAtoms());
-
       }
-      break;
-      case calculationMode::dual: {
-        const auto maxExpected_dev=cs.listA.getMaximimumCombination(27);
-        const auto biggestCell_coord = (*std::max_element(cs.listA.lcell_tots.begin(),cs.listA.lcell_tots.end()));
-        //shared memory needed in the derivative loop
-        const auto memSize_dev = maxExpected_dev * (3*sizeof(calculateFloat) + sizeof(unsigned));
-        const auto maxExpected_coord=cs.listB.getMaximimumCombination(27);
-        const auto biggestCell_dev = (*std::max_element(cs.listB.lcell_tots.begin(),cs.listB.lcell_tots.end()));
-        //shared memory needed in the coord loop
-        const auto memSize_coord = maxExpected_coord * (3*sizeof(calculateFloat) + sizeof(unsigned));
+    }
+    break;
+    case calculationMode::dual: {
+      cells.resetCollection(cs.listA,
+                            View{getPositions().data(), atomsInA},
+                            View<const unsigned> {indexesForCells.data(), atomsInA});
+      cells.resetCollection(cs.listB,
+                            View{getPositions().data() + atomsInA, atomsInB},
+                            View<const unsigned> {indexesForCells.data() + atomsInA, atomsInB});
 
-        cellConfiguration_coord.reset(cells.getNumberOfCells(),biggestCell_coord,atomsInA,maxExpected_coord,nat);
-        cellConfiguration_dev.reset(cells.getNumberOfCells(),biggestCell_dev,nat,maxExpected_dev,atomsInA);
+      if (mpiActive) {
+        //the largest cell combination in listA
+        const auto maxExpected_dev=cs.listA.getMaximimumCombination(27);
+        plumed_assert(maxExpected_dev <= maxNumberOfAtomsPerCell)
+            << "The number of atoms exceed the current compute capability, try by reducing the cell dimensions";
+        //the largest cell combination in listA
+        const auto maxExpected_coord=cs.listB.getMaximimumCombination(27);
+        plumed_assert(maxExpected_coord <= maxNumberOfAtomsPerCell)
+            << "The number of atoms exceed the current compute capability, try by reducing the cell dimensions";
+        const auto biggestCell_dev = (*std::max_element(cs.listB.lcell_tots.begin(),cs.listB.lcell_tots.end()));
+        const auto biggestCell_coord = (*std::max_element(cs.listA.lcell_tots.begin(),cs.listA.lcell_tots.end()));
+
+        cellConfiguration_coord.reset(cells.getNumberOfCells(),
+                                      biggestCell_coord,
+                                      //the higher index in listA
+                                      atomsInA,
+                                      maxExpected_coord,
+                                      //the higher index in listB
+                                      nat);
+        cellConfiguration_dev.reset(cells.getNumberOfCells(),
+                                    biggestCell_dev,
+                                    //the higher index in listB
+                                    nat,
+                                    maxExpected_dev,
+                                    //the higher index in listA
+                                    atomsInA);
         updateCellists(cells,
                        cs.listA,
                        cs.listB,
@@ -457,10 +1055,10 @@ void CudaCoordination<calculateFloat>::calculate() {
                        cellConfiguration_dev.get_nat_InCells(),
                        cellConfiguration_dev.get_nat_otherAtoms());
       }
-      break;
-      default:
-      {}
-      }
+    }
+    break;
+    default:
+    {}
     }
   }
 
@@ -505,14 +1103,6 @@ void CudaCoordination<calculateFloat>::calculate() {
 
     cudaDeviceSynchronize();
     CUDAHELPERS::plmdDataFromGPU (cudaDerivatives, deriv, streamDerivatives);
-    /*    auto tmp = std::vector<calculateFloat> (cudaCoordination.size());
-        cudaMemcpy (tmp.data(),
-                    thrust::raw_pointer_cast (cudaCoordination.data()),
-                    tmp.size() * sizeof (calculateFloat),
-                    cudaMemcpyDeviceToHost);
-        std::copy(tmp.begin(),tmp.end(),std::ostream_iterator<calculateFloat>(std::cerr, " "));
-        std::cerr <<"\n";
-    */
 
     auto N = t2br;
     // if (N>1){
@@ -556,12 +1146,6 @@ void CudaCoordination<calculateFloat>::calculate() {
 
       N = nGroups;
     } while (N > 1);
-    // }else {
-    //   CUDAHELPERS::plmdDataFromGPU (
-    //       cudaVirial, virial, streamVirial);
-    //     // TODO:find a way to stream this
-    //     coordination = cudaCoordination[0];
-    // }
 
     // in this way we do not resize with additional memory allocation
     if (reductionMemoryCoord.size() > cudaCoordination.size()) {
@@ -584,196 +1168,6 @@ void CudaCoordination<calculateFloat>::calculate() {
   setBoxDerivatives (virial);
 }
 
-#define X(I) 3 * I
-#define Y(I) 3 * I + 1
-#define Z(I) 3 * I + 2
-
-template <bool usePBC = false, typename T>
-T __device__ __forceinline__ calculatePBC (T const val,
-    PLMD::GPU::invData<T> const pbc) {
-  if constexpr (usePBC) {
-    return PLMD::GPU::pbcClamp (val * pbc.inv) * pbc.val;
-  } else {
-    return val;
-  }
-}
-
-template <bool usePBC, typename calculateFloat>
-__global__ void
-getSelfCoord (const unsigned nat,
-              const unsigned max_inCell,
-              const unsigned max_neigh,
-              const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters,
-              const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
-              const unsigned* n_inCell,
-              const unsigned* cellIndexes,
-              const unsigned* n_neigh,
-              const unsigned* neighIndexes,
-              const calculateFloat* coordinates,
-              const unsigned* trueIndexes,
-              calculateFloat* ncoordOut,
-              calculateFloat* devOut,
-              calculateFloat* virialOut) {
-  unsigned cellId=blockIdx.x;
-  CUDAHELPERS::sharedArena arena;
-  auto sPos = arena.get_shared_memory<calculateFloat>(3 * n_neigh[cellId]);
-  auto realIndexes = arena.get_shared_memory<unsigned>(n_neigh[cellId]);
-  // // loading shared memory
-  //mocking a View
-  auto nnI=neighIndexes+cellId*max_neigh;
-  for (auto k = threadIdx.x; k < n_neigh[cellId]; k += blockDim.x) {
-    sPos[X (k)] = coordinates[X (nnI[k])];
-    sPos[Y (k)] = coordinates[Y (nnI[k])];
-    sPos[Z (k)] = coordinates[Z (nnI[k])];
-    realIndexes[k] = trueIndexes[nnI[k]];
-  }
-
-  __syncthreads();
-
-  if (threadIdx.x >= n_inCell[cellId]) { // blocks are initializated with 'ceil (nat/threads)'
-    return;
-  }
-  const unsigned i = cellIndexes[threadIdx.x + cellId * max_inCell];
-  // we try working with less global memory possible, so we set up a bunch of
-  // temporary variables
-  const unsigned idx = trueIndexes[i];
-  // local results
-  calculateFloat mydevX  = 0.0;
-  calculateFloat mydevY  = 0.0;
-  calculateFloat mydevZ  = 0.0;
-  calculateFloat mycoord = 0.0;
-  // the previous version used static array for myVirial and d
-  // using explicit variables guarantees that this data will be stored in
-  // registers
-  calculateFloat myVirial_0 = 0.0;
-  calculateFloat myVirial_1 = 0.0;
-  calculateFloat myVirial_2 = 0.0;
-  calculateFloat myVirial_3 = 0.0;
-  calculateFloat myVirial_4 = 0.0;
-  calculateFloat myVirial_5 = 0.0;
-  calculateFloat myVirial_6 = 0.0;
-  calculateFloat myVirial_7 = 0.0;
-  calculateFloat myVirial_8 = 0.0;
-  // local calculation aid
-  const calculateFloat x = coordinates[X (i)];
-  const calculateFloat y = coordinates[Y (i)];
-  const calculateFloat z = coordinates[Z (i)];
-  calculateFloat d_0, d_1, d_2;
-  calculateFloat t_0, t_1, t_2;
-  calculateFloat dfunc;
-  calculateFloat coord;
-  for (unsigned j = 0; j < n_neigh[cellId]; ++j) {
-    // Safeguard
-    if (idx == realIndexes[j] ) {
-      continue;
-    }
-
-    d_0 = calculatePBC<usePBC> (sPos[X(j)] - x, myPBC.X);
-    d_1 = calculatePBC<usePBC> (sPos[Y(j)] - y, myPBC.Y);
-    d_2 = calculatePBC<usePBC> (sPos[Z(j)] - z, myPBC.Z);
-
-    dfunc = 0.;
-    coord = calculateSqr (
-              d_0 * d_0 + d_1 * d_1 + d_2 * d_2,
-              switchingParameters,
-              dfunc);
-
-    t_0 = -dfunc * d_0;
-    t_1 = -dfunc * d_1;
-    t_2 = -dfunc * d_2;
-    mydevX += t_0;
-    mydevY += t_1;
-    mydevZ += t_2;
-    if (i < nnI[j]) {
-      mycoord += coord;
-      myVirial_0 += t_0 * d_0;
-      myVirial_1 += t_0 * d_1;
-      myVirial_2 += t_0 * d_2;
-      myVirial_3 += t_1 * d_0;
-      myVirial_4 += t_1 * d_1;
-      myVirial_5 += t_1 * d_2;
-      myVirial_6 += t_2 * d_0;
-      myVirial_7 += t_2 * d_1;
-      myVirial_8 += t_2 * d_2;
-    }
-  }
-  // working in global memory ONLY at the end
-  devOut[X (i)] = mydevX;
-  devOut[Y (i)] = mydevY;
-  devOut[Z (i)] = mydevZ;
-  ncoordOut[i] = mycoord;
-  virialOut[nat * 0 + i] = myVirial_0;
-  virialOut[nat * 1 + i] = myVirial_1;
-  virialOut[nat * 2 + i] = myVirial_2;
-  virialOut[nat * 3 + i] = myVirial_3;
-  virialOut[nat * 4 + i] = myVirial_4;
-  virialOut[nat * 5 + i] = myVirial_5;
-  virialOut[nat * 6 + i] = myVirial_6;
-  virialOut[nat * 7 + i] = myVirial_7;
-  virialOut[nat * 8 + i] = myVirial_8;
-}
-
-template <typename calculateFloat>
-void CudaCoordination<calculateFloat>::runSelf(
-  unsigned const ngroups,
-  unsigned const threads,
-  unsigned const nat,
-  unsigned const memSize,
-  cudaStream_t /*mystream*/,
-  unsigned const maxAtomsInCells,
-  unsigned * const nat_InCells,
-  unsigned * const atomsInCellsIdxs,
-  unsigned const maxOtherAtoms,
-  unsigned * const nat_OtherAtoms,
-  unsigned * const otherAtomsIdxs
-) {
-  if(pbc) {
-    getSelfCoord<true>
-    <<<ngroups,
-    threads,
-    memSize,
-    0//        streamDerivatives
-    >>> (
-      nat,
-      maxAtomsInCells,
-      maxOtherAtoms,
-      switchingParameters,
-      myPBC,
-      nat_InCells,
-      atomsInCellsIdxs,
-      nat_OtherAtoms,
-      otherAtomsIdxs,
-      thrust::raw_pointer_cast (cudaPositions.data()),
-      thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-      thrust::raw_pointer_cast (cudaCoordination.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data()),
-      thrust::raw_pointer_cast (cudaVirial.data())
-    );
-  } else {
-    getSelfCoord<false>
-    <<<ngroups,
-    threads,
-    memSize,
-    0//        streamDerivatives
-    >>> (
-      nat,
-      maxAtomsInCells,
-      maxOtherAtoms,
-      switchingParameters,
-      myPBC,
-      nat_InCells,
-      atomsInCellsIdxs,
-      nat_OtherAtoms,
-      otherAtomsIdxs,
-      thrust::raw_pointer_cast (cudaPositions.data()),
-      thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-      thrust::raw_pointer_cast (cudaCoordination.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data()),
-      thrust::raw_pointer_cast (cudaVirial.data())
-    );
-  }
-}
-
 template <typename calculateFloat>
 size_t CudaCoordination<calculateFloat>::doSelf() {
   const size_t nat = cudaPositions.size() / 3;
@@ -788,347 +1182,42 @@ size_t CudaCoordination<calculateFloat>::doSelf() {
 
   //Here I am assuming that cs.listA has been updated by cells, if that contract is broke this cannot work
   const auto memSize = cellConfiguration_coord.maxExpected * (3*sizeof(calculateFloat) + sizeof(unsigned));
-
   thrust::device_vector<unsigned> deviceData;
   CUDAHELPERS::plmdDataToGPU(deviceData,
-                             make_view(cellConfiguration_coord.data),
-                             streamCoordination);
+                             make_view(cellConfiguration_coord.data)
+                             //,streamCoordination
+                            );
   const unsigned ngroups = cells.getNumberOfCells();
   //this should make the loading of the shared memory a little more efficient
 //TODO: measure if using the number of atoms in the inner cell is faster
-  const unsigned threads = std::min(maxNumThreads,cellConfiguration_coord.maxExpected);
+  const unsigned threads = std::min(maxNumThreads,cellConfiguration_coord.biggestCell);
   //const unsigned threads = std::min(maxNumThreads,biggestCell);
   plumed_assert(cellConfiguration_coord.biggestCell <= maxNumThreads) << "the number of atoms in a single cell exceds the maximum number of threads avaiable";
-  plumed_assert(memSize <= maxDynamiSharedMemory) << "the shared memory asked exceed the limit for this GPU:"
-      << memSize << " > " << maxDynamiSharedMemory;
-  runSelf(
+  plumed_assert(memSize <= maxDynamicSharedMemory) << "the shared memory asked exceed the limit for this GPU:"
+      << memSize << " > " << maxDynamicSharedMemory;
+
+  runner->runSelf (
     ngroups,
     threads,
     nat,
     memSize,
     streamCoordination,
+    switchingParameters,
+    myPBC,
     cellConfiguration_coord.biggestCell,
     cellConfiguration_coord.deviceMap_nat_InCells(deviceData),
     cellConfiguration_coord.deviceMap_atomsInCells(deviceData),
     cellConfiguration_coord.maxExpected,
     cellConfiguration_coord.deviceMap_nat_otherAtoms(deviceData),
-    cellConfiguration_coord.deviceMap_otherAtoms(deviceData)
+    cellConfiguration_coord.deviceMap_otherAtoms(deviceData),
+    thrust::raw_pointer_cast (cudaPositions.data()),
+    thrust::raw_pointer_cast (cudaTrueIndexes.data()),
+    thrust::raw_pointer_cast (cudaCoordination.data()),
+    thrust::raw_pointer_cast (cudaDerivatives.data()),
+    thrust::raw_pointer_cast (cudaVirial.data())
   );
   return nat;
 }
-
-template <bool usePBC, typename calculateFloat>
-__global__ void
-getDualCoord (const unsigned nat,
-              const unsigned max_inCell,
-              const unsigned max_neigh,
-              const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters,
-              const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
-              const unsigned* n_inCell,
-              const unsigned* cellIndexes,
-              const unsigned* n_neigh,
-              const unsigned* neighIndexes,
-              const calculateFloat* coordinates,
-              const unsigned* trueIndexes,
-              calculateFloat* ncoordOut,
-              calculateFloat* devOut,
-              calculateFloat* virialOut) {
-  unsigned cellId=blockIdx.x;
-  CUDAHELPERS::sharedArena arena;
-  auto sPos = arena.get_shared_memory<calculateFloat>(3 * n_neigh[cellId]);
-  auto realIndexes = arena.get_shared_memory<unsigned>(n_neigh[cellId]);
-  // // loading shared memory
-  //mocking a View
-  auto nnI=neighIndexes+cellId*max_neigh;
-  for (auto k = threadIdx.x; k < n_neigh[cellId]; k += blockDim.x) {
-    sPos[X (k)] = coordinates[X (nnI[k])];
-    sPos[Y (k)] = coordinates[Y (nnI[k])];
-    sPos[Z (k)] = coordinates[Z (nnI[k])];
-    realIndexes[k] = trueIndexes[nnI[k]];
-  }
-
-  __syncthreads();
-  if (threadIdx.x >= n_inCell[cellId]) { // blocks are initializated with 'ceil (nat/threads)'
-    return;
-  }
-  const unsigned i = cellIndexes[threadIdx.x + cellId * max_inCell];
-
-  // we try working with less global memory possible, so we set up a bunch of
-  // temporary variables
-  const unsigned idx = trueIndexes[i];
-  // local results
-  calculateFloat mydevX = 0.0;
-  calculateFloat mydevY = 0.0;
-  calculateFloat mydevZ = 0.0;
-  calculateFloat mycoord = 0.0;
-  // the previous version used static array for myVirial and d
-  // using explicit variables guarantees that this data will be stored in
-  // registers
-  calculateFloat myVirial_0 = 0.0;
-  calculateFloat myVirial_1 = 0.0;
-  calculateFloat myVirial_2 = 0.0;
-  calculateFloat myVirial_3 = 0.0;
-  calculateFloat myVirial_4 = 0.0;
-  calculateFloat myVirial_5 = 0.0;
-  calculateFloat myVirial_6 = 0.0;
-  calculateFloat myVirial_7 = 0.0;
-  calculateFloat myVirial_8 = 0.0;
-  // local calculation aid
-  const calculateFloat x = coordinates[X (i)];
-  const calculateFloat y = coordinates[Y (i)];
-  const calculateFloat z = coordinates[Z (i)];
-  calculateFloat d_0, d_1, d_2;
-  calculateFloat t;
-  calculateFloat dfunc;
-  for (unsigned j = 0; j < n_neigh[cellId]; ++j) {
-    const unsigned jB=neighIndexes[j];
-    // Safeguard
-    if (idx == realIndexes[j] ) {
-      continue;
-    }
-
-    d_0 = calculatePBC<usePBC> (sPos[X(j)] - x, myPBC.X);
-    d_1 = calculatePBC<usePBC> (sPos[Y(j)] - y, myPBC.Y);
-    d_2 = calculatePBC<usePBC> (sPos[Z(j)] - z, myPBC.Z);
-
-    dfunc = 0.;
-    mycoord += calculateSqr (
-                 d_0 * d_0 + d_1 * d_1 + d_2 * d_2,
-                 switchingParameters,
-                 dfunc);
-
-    t = -dfunc * d_0;
-    mydevX += t;
-
-    myVirial_0 += t * d_0;
-    myVirial_1 += t * d_1;
-    myVirial_2 += t * d_2;
-
-    t = -dfunc * d_1;
-    mydevY += t;
-
-    myVirial_3 += t * d_0;
-    myVirial_4 += t * d_1;
-    myVirial_5 += t * d_2;
-
-    t = -dfunc * d_2;
-    mydevZ += t;
-
-    myVirial_6 += t * d_0;
-    myVirial_7 += t * d_1;
-    myVirial_8 += t * d_2;
-  }
-  // working in global memory ONLY at the end
-  devOut[X (i)] = mydevX;
-  devOut[Y (i)] = mydevY;
-  devOut[Z (i)] = mydevZ;
-  ncoordOut[i] = mycoord;
-  virialOut[nat * 0 + i] = myVirial_0;
-  virialOut[nat * 1 + i] = myVirial_1;
-  virialOut[nat * 2 + i] = myVirial_2;
-  virialOut[nat * 3 + i] = myVirial_3;
-  virialOut[nat * 4 + i] = myVirial_4;
-  virialOut[nat * 5 + i] = myVirial_5;
-  virialOut[nat * 6 + i] = myVirial_6;
-  virialOut[nat * 7 + i] = myVirial_7;
-  virialOut[nat * 8 + i] = myVirial_8;
-}
-
-template <bool usePBC, typename calculateFloat>
-__global__ void
-getDualDev (
-  const unsigned max_inCell,
-  const unsigned max_neigh,
-  const PLMD::GPU::rationalSwitchParameters<calculateFloat> switchingParameters,
-  const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
-  const unsigned* n_inCell,
-  const unsigned* cellIndexes,
-  const unsigned* n_neigh,
-  const unsigned* neighIndexes,
-  const calculateFloat* coordinates,
-  const unsigned* trueIndexes,
-  calculateFloat* devOut
-) {
-  unsigned cellId=blockIdx.x;
-  CUDAHELPERS::sharedArena arena;
-  auto sPos = arena.get_shared_memory<calculateFloat>(3 * n_neigh[cellId]);
-  auto realIndexes = arena.get_shared_memory<unsigned>(n_neigh[cellId]);
-  // // loading shared memory
-  //mocking a View
-  auto nnI=neighIndexes+cellId*max_neigh;
-  for (auto k = threadIdx.x; k < n_neigh[cellId]; k += blockDim.x) {
-    sPos[X (k)] = coordinates[X (nnI[k])];
-    sPos[Y (k)] = coordinates[Y (nnI[k])];
-    sPos[Z (k)] = coordinates[Z (nnI[k])];
-    realIndexes[k] = trueIndexes[nnI[k]];
-  }
-
-  __syncthreads();
-
-  if (threadIdx.x >= n_inCell[cellId]) { // blocks are initializated with 'ceil (nat/threads)'
-    return;
-  }
-  const unsigned i = cellIndexes[threadIdx.x + cellId * max_inCell];
-  // we try working with less global memory possible, so we set up a bunch of
-  // temporary variables
-  const unsigned idx = trueIndexes[i];
-  // local results
-  calculateFloat mydevX = 0.0;
-  calculateFloat mydevY = 0.0;
-  calculateFloat mydevZ = 0.0;
-
-  // local calculation aid
-  const calculateFloat x = coordinates[X (i)];
-  const calculateFloat y = coordinates[Y (i)];
-  const calculateFloat z = coordinates[Z (i)];
-  calculateFloat d_0, d_1, d_2;
-  calculateFloat t;
-  calculateFloat dfunc;
-
-  for (unsigned j = 0; j < n_neigh[cellId]; ++j) {
-    const unsigned jB=neighIndexes[j];
-    // Safeguard
-    if (idx == realIndexes[j] ) {
-      continue;
-    }
-
-    d_0 = calculatePBC<usePBC> (sPos[X(j)] - x, myPBC.X);
-    d_1 = calculatePBC<usePBC> (sPos[Y(j)] - y, myPBC.Y);
-    d_2 = calculatePBC<usePBC> (sPos[Z(j)] - z, myPBC.Z);
-
-    dfunc = 0.;
-    t = calculateSqr (
-          d_0 * d_0 + d_1 * d_1 + d_2 * d_2,
-          switchingParameters,
-          dfunc);
-
-    mydevX -= dfunc * d_0;
-    mydevY -= dfunc * d_1;
-    mydevZ -= dfunc * d_2;
-  }
-  // working in global memory ONLY at the end
-  devOut[X (i)] = mydevX;
-  devOut[Y (i)] = mydevY;
-  devOut[Z (i)] = mydevZ;
-}
-
-template <typename calculateFloat>
-void CudaCoordination<calculateFloat>::runDualCoord(
-  unsigned const ngroups,
-  unsigned const threads,
-  unsigned const nat,
-  unsigned const memSize,
-  cudaStream_t mystream,
-  unsigned const maxAtomsInCells,
-  unsigned * const nat_InCells,
-  unsigned * const atomsInCellsIdxs,
-  unsigned const maxOtherAtoms,
-  unsigned * const nat_OtherAtoms,
-  unsigned * const otherAtomsIdxs
-) {
-  if(pbc) {
-    getDualCoord<true>
-    <<<ngroups,
-    threads,
-    memSize,
-    mystream
-    >>> (
-      nat,
-      maxAtomsInCells,
-      maxOtherAtoms,
-      switchingParameters,
-      myPBC,
-      nat_InCells,
-      atomsInCellsIdxs,
-      nat_OtherAtoms,
-      otherAtomsIdxs,
-      thrust::raw_pointer_cast (cudaPositions.data()),
-      thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-      thrust::raw_pointer_cast (cudaCoordination.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data()),
-      thrust::raw_pointer_cast (cudaVirial.data())
-    );
-  } else {
-    getDualCoord<false>
-    <<<ngroups,
-    threads,
-    memSize,
-    mystream
-    >>> (
-      nat,
-      maxAtomsInCells,
-      maxOtherAtoms,
-      switchingParameters,
-      myPBC,
-      nat_InCells,
-      atomsInCellsIdxs,
-      nat_OtherAtoms,
-      otherAtomsIdxs,
-      thrust::raw_pointer_cast (cudaPositions.data()),
-      thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-      thrust::raw_pointer_cast (cudaCoordination.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data()),
-      thrust::raw_pointer_cast (cudaVirial.data())
-    );
-  }
-}
-
-template <typename calculateFloat>
-void CudaCoordination<calculateFloat>::runDualDev(
-  unsigned const ngroups,
-  unsigned const threads,
-  unsigned const /*nat*/,
-  unsigned const memSize,
-  cudaStream_t mystream,
-  unsigned const maxAtomsInCells,
-  unsigned * const nat_InCells,
-  unsigned * const atomsInCellsIdxs,
-  unsigned const maxOtherAtoms,
-  unsigned * const nat_OtherAtoms,
-  unsigned * const otherAtomsIdxs
-) {
-  if(pbc) {
-    getDualDev<true>
-    <<<ngroups,
-    threads,
-    memSize,
-    mystream
-    >>> (
-      maxAtomsInCells,
-      maxOtherAtoms,
-      switchingParameters,
-      myPBC,
-      nat_InCells,
-      atomsInCellsIdxs,
-      nat_OtherAtoms,
-      otherAtomsIdxs,
-      thrust::raw_pointer_cast (cudaPositions.data()),
-      thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data())
-    );
-  } else {
-    getDualDev<false>
-    <<<ngroups,
-    threads,
-    memSize,
-    mystream
-    >>> (
-      maxAtomsInCells,
-      maxOtherAtoms,
-      switchingParameters,
-      myPBC,
-      nat_InCells,
-      atomsInCellsIdxs,
-      nat_OtherAtoms,
-      otherAtomsIdxs,
-      thrust::raw_pointer_cast (cudaPositions.data()),
-      thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data())
-    );
-  }
-}
-
-
 
 template <typename calculateFloat>
 size_t CudaCoordination<calculateFloat>::doDual() {
@@ -1150,13 +1239,13 @@ size_t CudaCoordination<calculateFloat>::doDual() {
   thrust::device_vector<unsigned> deviceData_dev;
   /*  plumed_assert(biggestCell_dev <= maxNumThreads) << "the number of atoms in a single cell exceds the maximum number of threads avaiable";
     plumed_assert(biggestCell_coord <= maxNumThreads) << "the number of atoms in a single cell exceds the maximum number of threads avaiable";
-    plumed_assert(memSize_coord <= maxDynamiSharedMemory) << "the shared memory asked exceed the limit for this GPU:"
-        << memSize_coord << " > " << maxDynamiSharedMemory;
-    plumed_assert(memSize_dev <= maxDynamiSharedMemory) << "the shared memory asked exceed the limit for this GPU:"
-        << memSize_dev << " > " << maxDynamiSharedMemory;*/
+    plumed_assert(memSize_coord <= maxDynamicSharedMemory) << "the shared memory asked exceed the limit for this GPU:"
+        << memSize_coord << " > " << maxDynamicSharedMemory;
+    plumed_assert(memSize_dev <= maxDynamicSharedMemory) << "the shared memory asked exceed the limit for this GPU:"
+        << memSize_dev << " > " << maxDynamicSharedMemory;*/
   const unsigned ngroups = cells.getNumberOfCells();
-  const unsigned threads_coord = std::min(maxNumThreads,cellConfiguration_coord.maxExpected);
-  const unsigned threads_dev = std::min(maxNumThreads,cellConfiguration_dev.maxExpected);
+  const unsigned threads_coord = std::min(maxNumThreads,cellConfiguration_coord.biggestCell);
+  const unsigned threads_dev = std::min(maxNumThreads,cellConfiguration_dev.biggestCell);
 
   //the order here can affect the performance
   //by running kernels concurrently on the gpu
@@ -1167,136 +1256,47 @@ size_t CudaCoordination<calculateFloat>::doDual() {
   CUDAHELPERS::plmdDataToGPU(deviceData_dev,
                              make_view(cellConfiguration_dev.data),
                              streamDerivatives);
-
-  runDualCoord(
+  runner->runDual(
     ngroups,
     threads_coord,
     atomsInA,
     memSize_coord,
     streamCoordination,
+    switchingParameters,
+    myPBC,
     cellConfiguration_coord.biggestCell,
     cellConfiguration_coord.deviceMap_nat_InCells(deviceData_coord),
     cellConfiguration_coord.deviceMap_atomsInCells(deviceData_coord),
     cellConfiguration_coord.maxExpected,
     cellConfiguration_coord.deviceMap_nat_otherAtoms(deviceData_coord),
-    cellConfiguration_coord.deviceMap_otherAtoms(deviceData_coord)
+    cellConfiguration_coord.deviceMap_otherAtoms(deviceData_coord),
+    thrust::raw_pointer_cast (cudaPositions.data()),
+    thrust::raw_pointer_cast (cudaTrueIndexes.data()),
+    thrust::raw_pointer_cast (cudaCoordination.data()),
+    thrust::raw_pointer_cast (cudaDerivatives.data()),
+    thrust::raw_pointer_cast (cudaVirial.data())
   );
 
   //this should make the loading of the shared memory a little more efficient
-  runDualDev(
+  runner->runDualDev(
     ngroups,
     threads_dev,
     atomsInB,//not used actually
     memSize_dev,
     streamDerivatives,
+    switchingParameters,
+    myPBC,
     cellConfiguration_dev.biggestCell,
     cellConfiguration_dev.deviceMap_nat_InCells(deviceData_dev),
     cellConfiguration_dev.deviceMap_atomsInCells(deviceData_dev),
     cellConfiguration_dev.maxExpected,
     cellConfiguration_dev.deviceMap_nat_otherAtoms(deviceData_dev),
-    cellConfiguration_dev.deviceMap_otherAtoms(deviceData_dev)
+    cellConfiguration_dev.deviceMap_otherAtoms(deviceData_dev),
+    thrust::raw_pointer_cast (cudaPositions.data()),
+    thrust::raw_pointer_cast (cudaTrueIndexes.data()),
+    thrust::raw_pointer_cast (cudaDerivatives.data())
   );
   return atomsInA;
-}
-
-constexpr unsigned couplesPerThreads = 8;
-template <bool usePBC, typename calculateFloat>
-__global__ void getCoordPair (
-  const unsigned couples,
-  const unsigned totThreads,
-  const PLMD::GPU::rationalSwitchParameters<calculateFloat>
-  switchingParameters,
-  const PLMD::GPU::ortoPBCs<calculateFloat> myPBC,
-  const calculateFloat *const coordinatesI, // const pointer to const values
-  const calculateFloat *const coordinatesJ, // const pointer to const values
-  const unsigned *const trueIndexes,
-  calculateFloat *const ncoordOut, // const pointer
-  calculateFloat *const devOutI,
-  calculateFloat *const devOutJ,
-  calculateFloat *const virialOut) {
-  // blockDIm are the number of threads in your block
-  const unsigned tid = threadIdx.x + blockIdx.x * blockDim.x;
-  const unsigned firstCouple = couplesPerThreads * tid;
-
-  if (tid >= totThreads) { // blocks are initializated with 'ceil (nat/threads)'
-    return;
-  }
-  // we try working with less global memory possible, so we set up a bunch of
-  // temporary variables
-  // const unsigned idx = ;
-  // const unsigned jdx = trueIndexes[j];
-
-  // the previous version used static array for myVirial and d
-  // using explicit variables guarantees that this data will be stored in
-  // registers
-  calculateFloat myVirial_0 = 0.0;
-  calculateFloat myVirial_1 = 0.0;
-  calculateFloat myVirial_2 = 0.0;
-  calculateFloat myVirial_3 = 0.0;
-  calculateFloat myVirial_4 = 0.0;
-  calculateFloat myVirial_5 = 0.0;
-  calculateFloat myVirial_6 = 0.0;
-  calculateFloat myVirial_7 = 0.0;
-  calculateFloat myVirial_8 = 0.0;
-  // local calculation aid
-
-  calculateFloat d_0, d_1, d_2;
-  // calculateFloat t;
-  calculateFloat dfunc;
-  calculateFloat t;
-  calculateFloat myCoord = 0.0;
-  for (unsigned k = 0; k < couplesPerThreads; ++k) {
-    const unsigned i = k + firstCouple;
-
-    if (i >= couples) { // blocks are initializated with 'ceil (nat/threads)'
-      break;
-    }
-    // I do not understand why I need to invert
-    d_0 = calculatePBC<usePBC> (coordinatesJ[X (i)] - coordinatesI[X (i)],
-                                myPBC.X);
-    d_1 = calculatePBC<usePBC> (coordinatesJ[Y (i)] - coordinatesI[Y (i)],
-                                myPBC.Y);
-    d_2 = calculatePBC<usePBC> (coordinatesJ[Z (i)] - coordinatesI[Z (i)],
-                                myPBC.Z);
-    dfunc = 0.;
-    if (trueIndexes[i] != trueIndexes[i + couples]) {
-      myCoord += calculateSqr (
-                   d_0 * d_0 + d_1 * d_1 + d_2 * d_2, switchingParameters, dfunc);
-    } else {
-      d_0 = d_1 = d_2 = 0.0;
-    }
-
-    t = -dfunc * d_0;
-    myVirial_0 += t * d_0;
-    myVirial_1 += t * d_1;
-    myVirial_2 += t * d_2;
-    devOutI[X (i)] = t;
-    devOutJ[X (i)] = -t;
-
-    t = -dfunc * d_1;
-    myVirial_3 += t * d_0;
-    myVirial_4 += t * d_1;
-    myVirial_5 += t * d_2;
-    devOutI[Y (i)] = t;
-    devOutJ[Y (i)] = -t;
-
-    t = -dfunc * d_2;
-    myVirial_6 += t * d_0;
-    myVirial_7 += t * d_1;
-    myVirial_8 += t * d_2;
-    devOutI[Z (i)] = t;
-    devOutJ[Z (i)] = -t;
-  }
-  ncoordOut[tid] = myCoord;
-  virialOut[totThreads * 0 + tid] = myVirial_0;
-  virialOut[totThreads * 1 + tid] = myVirial_1;
-  virialOut[totThreads * 2 + tid] = myVirial_2;
-  virialOut[totThreads * 3 + tid] = myVirial_3;
-  virialOut[totThreads * 4 + tid] = myVirial_4;
-  virialOut[totThreads * 5 + tid] = myVirial_5;
-  virialOut[totThreads * 6 + tid] = myVirial_6;
-  virialOut[totThreads * 7 + tid] = myVirial_7;
-  virialOut[totThreads * 8 + tid] = myVirial_8;
 }
 
 template <typename calculateFloat>
@@ -1308,33 +1308,21 @@ size_t CudaCoordination<calculateFloat>::doPair() {
   cudaCoordination.resize (neededThreads);
   cudaVirial.resize (neededThreads * 9);
   /**************************starting the calculations*************************/
-  if (pbc) {
-    getCoordPair<true><<<ngroups, maxNumThreads, 0, streamDerivatives>>> (
-      couples,
-      neededThreads,
-      switchingParameters,
-      myPBC,
-      thrust::raw_pointer_cast (cudaPositions.data()),
-      thrust::raw_pointer_cast (cudaPositions.data()) + 3 * couples,
-      thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-      thrust::raw_pointer_cast (cudaCoordination.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data()) + 3 * couples,
-      thrust::raw_pointer_cast (cudaVirial.data()));
-  } else {
-    getCoordPair<false><<<ngroups, maxNumThreads, 0, streamDerivatives>>> (
-      couples,
-      neededThreads,
-      switchingParameters,
-      myPBC,
-      thrust::raw_pointer_cast (cudaPositions.data()),
-      thrust::raw_pointer_cast (cudaPositions.data()) + 3 * couples,
-      thrust::raw_pointer_cast (cudaTrueIndexes.data()),
-      thrust::raw_pointer_cast (cudaCoordination.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data()),
-      thrust::raw_pointer_cast (cudaDerivatives.data()) + 3 * couples,
-      thrust::raw_pointer_cast (cudaVirial.data()));
-  }
+  runner->runPair(
+    ngroups,
+    maxNumThreads,
+    streamDerivatives,
+    couples,
+    neededThreads,
+    switchingParameters,
+    myPBC,
+    thrust::raw_pointer_cast (cudaPositions.data()),
+    thrust::raw_pointer_cast (cudaPositions.data()) + 3 * couples,
+    thrust::raw_pointer_cast (cudaTrueIndexes.data()),
+    thrust::raw_pointer_cast (cudaCoordination.data()),
+    thrust::raw_pointer_cast (cudaDerivatives.data()),
+    thrust::raw_pointer_cast (cudaDerivatives.data()) + 3 * couples,
+    thrust::raw_pointer_cast (cudaVirial.data()));
   return neededThreads;
 }
 
@@ -1496,6 +1484,10 @@ CudaCoordination<calculateFloat>::CudaCoordination (const ActionOptions &ao)
   }
 
   checkRead();
+
+  runner = make_worker(pbc,switchingParameters);
+  int registers;
+  int register_dev;
   if (mpiActive) {
 
     cudaStreamCreate (&streamDerivatives);
@@ -1505,46 +1497,41 @@ CudaCoordination<calculateFloat>::CudaCoordination (const ActionOptions &ao)
     setUpPermanentGPUMemory();
 
     maxReductionNumThreads = min (1024, maxNumThreads);
-
-    cudaFuncAttributes attr;
-    // the kernels are heavy on registers, this adjust the maximum number of
-    // threads accordingly
-    switch (mode) {
-    case calculationMode::self:
-      if (pbc) {
-        cudaFuncGetAttributes (&attr, &getSelfCoord<true, calculateFloat>);
-      } else {
-        cudaFuncGetAttributes (&attr, &getSelfCoord<false, calculateFloat>);
+    {
+      cudaFuncAttributes attr;
+      // the kernels are heavy on registers, this adjust the maximum number of
+      // threads accordingly
+      switch (mode) {
+      case calculationMode::self:
+        runner->getSelfAttr(attr);
+        break;
+      case calculationMode::dual:
+        runner->getDualAttr(attr);
+        break;
+      case calculationMode::pair:
+        runner->getPairAttr(attr);
+        break;
+      case calculationMode::none:
+        plumed_assert(false) << "No calculation mode has been selected, this should not be happened";
+        break;
       }
-      break;
-    case calculationMode::dual:
-      if (pbc) {
-        cudaFuncGetAttributes (&attr, &getDualDev<true, calculateFloat>);
-        maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
-        cudaFuncGetAttributes (&attr, &getDualDev<true, calculateFloat>);
-      } else {
-        cudaFuncGetAttributes (&attr, &getDualDev<false, calculateFloat>);
-        maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
-        cudaFuncGetAttributes (&attr, &getDualCoord<false, calculateFloat>);
-      }
-      break;
-    case calculationMode::pair:
-      if (pbc) {
-        cudaFuncGetAttributes (&attr, &getCoordPair<true, calculateFloat>);
-      } else {
-        cudaFuncGetAttributes (&attr, &getCoordPair<false, calculateFloat>);
-      }
-      break;
-    case calculationMode::none:
-      // throw"this should not have been happened"
-      break;
+      maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
+      maxDynamicSharedMemory=attr.maxDynamicSharedSizeBytes;
+      registers=attr.numRegs;
     }
-    maxNumThreads = min (attr.maxThreadsPerBlock, maxNumThreads);
-    maxDynamiSharedMemory=attr.maxDynamicSharedSizeBytes;
+    if(mode == calculationMode::dual) {
+      //getting the attributes for the second loop with two groups
+      cudaFuncAttributes attr;
+      runner->getDualDevAttr(attr);
+      maxNumThreads_dualDev = min (attr.maxThreadsPerBlock, maxNumThreads_dualDev);
+      maxDynamicSharedMemory_dualDev=attr.maxDynamicSharedSizeBytes;
+      maxNumberOfAtomsPerCell_dev = maxDynamicSharedMemory_dualDev / (3*sizeof(calculateFloat)+sizeof(unsigned));
+    }
   }
+  maxNumberOfAtomsPerCell = maxDynamicSharedMemory / (3*sizeof(calculateFloat)+sizeof(unsigned));
   comm.Bcast (maxNumThreads, 0);
   comm.Bcast (maxReductionNumThreads, 0);
-  comm.Bcast (maxDynamiSharedMemory, 0);
+  comm.Bcast (maxDynamicSharedMemory, 0);
 
   log << "  contacts are counted with cutoff (dmax)="
       << sqrt (switchingParameters.dmaxSQ)
@@ -1555,37 +1542,19 @@ CudaCoordination<calculateFloat>::CudaCoordination (const ActionOptions &ao)
       << ", M=" << switchingParameters.mm * ((switchingParameters.calcSquared)?2:1)
       << ".\n";
   log << "GPU info:\n"
-      << "\t max threads per coordination" << maxNumThreads << "\n"
-      <<"\t max shared memory" << maxDynamiSharedMemory << "\n"
+      << "\t max threads per coordination" << maxNumThreads << "\n";
+  if (mode == calculationMode::dual) {
+    log<< "\t max threads per coordination(derivatives loop)" << maxNumThreads_dualDev << "\n";
+  }
+
+  if (mode == calculationMode::dual || mode == calculationMode::self) {
+    log <<"\t max number of atoms in neighbour cells: " << maxNumberOfAtomsPerCell << "\n";
+    if (mode == calculationMode::dual) {
+      log <<"\t max number of atoms in neighbour cells(derivatives loop): " << maxNumberOfAtomsPerCell_dev << "\n";
+    }
+  }
+  log <<"\t registers: " <<registers << "\n"
       << "\t max threads per reduction" << maxReductionNumThreads << "\n";
-
-  // cudaFuncGetAttributes (&attr, &getSelfCoord<true, calculateFloat>);
-  // std::cout<< "Attributes for pbc: \n";
-
-  // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
-  // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
-  // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
-  // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
-  // attr.sharedSizeBytes <<"\n" ;
-
-  // cudaFuncGetAttributes ( &attr, &getSelfCoord<false,calculateFloat> );
-  // std::cout<< "Attributes for no pbc: \n";
-
-  // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
-  // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
-  // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
-  // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
-  // attr.sharedSizeBytes <<"\n" ;
-
-  // cudaFuncGetAttributes ( &attr,
-  // &CUDAHELPERS::reduction1DKernel<calculateFloat, 128, 4> ); std::cout<<
-  // "Attributes for reduction kernel (128): \n";
-
-  // std::cout << "\tmaxDynamicSharedSizeBytes: " <<
-  // attr.maxDynamicSharedSizeBytes <<"\n" ; std::cout << "\tmaxThreadsPerBlock:
-  // " << attr.maxThreadsPerBlock <<"\n" ; std::cout << "\tnumRegs: " <<
-  // attr.numRegs <<"\n" ; std::cout << "\tsharedSizeBytes: " <<
-  // attr.sharedSizeBytes <<"\n" ;
 }
 
 } // namespace colvar
