@@ -64,6 +64,23 @@ fi
       --astyle="${basedir}/astyle/astyle" \
       --astyle-options="${basedir}/.astyle.options" \
       "${extra[@]}" $files
+    (
+    # Addig an extra format check for python files.
+    # The settings are in the ruff.toml in the home directory
+    # ruff format outputs a list of "would reformat file" followed by a recap
+    # "head" discards the recap and awk reformat the error message
+      cd "${basedir}"
+      python -m ruff format --check \
+        | grep 'Would reformat' \
+        | awk '{ printf "[%s:0] (error) :ruff_format: python ruff formatting non satisfied\n", $3 }' \
+          >&2
+      ruff check --output-format concise \
+        | head -n -2 \
+        | awk '{ printf "[%s] (error) :ruff_check: %s", substr($1,1,length($1)-1), $2;
+                 $1=$2="";
+                 print $0 }' \
+          >&2
+    )
   fi
 
   if [ $do_cppcheck == true ]; then

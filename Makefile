@@ -140,6 +140,7 @@ config.status: configure
 astyle:
 	$(MAKE) -C astyle
 	$(MAKE) -C src astyle
+	@which ruff &> /dev/null && ./pythonformatter.sh || echo "ruff not found, cannot format python files"
 
 ifeq ($(use_debug_glibcxx),yes)
 nmcheck:
