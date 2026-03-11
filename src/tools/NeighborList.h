@@ -52,7 +52,10 @@ private:
   const PLMD::Pbc* pbc_;
   Communicator& comm;
   std::vector<PLMD::AtomNumber> fullatomlist_{};
+//this maps the atoms from the order asked by the user into the compacted and **ordered** fullatomlist
+  std::vector<unsigned> fullatomsMap_{};
   std::vector <bool> requestIndexes_{};
+//this "remaps" the indexes from the fullAtomList to the requestIndexes
   std::vector<unsigned> indexesRemap_{};
   std::vector<PLMD::AtomNumber> requestlist_{};
   std::vector<pairIDs > neighbors_{};

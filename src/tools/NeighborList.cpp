@@ -125,14 +125,27 @@ void NeighborList::initialize() {
     plumed_error_nested() << "An error happened while allocating the neighbor "
                           "list, please decrease the number of atoms used";
   }
+//reducing the fullAtomList:
+  fullatomsMap_.resize(nlist0_+nlist1_);
+  std::vector<AtomNumber> fullBackup=fullatomlist_;
+// Now the fullatomlist_ is also sorted
+  Tools::removeDuplicates(fullatomlist_);
+  // building the indexes map
+  for (unsigned i=0 ; i < fullatomsMap_.size(); ++i) {
+    const auto id=fullBackup[i];
+    auto p = std::lower_bound(fullatomlist_.begin(), fullatomlist_.end(), id);
+    plumed_assert(*p == id) << "Something went wrong in removing duplicates from the atom list";
+    fullatomsMap_[i]=p-fullatomlist_.begin();
+  }
+//intializing the request helpers
+  requestIndexes_.assign(fullatomlist_.size(),true);
+  indexesRemap_.resize(fullatomlist_.size());
+  std::iota(indexesRemap_.begin(),indexesRemap_.end(),0);
   //TODO: test if this is feasible for accelerating the loop
   //#pragma omp parallel for default(shared)
   for(unsigned int i=0; i<nallpairs_; ++i) {
     neighbors_[i]=getIndexPair(i);
   }
-  requestIndexes_.assign(fullatomlist_.size(),true);
-  indexesRemap_.resize(fullatomlist_.size());
-  std::iota(indexesRemap_.begin(),indexesRemap_.end(),0);
 }
 
 std::vector<AtomNumber>& NeighborList::getFullAtomList() {
@@ -157,7 +170,8 @@ NeighborList::pairIDs NeighborList::getIndexPair(const unsigned ipair) {
     index=pairIDs(nlist0_-1-K,nlist0_-1-jj);
   }
   }
-  return index;
+  return pairIDs{fullatomsMap_[index.first],
+                 fullatomsMap_[index.second]};
 }
 
 void NeighborList::update(const std::vector<Vector>& positions) {
@@ -170,20 +184,34 @@ void NeighborList::update(const std::vector<Vector>& positions) {
   const unsigned nt=(serial_)? 1 : OpenMP::getNumThreads();
 #endif //_OPENMP
   if(useCellList_) {
-    std::vector<unsigned> indexesForCells(fullatomlist_.size());
+    //the pairs must be set up as asked by the users, with eventual repetitions
+    std::vector<unsigned> indexesForCells(nlist0_+nlist1_);
+ //TODO: check if I can avoid the remap in the push backs simply by generating the list correcly here:
     std::iota(indexesForCells.begin(),indexesForCells.end(),0);
     LinkCells cells(comm);
     cells.setCutoff(distance_);
     cells.setupCells(make_const_view(positions),*pbc_);
-
+    std::vector<Vector> positions_tmp(fullatomsMap_.size());
+    {
+      //remapping the positions, using iterators to produce less instructions
+      //no assertions since position_tmp is created using fullatomsMap for the size
+      auto idx=fullatomsMap_.begin();
+      auto end=fullatomsMap_.end();
+      auto val=positions_tmp.begin();
+      while (idx!=end) {
+        *val = positions[*idx];
+        ++val;
+        ++idx;
+      }
+    }
     switch (style_) {
     case NNStyle::TwoList: {
-      auto listA = cells.getCollection(View{positions.data(),nlist0_},
+      auto listA = cells.getCollection(View{positions_tmp.data(),nlist0_},
                                        View<const unsigned> {indexesForCells.data(),nlist0_});
-      auto listB = cells.getCollection(View{positions.data()+nlist0_,nlist1_},
+      auto listB = cells.getCollection(View{positions_tmp.data()+nlist0_,nlist1_},
                                        View<const unsigned> {indexesForCells.data()+nlist0_,nlist1_});
-      plumed_assert((listA.lcell_lists.size()+listB.lcell_lists.size()) == positions.size())
-          << listA.lcell_lists.size()<<"+"<<listB.lcell_lists.size() <<"==" <<positions.size();
+      plumed_assert((listA.lcell_lists.size()+listB.lcell_lists.size()) == positions_tmp.size())
+          << listA.lcell_lists.size()<<"+"<<listB.lcell_lists.size() <<"==" <<positions_tmp.size();
       //#pragma omp parallel num_threads(nt)
       std::vector<unsigned> cells_required(27);
       for(unsigned c =0; c < cells.getNumberOfCells(); ++c) {
@@ -195,16 +223,16 @@ void NeighborList::update(const std::vector<Vector>& positions) {
           for (auto A : atomsInC) {
             for (unsigned cb=0; cb <ncells_required ; ++cb) {
               for (auto B : listB.getCellIndexes(cells_required[cb])) {
-                neighbors_.push_back({A,B});
+                neighbors_.push_back({fullatomsMap_[A],fullatomsMap_[B]});
               }
             }
           }
         }
       }
     }
-    break;//*/
+    break;
     case NNStyle::SingleList: {
-      auto listA = cells.getCollection(positions,indexesForCells);
+      auto listA = cells.getCollection(positions_tmp,indexesForCells);
       //#pragma omp parallel num_threads(nt)
       std::vector<unsigned> cells_required(27);
       for(unsigned c =0; c < cells.getNumberOfCells(); ++c) {
@@ -217,7 +245,7 @@ void NeighborList::update(const std::vector<Vector>& positions) {
             for (unsigned cb=0; cb <ncells_required ; ++cb) {
               for (auto B : listA.getCellIndexes(cells_required[cb])) {
                 if (B>A) {
-                  neighbors_.push_back({A,B});
+                  neighbors_.push_back({fullatomsMap_[A],fullatomsMap_[B]});
                 }
               }
             }
@@ -312,33 +340,21 @@ void NeighborList::setRequestList() {
   // at time of adding the `if (stride_>1)` in `update()`
   // this function is called only from `update()` and it is private
   // so as now it is not necessary to add extra logic in this function
-  requestlist_.clear();
   reduced=false;
   requestIndexes_.assign(fullatomlist_.size(),false);
   for(unsigned int i=0; i<size(); ++i) {
     requestIndexes_[neighbors_[i].first]=true;
     requestIndexes_[neighbors_[i].second]=true;
   }
+  requestlist_.clear();
   requestlist_.reserve(requestIndexes_.size());
+  unsigned idx=0;
+//fullatomlist is ordered, so we do not need to reorder the requestlist
   for (unsigned i=0 ; i < requestIndexes_.size(); ++i) {
     if(requestIndexes_[i]) {
       requestlist_.push_back(fullatomlist_[i]);
-    }
-  }
-  Tools::removeDuplicates(requestlist_);
-//avoid bisecting the list again and again:
-// I exploit the fact that requestlist_ is an ordered vector
-// And I assume that index0 and index1 actually exists in the requestlist_ (see setRequestList())
-// so I can use lower_bond that uses binary seach instead of find
-
-  for (unsigned i=0 ; i < fullatomlist_.size(); ++i) {
-    const auto id=fullatomlist_[i];
-    auto p = std::lower_bound(requestlist_.begin(), requestlist_.end(), id);
-    if (*p == id) {
-      indexesRemap_[i]=p-requestlist_.begin();
-    } else {
-      //this atom is not used
-      indexesRemap_[i]=fullatomlist_.size();
+      indexesRemap_[i]=idx;
+      ++idx;
     }
   }
 }
@@ -399,7 +415,7 @@ NeighborList::getClosePairAtomNumber(const unsigned i) const {
   return Aneigh;
 }
 
-std::vector<unsigned> NeighborList::getNeighbors(const unsigned index) const {
+std::vector<unsigned> NeighborList::getNeighbors(unsigned index) const {
   std::vector<unsigned> neighbors;
   for(unsigned int i=0; i<size(); ++i) {
     if(neighbors_[i].first==index) {
@@ -440,6 +456,7 @@ NeighborList::preparestatus NeighborList::prepare(Colvar* const aa,
   }
   return {firsttime,invalidateList};
 }
+
 void NeighborList::registerKeywords( Keywords& keys ) {
   keys.addFlag("PAIR",false,"Pair only 1st element of the 1st group with 1st element in the second, etc");
   keys.addFlag("NLIST",false,"Use a neighbor list to speed up the calculation");
