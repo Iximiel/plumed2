@@ -146,6 +146,7 @@ void NeighborList::initialize() {
   for(unsigned int i=0; i<nallpairs_; ++i) {
     neighbors_[i]=getIndexPair(i);
   }
+  requestlist_ = fullatomlist_;
 }
 
 std::vector<AtomNumber>& NeighborList::getFullAtomList() {
@@ -170,8 +171,9 @@ NeighborList::pairIDs NeighborList::getIndexPair(const unsigned ipair) {
     index=pairIDs(nlist0_-1-K,nlist0_-1-jj);
   }
   }
-  return pairIDs{fullatomsMap_[index.first],
-                 fullatomsMap_[index.second]};
+  return index;
+//  return pairIDs{fullatomsMap_[index.first],
+  //               fullatomsMap_[index.second]};
 }
 
 void NeighborList::update(const std::vector<Vector>& positions) {
@@ -186,7 +188,7 @@ void NeighborList::update(const std::vector<Vector>& positions) {
   if(useCellList_) {
     //the pairs must be set up as asked by the users, with eventual repetitions
     std::vector<unsigned> indexesForCells(nlist0_+nlist1_);
- //TODO: check if I can avoid the remap in the push backs simply by generating the list correcly here:
+//TODO: check if I can avoid the remap in the push backs simply by generating the list correcly here:
     std::iota(indexesForCells.begin(),indexesForCells.end(),0);
     LinkCells cells(comm);
     cells.setCutoff(distance_);
@@ -269,22 +271,39 @@ void NeighborList::update(const std::vector<Vector>& positions) {
     const unsigned int end = ((start + elementsPerRank)< nallpairs_)?(start + elementsPerRank): nallpairs_;
     std::vector<unsigned> local_flat_nl;
 
+    // std::vector<Vector> positions_tmp(fullatomsMap_.size());
+    // {
+    //   //remapping the positions, using iterators to produce less instructions
+    //   //no assertions since position_tmp is created using fullatomsMap for the size
+    //   auto idx=fullatomsMap_.begin();
+    //   auto nd=fullatomsMap_.end();
+    //   auto val=positions_tmp.begin();
+    //   while (idx!=nd) {
+    //     *val = positions[*idx];
+    //     ++val;
+    //     ++idx;
+    //   }
+    // }
+
     #pragma omp parallel num_threads(nt)
     {
       std::vector<unsigned> private_flat_nl;
       #pragma omp for nowait
       for(unsigned int i=start; i<end; ++i) {
         auto [index0, index1 ] = getIndexPair(i);
+        //auto [pos0, pos1 ] = getIndexPair(i);
+        auto pos0 = fullatomsMap_[index0];
+        auto pos1= fullatomsMap_[index1];
         Vector distance;
         if(do_pbc_) {
-          distance=pbc_->distance(positions[index0],positions[index1]);
+          distance=pbc_->distance(positions[pos0],positions[pos1]);
         } else {
-          distance=delta(positions[index0],positions[index1]);
+          distance=delta(positions[pos0],positions[pos1]);
         }
         double value=modulo2(distance);
         if(value<=d2) {
-          private_flat_nl.push_back(index0);
-          private_flat_nl.push_back(index1);
+          private_flat_nl.push_back(pos0);
+          private_flat_nl.push_back(pos1);
         }
       }
       #pragma omp critical
@@ -342,21 +361,22 @@ void NeighborList::setRequestList() {
   // so as now it is not necessary to add extra logic in this function
   reduced=false;
   requestIndexes_.assign(fullatomlist_.size(),false);
-  for(unsigned int i=0; i<size(); ++i) {
-    requestIndexes_[neighbors_[i].first]=true;
-    requestIndexes_[neighbors_[i].second]=true;
+  for( const auto& n: neighbors_) {
+    requestIndexes_[n.first]=true;
+    requestIndexes_[n.second]=true;
   }
-  requestlist_.clear();
-  requestlist_.reserve(requestIndexes_.size());
+  requestlist_.resize(fullatomlist_.size());
+  //requestlist_.reserve(requestIndexes_.size());
   unsigned idx=0;
 //fullatomlist is ordered, so we do not need to reorder the requestlist
   for (unsigned i=0 ; i < requestIndexes_.size(); ++i) {
     if(requestIndexes_[i]) {
-      requestlist_.push_back(fullatomlist_[i]);
+      requestlist_[idx]=fullatomlist_[i];
       indexesRemap_[i]=idx;
       ++idx;
     }
   }
+  requestlist_.resize(idx);
 }
 
 std::vector<AtomNumber>& NeighborList::getReducedAtomList() {
