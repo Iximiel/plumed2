@@ -180,7 +180,7 @@ void VectorTyped<T, n>::auxiliaryConstructor()
 template<typename T, unsigned n>
 template<typename... Args>
 void VectorTyped<T, n>::auxiliaryConstructor(T first,Args... arg) {
-  d[n-(sizeof...(Args))-1]=first;
+   d[n-(sizeof...(Args))-1]=first;
   auxiliaryConstructor(arg...);
 }
 
