@@ -123,21 +123,20 @@ void NeighborList::initialize() {
     //preallocating some memory now to not spend too much time in the first update
     // If the memory is underestimated it should be less than doubled if needed, the factor should depend on the implementation
     //Asserting 20 maximun neigbors to occupy less memory
-    neighbors_.resize((stride_>0) ?
-                      ((style_ == NNStyle::Pair) ?
-                       nallpairs_
-                       : (std::min((nlist0_*((useCellList_)?100:20)),nallpairs_)))
-                      : 0);
+    neighbors_.resize((stride_==0 || style_ == NNStyle::Pair) ?
+                      nallpairs_
+                      : (std::min((nlist0_*((useCellList_)?100:30)),nallpairs_)));
   } catch (...) {
     plumed_error_nested() << "An error happened while allocating the neighbor "
                           "list, please decrease the number of atoms used";
   }
-  if (stride_>0 && style_==NNStyle::Pair) {
-  //TODO: test if this is feasible for accelerating the loop
-  //#pragma omp parallel for default(shared)
+  if (nallpairs_ == neighbors_.size()) {
+    //TODO: test if this is feasible for accelerating the loop
+    //#pragma omp parallel for default(shared)
     for(unsigned int i=0; i<nallpairs_; ++i) {
       neighbors_[i]=getIndexPair(i);
     }
+    listBuilded=true;
   }
 }
 
@@ -376,9 +375,7 @@ unsigned NeighborList::size() const {
 }
 
 NeighborList::pairIDs NeighborList::getClosePair(const unsigned i) const {
-  if(stride_==0) {
-    return getIndexPair(i);
-  }
+  plumed_dbg_assert(listBuilded);
   return neighbors_[i];
 }
 
@@ -393,7 +390,7 @@ NeighborList::getClosePairAtomNumber(const unsigned i) const {
 
 std::vector<unsigned> NeighborList::getNeighbors(const unsigned index) const {
   std::vector<unsigned> neighbors;
-  if (stride_>0 && listBuilded) {
+  if (stride_==0 || listBuilded) {
     for(unsigned int i=0; i<size(); ++i) {
       if(neighbors_[i].first==index) {
         neighbors.push_back(neighbors_[i].second);
