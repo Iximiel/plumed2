@@ -104,6 +104,7 @@ NeighborList::~NeighborList()=default;
 
 void NeighborList::initialize() {
   constexpr const char* envKey="PLUMED_IGNORE_NL_MEMORY_ERROR";
+  //this checks the upper limit of the memory
   if(!std::getenv(envKey)) {
     //blocking memory allocation on more than 10 GB of memory
     //A single list of more than 50000 atoms
@@ -119,15 +120,24 @@ void NeighborList::initialize() {
     }
   }
   try {
-    neighbors_.resize(nallpairs_);
+    //preallocating some memory now to not spend too much time in the first update
+    // If the memory is underestimated it should be less than doubled if needed, the factor should depend on the implementation
+    //Asserting 20 maximun neigbors to occupy less memory
+    neighbors_.resize((stride_>0) ?
+                      ((style_ == NNStyle::Pair) ?
+                       nallpairs_
+                       : (std::min((nlist0_*((useCellList_)?100:20)),nallpairs_)))
+                      : 0);
   } catch (...) {
     plumed_error_nested() << "An error happened while allocating the neighbor "
                           "list, please decrease the number of atoms used";
   }
+  if (stride_>0 && style_==NNStyle::Pair) {
   //TODO: test if this is feasible for accelerating the loop
   //#pragma omp parallel for default(shared)
-  for(unsigned int i=0; i<nallpairs_; ++i) {
-    neighbors_[i]=getIndexPair(i);
+    for(unsigned int i=0; i<nallpairs_; ++i) {
+      neighbors_[i]=getIndexPair(i);
+    }
   }
 }
 
@@ -135,7 +145,7 @@ std::vector<AtomNumber>& NeighborList::getFullAtomList() {
   return fullatomlist_;
 }
 
-NeighborList::pairIDs NeighborList::getIndexPair(const unsigned ipair) {
+NeighborList::pairIDs NeighborList::getIndexPair(const unsigned ipair) const {
   pairIDs index;
   switch (style_) {
   case NNStyle::Pair : {
@@ -297,6 +307,7 @@ void NeighborList::update(const std::vector<Vector>& positions) {
       }
     }
   }
+  listBuilded=true;
   if (stride_ >1) {
     setRequestList();
   } else {
@@ -357,29 +368,49 @@ void NeighborList::setLastUpdate(const unsigned step) {
 }
 
 unsigned NeighborList::size() const {
+  if(stride_==0||!listBuilded) {
+    return nallpairs_;
+  }
   return neighbors_.size();
+
 }
 
 NeighborList::pairIDs NeighborList::getClosePair(const unsigned i) const {
+  if(stride_==0) {
+    return getIndexPair(i);
+  }
   return neighbors_[i];
 }
 
 NeighborList::pairAtomNumbers
 NeighborList::getClosePairAtomNumber(const unsigned i) const {
+  auto neigh = getClosePair(i);
   pairAtomNumbers Aneigh=pairAtomNumbers(
-                           fullatomlist_[neighbors_[i].first],
-                           fullatomlist_[neighbors_[i].second]);
+                           fullatomlist_[neigh.first],
+                           fullatomlist_[neigh.second]);
   return Aneigh;
 }
 
 std::vector<unsigned> NeighborList::getNeighbors(const unsigned index) const {
   std::vector<unsigned> neighbors;
-  for(unsigned int i=0; i<size(); ++i) {
-    if(neighbors_[i].first==index) {
-      neighbors.push_back(neighbors_[i].second);
+  if (stride_>0 && listBuilded) {
+    for(unsigned int i=0; i<size(); ++i) {
+      if(neighbors_[i].first==index) {
+        neighbors.push_back(neighbors_[i].second);
+      }
+      if(neighbors_[i].second==index) {
+        neighbors.push_back(neighbors_[i].first);
+      }
     }
-    if(neighbors_[i].second==index) {
-      neighbors.push_back(neighbors_[i].first);
+  } else {
+    for(unsigned int i=0; i<size(); ++i) {
+      auto neigh = getClosePair(i);
+      if(neigh.first==index) {
+        neighbors.push_back(neigh.second);
+      }
+      if(neigh.second==index) {
+        neighbors.push_back(neigh.first);
+      }
     }
   }
   return neighbors;

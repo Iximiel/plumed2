@@ -43,6 +43,7 @@ public:
 private:
   enum class NNStyle {Pair,TwoList,SingleList};
   bool reduced=false;
+  bool listBuilded=false;
   bool serial_;
   bool do_pbc_;
   bool useCellList_=false;
@@ -62,7 +63,7 @@ private:
   void initialize();
 /// Return the pair of indexes in the positions array
 /// of the two atoms forming the i-th pair among all possible pairs
-  pairIDs getIndexPair(unsigned i);
+  pairIDs getIndexPair(unsigned i) const;
 /// Extract the list of atoms from the current list of close pairs
   void setRequestList();
 public:
