@@ -375,16 +375,16 @@ unsigned NeighborList::size() const {
 }
 
 NeighborList::pairIDs NeighborList::getClosePair(const unsigned i) const {
-  plumed_dbg_assert(listBuilded);
+  plumed_dbg_assert(listBuilded) << "NeighborList::getClosePair should be called after update()";
   return neighbors_[i];
 }
 
 NeighborList::pairAtomNumbers
 NeighborList::getClosePairAtomNumber(const unsigned i) const {
-  auto neigh = getClosePair(i);
+  plumed_dbg_assert(listBuilded) << "NeighborList::getClosePair should be called after update()";
   pairAtomNumbers Aneigh=pairAtomNumbers(
-                           fullatomlist_[neigh.first],
-                           fullatomlist_[neigh.second]);
+                           fullatomlist_[neighbors_[i].first],
+                           fullatomlist_[neighbors_[i].second]);
   return Aneigh;
 }
 
