@@ -145,7 +145,7 @@ std::vector<AtomNumber>& NeighborList::getFullAtomList() {
   return fullatomlist_;
 }
 
-NeighborList::couple NeighborList::getIndexPair(const unsigned ipair) {
+NeighborList::couple NeighborList::getIndexPair(const unsigned ipair) const {
   couple index;
   switch (style_) {
   case NNStyle::Pair : {
@@ -378,7 +378,8 @@ NeighborList::pairIDs NeighborList::getClosePair(const unsigned i) const {
   if(listBuilded) {
     return {neighbors_[i][0],neighbors_[i][1]};
   } else {
-    return getIndexPair(i);
+    auto p = getIndexPair(i);
+    return {p[0], p[1]};
   }
 }
 
@@ -400,8 +401,8 @@ NeighborList::getClosePairAtomNumber(const unsigned i) const {
   else {
     auto p = getIndexPair(i);
     return pairAtomNumbers{
-      fullatomlist_[p.first],
-      fullatomlist_[p.second]};
+      fullatomlist_[p[0]],
+      fullatomlist_[p[1]]};
   }
 }
 
@@ -409,10 +410,10 @@ std::vector<unsigned> NeighborList::getNeighbors(const unsigned index) const {
   std::vector<unsigned> neighbors;
   if (listBuilded) {
     for(unsigned int i=0; i<size(); ++i) {
-      if(neighbors_[i].first==index) {
+      if(neighbors_[i][0]==index) {
         neighbors.push_back(neighbors_[i][0]);
       }
-      if(neighbors_[i].second==index) {
+      if(neighbors_[i][0]==index) {
         neighbors.push_back(neighbors_[i][1]);
       }
     }
