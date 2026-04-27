@@ -367,7 +367,7 @@ void NeighborList::setLastUpdate(const unsigned step) {
 }
 
 unsigned NeighborList::size() const {
-  if(stride_==0||!listBuilded) {
+  if(!listBuilded) {
     return nallpairs_;
   }
   return neighbors_.size();
@@ -375,22 +375,39 @@ unsigned NeighborList::size() const {
 }
 
 NeighborList::pairIDs NeighborList::getClosePair(const unsigned i) const {
-  plumed_dbg_assert(listBuilded) << "NeighborList::getClosePair should be called after update()";
+  if(listBuilded) {
+    return neighbors_[i];
+  } else {
+    return getIndexPair(i);
+  }
+}
+
+NeighborList::pairIDs NeighborList::getUpdatedPair(const unsigned i) const {
+  plumed_dbg_assert(listBuilded) << "NeighborList::getUpdatedPair should be called after update()";
   return neighbors_[i];
+}
+
+bool NeighborList::ready() const {
+  return listBuilded || neighbors_.size()==nallpairs_;
 }
 
 NeighborList::pairAtomNumbers
 NeighborList::getClosePairAtomNumber(const unsigned i) const {
-  plumed_dbg_assert(listBuilded) << "NeighborList::getClosePair should be called after update()";
-  pairAtomNumbers Aneigh=pairAtomNumbers(
-                           fullatomlist_[neighbors_[i].first],
-                           fullatomlist_[neighbors_[i].second]);
-  return Aneigh;
+  if(listBuilded)
+    return pairAtomNumbers{
+    fullatomlist_[neighbors_[i].first],
+    fullatomlist_[neighbors_[i].second]};
+  else {
+    auto p = getIndexPair(i);
+    return pairAtomNumbers{
+      fullatomlist_[p.first],
+      fullatomlist_[p.second]};
+  }
 }
 
 std::vector<unsigned> NeighborList::getNeighbors(const unsigned index) const {
   std::vector<unsigned> neighbors;
-  if (stride_==0 || listBuilded) {
+  if (listBuilded) {
     for(unsigned int i=0; i<size(); ++i) {
       if(neighbors_[i].first==index) {
         neighbors.push_back(neighbors_[i].second);
