@@ -20,4 +20,5 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "ACCParallelTaskManager.h"
-
+using namespace std;
+using namespace PLMD;

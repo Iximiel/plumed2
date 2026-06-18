@@ -23,12 +23,14 @@
 #define __PLUMED_tools_Tensor_h
 
 #include "MatrixSquareBracketsAccess.h"
-#include "Vector.h"
+#include "../tools/Vector.h"
 #include "LoopUnroller.h"
 #include "Exception.h"
 
 #include <array>
 #include <type_traits>
+
+using namespace std;
 
 namespace PLMD {
 
